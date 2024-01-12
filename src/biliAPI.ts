@@ -44,50 +44,86 @@ class BiliAPI extends Service {
     }
 
     async getTimeNow() {
-        const { data } = await this.client.get(GET_TIME_NOW)
-        return data
+        try {
+            const { data } = await this.client.get(GET_TIME_NOW)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getUserSpaceDynamic(mid: string) {
-        const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
-        return data
+        try {
+            const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     // Check if Token need refresh
     async getCookieInfo(refreshToken: string) {
-        const { data } = await this.client.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
-        return data
+        try {
+            const { data } = await this.client.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getUserInfo(mid: string) {
-        const wbi = await this.ctx.wbi.getWbi({ mid })
-        const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
-        return data
+        try {
+            const wbi = await this.ctx.wbi.getWbi({ mid })
+            const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getMyselfInfo() {
-        const { data } = await this.client.get(GET_MYSELF_INFO)
-        return data
+        try {
+            const { data } = await this.client.get(GET_MYSELF_INFO)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getLoginQRCode() {
-        const { data } = await this.client.get(GET_LOGIN_QRCODE)
-        return data
+        try {
+            const { data } = await this.client.get(GET_LOGIN_QRCODE)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getLoginStatus(qrcodeKey: string) {
-        const { data } = await this.client.get(`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`)
-        return data
+        try {
+            const { data } = await this.client.get(`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getLiveRoomInfo(roomId: string) {
-        const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`)
-        return data
+        try {
+            const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     async getMasterInfo(mid: string) {
-        const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`)
-        return data
+        try {
+            const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
     }
 
     createNewClient() {
@@ -138,8 +174,20 @@ class BiliAPI extends Service {
         this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
     }
 
-    async checkIfTokenNeedRefresh(refreshToken: string, csrf: string) {
-        const { data } = await this.getCookieInfo(refreshToken)
+    async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 0) {
+        let data: any
+        try {
+            const { data: cookieData } = await this.getCookieInfo(refreshToken)
+            data = cookieData
+        } catch (e) {
+            // 发送三次仍网络错误则给管理员发送错误信息
+            if (times > 3) return
+            // 等待3秒再次尝试
+            this.ctx.setTimeout(() => {
+                this.checkIfTokenNeedRefresh(refreshToken, csrf, times + 1)
+            }, 3000)
+            return
+        }
         // 不需要刷新，直接返回
         if (!data.refresh) return
 

@@ -2,6 +2,7 @@ import { Context, Schema } from 'koishi'
 // import crypto
 import crypto from 'crypto'
 // import plugins
+import Authority from './authority'
 import ComRegister from './comRegister'
 import * as Database from './database'
 // import Service
@@ -52,6 +53,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(GenerateImg, { cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd })
   ctx.plugin(BiliAPI)
   // load plugin
+  ctx.plugin(Authority)
   ctx.plugin(ComRegister, { pushTime: config.pushTime })
 
   // 当用户输入“恶魔兔，启动！”时，执行 help 指令
