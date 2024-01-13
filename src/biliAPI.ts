@@ -131,7 +131,7 @@ class BiliAPI extends Service {
         this.client = wrapper(axios.create({ jar: this.jar, headers: { 'Content-Type': 'application/json' } }))
     }
 
-    async getCookies() {
+    getCookies() {
         let cookies: string;
         this.jar.store.getAllCookies((err, c) => {
             if (err) throw err;
@@ -188,6 +188,7 @@ class BiliAPI extends Service {
             }, 3000)
             return
         }
+
         // 不需要刷新，直接返回
         if (!data.refresh) return
 
@@ -209,9 +210,9 @@ class BiliAPI extends Service {
             return encrypted.reduce((str, c) => str + c.toString(16).padStart(2, "0"), "")
         }
 
-        const correspondPath = await getCorrespondPath(Date.now())
+        const correspondPath = await getCorrespondPath(data.timestamp)
+        // 获取refresh_csrf
         const { data: refreshCsrfHtml } = await this.client.get(`https://www.bilibili.com/correspond/1/${correspondPath}`)
-
         // 创建一个虚拟的DOM元素
         const { document } = new JSDOM(refreshCsrfHtml).window;
         // 提取标签name为1-name的内容
@@ -228,8 +229,14 @@ class BiliAPI extends Service {
         switch (refreshData.code) {
             // 账号未登录
             case -101: return this.createNewClient();
-            case -111: throw new Error('csrf 校验失败');
-            case 86095: throw new Error('refresh_csrf 错误或 refresh_token 与 cookie 不匹配');
+            case -111: {
+                await this.ctx.database.remove('loginBili', [1])
+                throw new Error('csrf 校验失败');
+            }
+            case 86095: {
+                await this.ctx.database.remove('loginBili', [1])
+                throw new Error('refresh_csrf 错误或 refresh_token 与 cookie 不匹配');
+            }
         }
         // 更新refresh_token
         await this.ctx.database.upsert('loginBili', [{

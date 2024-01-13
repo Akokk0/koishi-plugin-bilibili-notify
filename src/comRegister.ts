@@ -1,4 +1,5 @@
 import { Bot, Context, Logger, Schema, Session, h } from "koishi"
+import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
 
@@ -39,7 +40,7 @@ class ComRegister {
 
         this.getSubFromDatabase(ctx)
 
-        ctx.command('test')
+        ctx.command('test', { hidden: true, permissions: ['authority:5'] })
             .subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
@@ -83,7 +84,7 @@ class ComRegister {
             })
 
         ctx.command('test')
-            .subcommand('.gimg <uid:string> <index:number>', '生成图片', { permissions: ['qqguild.admin'] })
+            .subcommand('.gimg <uid:string> <index:number>')
             .usage('测试图片生成')
             .example('test.gimg')
             .action(async ({ session }, uid, index) => {
@@ -91,14 +92,6 @@ class ComRegister {
                 const { data } = await ctx.biliAPI.getUserSpaceDynamic(uid)
                 const [pic] = await ctx.gimg.generateDynamicImg(data.items[index])
                 return pic
-            })
-
-        ctx.command('test')
-            .subcommand('.subm')
-            .usage('查看订阅对象状态')
-            .example('test subm')
-            .action(() => {
-                console.log(this.subManager);
             })
 
         ctx.command('test')
@@ -117,7 +110,7 @@ class ComRegister {
                 console.log(session);
             })
 
-        ctx.command('bili', 'bili-notify插件相关指令')
+        ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
             .subcommand('.login', '登录B站之后才可以进行之后的操作')
             .usage('使用二维码登录，登录B站之后才可以进行之后的操作')
             .example('bili login')
@@ -175,14 +168,21 @@ class ComRegister {
                             bili_cookies: encryptedCookies,
                             bili_refresh_token: encryptedRefreshToken
                         }])
+                        // 销毁定时器
                         dispose()
-                        return await session.send('登录成功！')
+                        // 发送成功登录推送
+                        await session.send('登录成功！')
+                        // 订阅之前的订阅
+                        await this.getSubFromDatabase(ctx)
+                        // 调用bili show指令
+                        await session.execute('bili show')
+                        return
                     }
                 }, 1000)
             })
 
         ctx.command('bili')
-            .subcommand('.unsub <uid:string> 取消订阅')
+            .subcommand('.unsub <uid:string>', '取消订阅UP主动态、直播或全部')
             .usage('取消订阅，加-l为取消直播订阅，加-d为取消动态订阅，什么都不加则为全部取消')
             .option('live', '-l')
             .option('dynamic', '-d')
@@ -223,7 +223,7 @@ class ComRegister {
             })
 
         ctx.command('bili')
-            .subcommand('.show')
+            .subcommand('.show', '展示订阅对象')
             .usage('展示订阅对象')
             .example('bili show')
             .action(async ({ session }) => {
@@ -236,13 +236,18 @@ class ComRegister {
             })
 
         ctx.command('bili')
-            .subcommand('.sub <mid:string> [guildId:string]')
+            .subcommand('.sub <mid:string> [guildId:string]', '订阅用户动态和直播通知')
             .option('live', '-l')
             .option('dynamic', '-d')
-            .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d。若没有加任何参数，之后会向你单独询问，<>中为必选参数，[]中为可选参数，目标群号若不填，则默认为当前群聊')
+            .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d。若没有加任何参数，之后会向你单独询问，尖括号中为必选参数，中括号为可选参数，目标群号若不填，则默认为当前群聊')
             .example('bili sub 用户uid 目标QQ群号(暂不支持) -l -d')
             .action(async ({ session, options }, mid, guildId) => {
                 this.logger.info('调用bili.sub指令')
+                // 检查是否登录
+                if (!(await this.checkIfIsLogin(ctx))) {
+                    // 未登录直接返回
+                    return '请使用指令bili login登录后再进行订阅操作'
+                }
                 // 如果订阅人数超过三个则直接返回
                 if (this.num >= 3) return '目前最多只能订阅三个人'
                 // 检查必选参数是否有值
@@ -351,7 +356,7 @@ class ComRegister {
             })
 
         ctx.command('bili')
-            .subcommand('.dynamic <uid:string> <guildId:string>')
+            .subcommand('.dynamic <uid:string> <guildId:string>', '订阅用户动态推送', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅用户动态推送')
             .example('bili dynamic 1')
@@ -382,7 +387,7 @@ class ComRegister {
             })
 
         ctx.command('bili')
-            .subcommand('.live <roomId:string> <guildId:string>')
+            .subcommand('.live <roomId:string> <guildId:string>', '订阅主播开播通知', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅主播开播通知')
             .example('bili live 732')
@@ -410,7 +415,7 @@ class ComRegister {
             })
 
         ctx.command('bili')
-            .subcommand('.status <roomId:string>')
+            .subcommand('.status <roomId:string>', '查询主播当前直播状态', { hidden: true })
             .usage('查询主播当前直播状态')
             .example('bili status 732')
             .action(async ({ session }, roomId) => {
@@ -535,7 +540,7 @@ class ComRegister {
         return async () => {
             try {
                 // 如果flag为false则说明前面的代码还未执行完，则直接返回
-                if (!flag) return
+                if (!flag) return flag = false
                 // 发送请求检测直播状态
                 let content: any
                 try {
@@ -685,6 +690,9 @@ class ComRegister {
     }
 
     async getSubFromDatabase(ctx: Context) {
+        if (!(await this.checkIfIsLogin(ctx))) { // 如果未登录，则直接返回
+            return
+        }
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
         // 设定订阅数量
@@ -790,6 +798,15 @@ class ComRegister {
         }
     }
 
+    async checkIfIsLogin(ctx: Context) {
+        if ((await ctx.database.get('loginBili', 1)).length !== 0) { // 数据库中有数据
+            // 检查cookie中是否有值
+            if (ctx.biliAPI.getCookies() !== '[]') { // 有值说明已登录
+                return true
+            }
+        }
+        return false
+    }
 }
 
 namespace ComRegister {
