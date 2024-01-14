@@ -87,7 +87,7 @@ class ComRegister {
             .subcommand('.gimg <uid:string> <index:number>')
             .usage('测试图片生成')
             .example('test.gimg')
-            .action(async ({ session }, uid, index) => {
+            .action(async (_, uid, index) => {
                 // 获取用户空间动态数据
                 const { data } = await ctx.biliAPI.getUserSpaceDynamic(uid)
                 const [pic] = await ctx.gimg.generateDynamicImg(data.items[index])
@@ -108,6 +108,14 @@ class ComRegister {
             .example('test session')
             .action(({ session }) => {
                 console.log(session);
+            })
+
+        ctx.command('test')
+            .subcommand('.dynamic <uid:string>')
+            .usage('测试动态监测')
+            .example('test dynamic uid')
+            .action(({ session }, uid) => {
+                ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
             })
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -532,8 +540,19 @@ class ComRegister {
                         case 1: timePoint = items[num].modules.module_author.pub_ts
                     }
                     // 推送该条动态
-                    const [pic] = await ctx.gimg.generateDynamicImg(items[num])
-                    await bot.sendMessage(guildId, pic)
+                    let attempts = 3;
+
+                    for (let i = 0; i < attempts; i++) {
+                        try {
+                            const [pic] = await ctx.gimg.generateDynamicImg(items[num]);
+                            await bot.sendMessage(guildId, pic);
+                            break;  // 如果成功，那么跳出循环
+                        } catch (e) {
+                            if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
+                                throw e;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -823,6 +842,82 @@ class ComRegister {
             }
         }
         return false
+    }
+
+    test_dynamicDetect(
+        ctx: Context,
+        session: Session,
+        uid: string,
+    ) {
+        let firstSubscription: boolean = true
+        let timePoint: number
+        // Test code
+        let timer = 0
+
+        return async () => {
+            // Test code
+            console.log('timer:' + timer++);
+            console.log('firstSubscription:' + firstSubscription);
+            console.log(`timePoint: ${timePoint}`);
+            console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`);
+
+            // 第一次订阅判断
+            if (firstSubscription) {
+                // 设置第一次的时间点
+                timePoint = Math.floor(Date.now() / 1000)
+                // 设置第一次为false
+                firstSubscription = false
+                return
+            }
+            // 获取用户空间动态数据
+            let content: any
+            try {
+                content = await ctx.biliAPI.getUserSpaceDynamic(uid)
+            } catch (e) {
+                return this.logger.error('dynamicDetect getUserSpaceDynamic() 网络请求失败')
+            }
+            // 判断是否出现其他问题
+            if (content.code !== 0) {
+                switch (content.code) {
+                    case -101: { // 账号未登录
+                        await session.send('账号未登录，请登录后重新订阅动态')
+                    }
+                    default: { // 未知错误
+                        await session.send('未知错误，请重新订阅动态')
+                    }
+                }
+                // 取消订阅
+                this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
+                return
+            }
+            // 获取数据内容
+            const items = content.data.items
+            // 发送请求 只查看前五条数据
+            for (let num = 4; num >= 0; num--) {
+                // 没有动态内容则直接跳过
+                if (!items[num]) continue
+
+                // Test code
+                console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
+
+                // 寻找发布时间比时间点时间更晚的动态
+                if (items[num].modules.module_author.pub_ts > timePoint) {
+                    // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
+                    /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
+                    if (num === 0) {
+                        timePoint = items[num].modules.module_author.pub_ts
+                     } */
+                    switch (num) {
+                        // 如果是置顶动态，则跳过
+                        case 0: if (items[num].modules.module_tag) continue
+                        case 1: timePoint = items[num].modules.module_author.pub_ts
+                    }
+                    // 推送该条动态
+                    const [pic] = await ctx.gimg.generateDynamicImg(items[num])
+                    await session.send(pic)
+                }
+            }
+        }
     }
 }
 
