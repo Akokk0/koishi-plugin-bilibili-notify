@@ -283,6 +283,10 @@ class ComRegister {
                 liveMsg = await this.checkIfNeedSub(options.live, '直播', session, data)
                 // 判断是否需要订阅动态
                 dynamicMsg = await this.checkIfNeedSub(options.dynamic, '动态', session)
+                // 判断是否未订阅任何消息
+                if (!liveMsg && !dynamicMsg) {
+                    return '您未订阅该UP的任何消息'
+                }
                 // 判断是哪个平台
                 let platform: string
                 if (!guildId) { // 没有输入群号，默认当前聊天环境
@@ -311,7 +315,7 @@ class ComRegister {
                 // 保存到数据库中
                 const sub = await ctx.database.create('bilibili', {
                     uid: mid,
-                    room_id: data.live_room.roomid.toString(),
+                    room_id: data.live_room?.roomid.toString(),
                     dynamic: dynamicMsg ? 1 : 0,
                     video: 1,
                     live: liveMsg ? 1 : 0,
@@ -327,7 +331,7 @@ class ComRegister {
                     id: sub.id,
                     uid: mid,
                     targetId: guildId,
-                    roomId: data.live_room.roomid.toString(),
+                    roomId: data.live_room?.roomid.toString(),
                     live: liveMsg,
                     dynamic: dynamicMsg,
                     liveDispose: null,
@@ -465,13 +469,21 @@ class ComRegister {
         uid: string,
     ) {
         let firstSubscription: boolean = true
-        let timePoint: number;
+        let timePoint: number
+        // Test code
+        // let timer = 0
 
         return async () => {
+            // Test code
+            /* console.log('timer:' + timer++);
+            console.log('firstSubscription:' + firstSubscription);
+            console.log(`timePoint: ${timePoint}`);
+            console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`); */
+
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
-                timePoint = Date.now()
+                timePoint = Math.floor(Date.now() / 1000)
                 // 设置第一次为false
                 firstSubscription = false
                 return
@@ -503,6 +515,10 @@ class ComRegister {
             for (let num = 4; num >= 0; num--) {
                 // 没有动态内容则直接跳过
                 if (!items[num]) continue
+
+                // Test code
+                // console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
+
                 // 寻找发布时间比时间点时间更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
                     // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
@@ -656,7 +672,8 @@ class ComRegister {
 
     async checkIfNeedSub(comNeed: boolean, subType: string, session: Session, data?: any): Promise<boolean> {
         if (comNeed) {
-            if (subType === '直播' && data.live_room.roomStatus === 0) {
+            if (subType === '直播' && !data.live_room) {
+                await session.send('该用户未开通直播间，无法订阅直播')
                 return false
             }
             return true
@@ -673,8 +690,8 @@ class ComRegister {
             switch (input) {
                 case 'y': { // 需要订阅直播
                     // 如果用户没有开通直播间则无法订阅
-                    if (subType === '直播' && data.live_room.roomStatus === 0) {
-                        await session.send('该用户没有开通直播间，无法订阅直播')
+                    if (subType === '直播' && !data.live_room) {
+                        await session.send('该用户未开通直播间，无法订阅直播')
                         return false
                     }
                     // 开启直播订阅
@@ -818,8 +835,8 @@ namespace ComRegister {
 
     export const Config: Schema<Config> = Schema.object({
         pushTime: Schema.number().required(),
-        liveLoopTime: Schema.number().default(5),
-        dynamicLoopTime: Schema.number().default(60)
+        liveLoopTime: Schema.number().default(10),
+        dynamicLoopTime: Schema.number().default(30)
     })
 }
 

@@ -1,6 +1,6 @@
 import { Context, Schema } from 'koishi'
 // import crypto
-import crypto from 'crypto'
+// import crypto from 'crypto'
 // import plugins
 // import Authority from './authority'
 import ComRegister from './comRegister'
@@ -66,6 +66,6 @@ export function apply(ctx: Context, config: Config) {
   })
 }
 
-function generateKey(): string {
+/* function generateKey(): string {
   return crypto.randomBytes(32).toString('hex');
-}
+} */
