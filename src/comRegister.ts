@@ -574,8 +574,11 @@ class ComRegister {
 
         return async () => {
             try {
+                // console.log('start before' + ' ' + flag);
                 // 如果flag为false则说明前面的代码还未执行完，则直接返回
-                if (!flag) return flag = false
+                if (!flag) return
+                flag && (flag = false)
+                // console.log('start after' + ' ' + flag);
                 // 发送请求检测直播状态
                 let content: any
                 try {
@@ -683,8 +686,10 @@ class ComRegister {
                     }
                 }
             } finally {
+                // console.log('end before' + ' ' + flag);
                 // 执行完方法体不论如何都把flag设置为true
                 flag = true
+                // console.log('end after' + ' ' + flag);
             }
         }
     }
@@ -931,7 +936,7 @@ namespace ComRegister {
     export const Config: Schema<Config> = Schema.object({
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
-        dynamicLoopTime: Schema.number().default(30)
+        dynamicLoopTime: Schema.number().default(60)
     })
 }
 
