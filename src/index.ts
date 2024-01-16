@@ -10,6 +10,8 @@ import Wbi from './wbi'
 import GenerateImg from './generateImg'
 import BiliAPI from './biliAPI'
 
+export const inject = ['puppeteer', 'database']
+
 export const name = 'bilibili-notify'
 
 export interface Config {

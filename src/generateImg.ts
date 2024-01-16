@@ -924,10 +924,10 @@ class GenerateImg extends Service {
         // 计算时间差（以秒为单位）
         const differenceInSeconds = Math.floor((now - unixTime) / 1000);
         // 获取yyyy:MM:dd HH:mm:ss
-        const days: number = Math.floor(differenceInSeconds / (24 * 60 * 60));
-        const hours: number = Math.floor((differenceInSeconds % (24 * 60 * 60)) / (60 * 60));
-        const minutes: number = Math.floor((differenceInSeconds % (60 * 60)) / 60);
-        const seconds: number = differenceInSeconds % 60;
+        const days = Math.floor(differenceInSeconds / (24 * 60 * 60));
+        const hours = Math.floor((differenceInSeconds % (24 * 60 * 60)) / (60 * 60));
+        const minutes = Math.floor((differenceInSeconds % (60 * 60)) / 60);
+        const seconds = differenceInSeconds % 60;
 
         // 返回格式化的字符串
         return days ?
