@@ -37,10 +37,10 @@ class ComRegister {
         this.qqBot = ctx.bots[ctx.bots.findIndex(bot => bot.platform === 'qq')]
         // 拿到QQ频道机器人
         this.qqguildBot = ctx.bots[ctx.bots.findIndex(bot => bot.platform === 'qqguild')]
-
+        // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+        /* ctx.command('test', { hidden: true, permissions: ['authority:5'] })
             .subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
@@ -116,7 +116,7 @@ class ComRegister {
             .example('test dynamic uid')
             .action(({ session }, uid) => {
                 ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
-            })
+            }) */
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
             .subcommand('.login', '登录B站之后才可以进行之后的操作')
@@ -169,7 +169,7 @@ class ComRegister {
                         return await session.send('二维码已失效，请重新登录！')
                     }
                     if (loginContent.data.code === 0) { // 登录成功
-                        const encryptedCookies = ctx.wbi.encrypt(await ctx.biliAPI.getCookies())
+                        const encryptedCookies = ctx.wbi.encrypt(ctx.biliAPI.getCookies())
                         const encryptedRefreshToken = ctx.wbi.encrypt(loginContent.data.refresh_token)
                         await ctx.database.upsert('loginBili', [{
                             id: 1,
@@ -613,6 +613,8 @@ class ComRegister {
                     uData = userData
                     // 判断直播状态
                     if (data.live_status === 1) { // 当前正在直播
+                        // 设置开播时间
+                        liveTime = data.live_time
                         // 推送直播信息
                         await bot.sendMessage(guildId, await ctx
                             .gimg
@@ -668,7 +670,7 @@ class ComRegister {
                             if (this.config.pushTime > 0) {
                                 timer++
                                 // 开始记录时间
-                                if (timer >= (12 * 30 * this.config.pushTime)) { // 到时间推送直播消息
+                                if (timer >= (6 * 60 * this.config.pushTime)) { // 到时间推送直播消息
                                     // 到时间重新计时
                                     timer = 0
                                     // 发送状态信息

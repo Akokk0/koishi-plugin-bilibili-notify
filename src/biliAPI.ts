@@ -238,10 +238,13 @@ class BiliAPI extends Service {
                 throw new Error('refresh_csrf 错误或 refresh_token 与 cookie 不匹配');
             }
         }
-        // 更新refresh_token
+        // 更新 新的cookies和refresh_token
+        const encryptedCookies = this.ctx.wbi.encrypt(this.ctx.biliAPI.getCookies())
+        const encryptedRefreshToken = this.ctx.wbi.encrypt(refreshData.data.refresh_token)
         await this.ctx.database.upsert('loginBili', [{
             id: 1,
-            bili_refresh_token: refreshData.data.refresh_token
+            bili_cookies: encryptedCookies,
+            bili_refresh_token: encryptedRefreshToken
         }])
         // Get new csrf from cookies
         let newCsrf: string;

@@ -22,11 +22,10 @@ export interface Config {
 export const Config: Schema<Config> = Schema.object({
   pushTime: Schema.number()
     .min(0)
-    .max(24)
-    .step(1)
-    .role('slider')
+    .max(12)
+    .step(0.5)
     .default(1)
-    .description('设定隔多长时间推送一次直播状态，单位为半小时，默认为半小时'),
+    .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
 
   cardColorStart: Schema.string()
     .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
