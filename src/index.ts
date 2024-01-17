@@ -1,6 +1,5 @@
 import { Context, Schema } from 'koishi'
-// import crypto
-// import crypto from 'crypto'
+import { } from '@koishijs/plugin-notifier'
 // import plugins
 // import Authority from './authority'
 import ComRegister from './comRegister'
@@ -10,15 +9,16 @@ import Wbi from './wbi'
 import GenerateImg from './generateImg'
 import BiliAPI from './biliAPI'
 
-export const inject = ['puppeteer', 'database']
+export const inject = ['puppeteer', 'database', 'notifier']
 
 export const name = 'bilibili-notify'
 
 export interface Config {
   pushTime: number,
+  dynamicCheckNumber: number,
   cardColorStart: string,
   cardColorEnd: string,
-  key: string
+  key: string,
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -28,6 +28,14 @@ export const Config: Schema<Config> = Schema.object({
     .step(0.5)
     .default(1)
     .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
+
+  dynamicCheckNumber: Schema.number()
+    .min(2)
+    .max(10)
+    .role('slider')
+    .step(1)
+    .default(5)
+    .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应-1。默认值为5条'),
 
   cardColorStart: Schema.string()
     .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
@@ -47,6 +55,9 @@ export const Config: Schema<Config> = Schema.object({
 })
 
 export function apply(ctx: Context, config: Config) {
+  ctx.notifier.create({
+    content: '请记得使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
+  })
   // load database
   ctx.plugin(Database)
   // Regist server
@@ -55,8 +66,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)
-  ctx.plugin(ComRegister, { pushTime: config.pushTime })
-
+  ctx.plugin(ComRegister, { pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber })
   // 当用户输入“恶魔兔，启动！”时，执行 help 指令
   ctx.middleware((session, next) => {
     if (session.content === '恶魔兔，启动！') {
@@ -66,7 +76,3 @@ export function apply(ctx: Context, config: Config) {
     }
   })
 }
-
-/* function generateKey(): string {
-  return crypto.randomBytes(32).toString('hex');
-} */

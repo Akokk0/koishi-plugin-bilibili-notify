@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "1.0.0-rc.2",
+  "version": "1.0.0",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],
@@ -16,6 +16,7 @@
     "type": "git",
     "url": "git+https://github.com/Akokk0/koishi-plugin-bilibili-notify"
   },
+  "homepage": "https://www.npmjs.com/package/koishi-plugin-bilibili-notify",
   "scripts": {},
   "keywords": [
     "chatbot",
@@ -37,15 +38,15 @@
     "koishi-plugin-puppeteer": "^3.7.3"
   },
   "koishi": {
-    "preview": true,
     "service": {
       "required": [
         "database",
-        "puppeteer"
+        "puppeteer",
+        "notifier"
       ]
     },
     "description": {
-      "zh": "开发中的Bilibili直播通知，动态推送插件。目前还只是个雏形，不建议使用，发布做测试用"
+      "zh": "Bilibili动态推送，直播通知插件。具体使用方法请参考readme.md"
     },
     "locales": [
       "zh"

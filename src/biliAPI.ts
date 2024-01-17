@@ -145,8 +145,20 @@ class BiliAPI extends Service {
         const data = (await this.ctx.database.get('loginBili', 1))[0]
         // 没有数据则直接返回
         if (data === undefined) return
-        // 解密数据
-        const decryptedCookies = this.ctx.wbi.decrypt(data.bili_cookies)
+        // 定义解密信息
+        let decryptedCookies: string
+        let decryptedRefreshToken: string
+        try {
+            // 解密数据
+            decryptedCookies = this.ctx.wbi.decrypt(data.bili_cookies)
+            // 解密refresh_token
+            decryptedRefreshToken = this.ctx.wbi.decrypt(data.bili_refresh_token)
+        } catch (e) {
+            // 解密失败，删除数据库登录信息
+            await this.ctx.database.remove('loginBili', [1])
+            // 直接返回
+            return
+        }
         // 解析从数据库读到的cookies
         const cookies = JSON.parse(decryptedCookies)
         // 定义CSRF Token
@@ -168,8 +180,6 @@ class BiliAPI extends Service {
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
         })
-        // 解密refresh_token
-        const decryptedRefreshToken = this.ctx.wbi.decrypt(data.bili_refresh_token)
         // Check if token need refresh
         this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
     }
