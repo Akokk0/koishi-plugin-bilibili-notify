@@ -66,7 +66,6 @@ class GenerateImg extends Service {
             *{
                 margin: 0;
                 padding: 0;
-                font-family: 'HYZhengYuan', Courier;
             }
 
             html {
@@ -493,7 +492,6 @@ class GenerateImg extends Service {
             * {
                 margin: 0;
                 padding: 0;
-                font-family: 'HYZhengYuan', Courier;
             }
     
             html {
@@ -920,7 +918,7 @@ class GenerateImg extends Service {
         // 获取Unix时间戳（以毫秒为单位）
         const unixTime = date.getTime();
         // 获取当前Unix时间戳
-        const now = Date.now()
+        const now = this.ctx.biliAPI.getUTCPlus8Time()
         // 计算时间差（以秒为单位）
         const differenceInSeconds = Math.floor((now - unixTime) / 1000);
         // 获取yyyy:MM:dd HH:mm:ss

@@ -39,7 +39,7 @@ export function apply(ctx: Context) {
         bili_cookies: 'string',
         bili_refresh_token: 'string'
     })
-    
+
     // 新增Bilibili表
     ctx.model.extend('bilibili', {
         id: 'unsigned',

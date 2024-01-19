@@ -128,6 +128,13 @@ class BiliAPI extends Service {
         }
     }
 
+    getUTCPlus8Time() {
+        // 获取当前时间的UTC+8时间对象
+        const currentTimeInUtc8 = new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' });
+        // 将时间转换为Unix时间戳（单位：秒）
+        return Math.floor(new Date(currentTimeInUtc8).getTime() / 1000);
+    }
+
     disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
 
     createNewClient() {
@@ -148,7 +155,7 @@ class BiliAPI extends Service {
         // 读取数据库获取cookies
         const data = (await this.ctx.database.get('loginBili', 1))[0]
         // 判断是否登录
-        if (data === undefined)  {  // 没有数据则直接返回
+        if (data === undefined) {  // 没有数据则直接返回
             // 未登录，在控制台提示
             this.loginNotifier = this.ctx.notifier.create({
                 type: 'warning',
@@ -190,7 +197,7 @@ class BiliAPI extends Service {
                 sameSite: cookieData.sameSite
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
-        })        
+        })
         // Open scheduled tasks and check if token need refresh
         this.ctx.setInterval(() => { // 每12小时检测一次
             this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)

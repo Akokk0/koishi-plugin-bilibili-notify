@@ -116,6 +116,14 @@ class ComRegister {
             .example('test dynamic uid')
             .action(({ session }, uid) => {
                 ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
+            })
+
+        ctx.command('test')
+            .subcommand('.utc')
+            .usage('获取当前UTC+8 Unix时间戳')
+            .example('test utc')
+            .action(() => {
+                console.log(ctx.biliAPI.getUTCPlus8Time());
             }) */
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -466,7 +474,7 @@ class ComRegister {
                     userData,
                     data.live_status !== 1 ?
                         LiveType.NotLiveBroadcast :
-                        liveTime < Date.now() ? LiveType.LiveBroadcast : LiveType.StartBroadcasting
+                        LiveType.LiveBroadcast
                 )
                 session.send(string)
             })
@@ -493,7 +501,7 @@ class ComRegister {
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
-                timePoint = Math.floor(Date.now() / 1000)
+                timePoint = ctx.biliAPI.getUTCPlus8Time()
                 // 设置第一次为false
                 firstSubscription = false
                 return

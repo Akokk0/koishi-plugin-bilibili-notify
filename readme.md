@@ -1,17 +1,17 @@
-<div align="center">
+<center>
 # Bilibili-Botify
-</div>
-
+</center>
 
 基于 [koishi](../../../../koishijs/koishi) 框架的B站推送插件
 
 ---
 
-- **koishi-plugin-bilibili-notify** [![npm](https://img.shields.io/npm/v/koishi-plugin-bilibili-notify?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-bilibili-notify)
+- koishi-plugin-bilibili-notify [![npm](https://img.shields.io/npm/v/koishi-plugin-bilibili-notify?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-bilibili-notify)
   - [功能](#功能)
   - [安装](#安装)
   - [使用方法](#使用方法)
   - [注意事项](#注意事项)
+  - [更新日志](#更新日志)
   - [感谢](#感谢)
   - [License](#License)
 
@@ -79,6 +79,7 @@
 ## 更新日志
 
 ver 1.0.1 修复了一些bug，提供用户自己选择动态检测时间的选项
+ver 1.0.2 修复时间bug和字体乱码问题
 
 ## 感谢
 
