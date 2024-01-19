@@ -3,6 +3,7 @@ import axios from 'axios'
 import { CookieJar, Cookie } from 'tough-cookie'
 import { wrapper } from 'axios-cookiejar-support'
 import { JSDOM } from 'jsdom'
+import { Notifier } from "@koishijs/plugin-notifier"
 
 declare module 'koishi' {
     interface Context {
@@ -10,7 +11,7 @@ declare module 'koishi' {
     }
 }
 
-const GET_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
+// const GET_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
 const GET_USER_SPACE_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
 const GET_COOKIES_INFO = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
 const GET_USER_INFO = 'https://api.bilibili.com/x/space/wbi/acc/info'
@@ -22,11 +23,12 @@ const GET_MASTER_INFO = 'https://api.live.bilibili.com/live_user/v1/Master/info'
 const GET_TIME_NOW = 'https://api.bilibili.com/x/report/click/now'
 
 class BiliAPI extends Service {
-    static inject = ['database', 'wbi']
+    static inject = ['database', 'wbi', 'notifier']
 
     jar: CookieJar
     client: any
     loginData: any
+    loginNotifier: Notifier
 
     constructor(ctx: Context) {
         super(ctx, 'biliAPI')
@@ -126,6 +128,8 @@ class BiliAPI extends Service {
         }
     }
 
+    disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
+
     createNewClient() {
         this.jar = new CookieJar()
         this.client = wrapper(axios.create({ jar: this.jar, headers: { 'Content-Type': 'application/json' } }))
@@ -143,8 +147,15 @@ class BiliAPI extends Service {
     async loadCookiesFromDatabase() {
         // 读取数据库获取cookies
         const data = (await this.ctx.database.get('loginBili', 1))[0]
-        // 没有数据则直接返回
-        if (data === undefined) return
+        // 判断是否登录
+        if (data === undefined)  {  // 没有数据则直接返回
+            // 未登录，在控制台提示
+            this.loginNotifier = this.ctx.notifier.create({
+                type: 'warning',
+                content: '您尚未登录，将无法使用插件提供的指令'
+            })
+            return
+        }
         // 定义解密信息
         let decryptedCookies: string
         let decryptedRefreshToken: string
@@ -179,9 +190,11 @@ class BiliAPI extends Service {
                 sameSite: cookieData.sameSite
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
-        })
-        // Check if token need refresh
-        this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
+        })        
+        // Open scheduled tasks and check if token need refresh
+        this.ctx.setInterval(() => { // 每12小时检测一次
+            this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
+        }, 43200000)
     }
 
     async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 0) {
@@ -230,22 +243,30 @@ class BiliAPI extends Service {
         const refresh_csrf = targetElement ? targetElement.textContent : null;
         // 发送刷新请求
         const { data: refreshData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/cookie/refresh', {
-            csrf,
+            csrf: csrf.trim(),
             refresh_csrf,
             source: 'main_web',
             refresh_token: refreshToken
         })
+        const notifyAndError = (info: string) => {
+            // 设置控制台通知
+            this.loginNotifier = this.ctx.notifier.create({
+                type: 'warning',
+                content: info
+            })
+            throw new Error(info);
+        }
         // 检查是否有其他问题
         switch (refreshData.code) {
             // 账号未登录
             case -101: return this.createNewClient();
             case -111: {
                 await this.ctx.database.remove('loginBili', [1])
-                throw new Error('csrf 校验失败');
+                notifyAndError('csrf 校验错误，请重新登录')
             }
             case 86095: {
                 await this.ctx.database.remove('loginBili', [1])
-                throw new Error('refresh_csrf 错误或 refresh_token 与 cookie 不匹配');
+                notifyAndError('refresh_csrf 错误或 refresh_token 与 cookie 不匹配，请重新登录')
             }
         }
         // 更新 新的cookies和refresh_token
@@ -271,7 +292,10 @@ class BiliAPI extends Service {
         })
         // 检查是否有其他问题
         switch (aceeptData.code) {
-            case -111: throw new Error('csrf 校验失败')
+            case -111: {
+                await this.ctx.database.remove('loginBili', [1])
+                notifyAndError('csrf 校验失败，请重新登录')
+            }
             case -400: throw new Error('请求错误')
         }
         // 没有问题，cookies已更新完成

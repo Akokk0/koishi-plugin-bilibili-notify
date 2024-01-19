@@ -16,6 +16,7 @@ export const name = 'bilibili-notify'
 export interface Config {
   pushTime: number,
   dynamicCheckNumber: number,
+  dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
   cardColorStart: string,
   cardColorEnd: string,
   key: string,
@@ -36,6 +37,11 @@ export const Config: Schema<Config> = Schema.object({
     .step(1)
     .default(5)
     .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应-1。默认值为5条'),
+
+  dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟'])
+    .role('')
+    .default('2分钟')
+    .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
 
   cardColorStart: Schema.string()
     .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
@@ -66,7 +72,15 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)
-  ctx.plugin(ComRegister, { pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber })
+  // 转换为具体时间
+  let dynamicLoopTime: number
+  switch (config.dynamicLoopTime) {
+    case '1分钟': dynamicLoopTime = 60; break;
+    case '2分钟': dynamicLoopTime = 120; break;
+    case '3分钟': dynamicLoopTime = 180; break;
+    case '5分钟': dynamicLoopTime = 300; break;
+  }
+  ctx.plugin(ComRegister, { pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber, dynamicLoopTime })
   // 当用户输入“恶魔兔，启动！”时，执行 help 指令
   ctx.middleware((session, next) => {
     if (session.content === '恶魔兔，启动！') {

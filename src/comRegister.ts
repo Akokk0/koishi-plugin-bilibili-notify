@@ -178,6 +178,8 @@ class ComRegister {
                         }])
                         // 销毁定时器
                         dispose()
+                        // 清除控制台通知
+                        ctx.biliAPI.disposeNotifier()
                         // 发送成功登录推送
                         await session.send('登录成功！')
                         // 订阅之前的订阅
@@ -248,7 +250,7 @@ class ComRegister {
             .option('live', '-l')
             .option('dynamic', '-d')
             .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d。若没有加任何参数，之后会向你单独询问，尖括号中为必选参数，中括号为可选参数，目标群号若不填，则默认为当前群聊')
-            .example('bili sub 用户uid 目标QQ群号(暂不支持) -l -d')
+            .example('bili sub 1194210119 目标QQ群号(暂不支持) -l -d 订阅UID为1194210119的UP主的动态和直播')
             .action(async ({ session, options }, mid, guildId) => {
                 this.logger.info('调用bili.sub指令')
                 // 检查是否登录
@@ -371,7 +373,7 @@ class ComRegister {
             .subcommand('.dynamic <uid:string> <guildId:string>', '订阅用户动态推送', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅用户动态推送')
-            .example('bili dynamic 1')
+            .example('bili dynamic 1194210119 订阅UID为1194210119的动态')
             .action(async ({ session, options }, uid, guildId) => {
                 this.logger.info('调用bili.dynamic指令')
                 // 如果uid为空则返回
@@ -393,7 +395,7 @@ class ComRegister {
                     default: return '非法调用'
                 }
                 // 开始循环检测
-                const dispose = ctx.setInterval(this.dynamicDetect(ctx, bot, guildId, uid), 60000)
+                const dispose = ctx.setInterval(this.dynamicDetect(ctx, bot, guildId, uid), config.dynamicLoopTime * 1000)
                 // 将销毁函数保存到订阅管理对象
                 this.subManager[index].dynamicDispose = dispose
             })
@@ -402,7 +404,7 @@ class ComRegister {
             .subcommand('.live <roomId:string> <guildId:string>', '订阅主播开播通知', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅主播开播通知')
-            .example('bili live 732')
+            .example('bili live 26316137 订阅房间号为26316137的直播间')
             .action(async ({ options }, roomId, guildId) => {
                 this.logger.info('调用bili.live指令')
                 // 如果room_id为空则返回
@@ -421,7 +423,7 @@ class ComRegister {
                     default: return '非法调用'
                 }
                 // 开始循环检测
-                const dispose = ctx.setInterval(this.liveDetect(ctx, bot, guildId, roomId), 5000)
+                const dispose = ctx.setInterval(this.liveDetect(ctx, bot, guildId, roomId), config.liveLoopTime * 1000)
                 // 保存销毁函数
                 this.subManager[index].liveDispose = dispose
             })
@@ -534,10 +536,15 @@ class ComRegister {
                     if (num === 0) {
                         timePoint = items[num].modules.module_author.pub_ts
                      } */
-                    switch (num) {
+                    // 检查最一条动态是否是置顶动态
+                    if (num === 0) {
                         // 如果是置顶动态，则跳过
-                        case 0: if (items[num].modules.module_tag) continue
-                        case 1: timePoint = items[num].modules.module_author.pub_ts
+                        if (items[num].modules.module_tag) {
+                            // 将上一条动态的发布时间设为时间点
+                            timePoint = items[num + 1].modules.module_author.pub_ts
+                            continue
+                        }
+                        timePoint = items[num].modules.module_author.pub_ts
                     }
                     // 推送该条动态
                     let attempts = 3;
