@@ -66,6 +66,7 @@ class GenerateImg extends Service {
             *{
                 margin: 0;
                 padding: 0;
+                font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -492,6 +493,7 @@ class GenerateImg extends Service {
             * {
                 margin: 0;
                 padding: 0;
+                font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -948,7 +950,8 @@ class GenerateImg extends Service {
 namespace GenerateImg {
     export interface Config {
         cardColorStart: string,
-        cardColorEnd: string
+        cardColorEnd: string,
+        font: string
     }
 
     export const Config: Schema<Config> = Schema.object({
@@ -956,10 +959,13 @@ namespace GenerateImg {
             .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
             .default('#F38AB5')
             .description('推送卡片的开始渐变背景色，请填入16进制颜色代码，参考网站：https://webkul.github.io/coolhue/'),
+
         cardColorEnd: Schema.string()
             .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
             .default('#F9CCDF')
-            .description('推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/')
+            .description('推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/'),
+
+        font: Schema.string()
     })
 }
 

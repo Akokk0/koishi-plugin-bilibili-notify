@@ -110,13 +110,13 @@ class ComRegister {
                 console.log(session);
             })
 
-        ctx.command('test')
-            .subcommand('.dynamic <uid:string>')
-            .usage('测试动态监测')
-            .example('test dynamic uid')
-            .action(({ session }, uid) => {
-                ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
-            })
+        // ctx.command('test')
+        //     .subcommand('.dynamic <uid:string>')
+        //     .usage('测试动态监测')
+        //     .example('test dynamic uid')
+        //     .action(({ session }, uid) => {
+        //         ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
+        //     })
 
         ctx.command('test')
             .subcommand('.utc')

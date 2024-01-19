@@ -19,6 +19,7 @@ export interface Config {
   dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
   cardColorStart: string,
   cardColorEnd: string,
+  font: string,
   key: string,
 }
 
@@ -53,6 +54,9 @@ export const Config: Schema<Config> = Schema.object({
     .default('#F9CCDF')
     .description('推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/'),
 
+  font: Schema.string()
+    .description('推送卡片的字体样式，如果你想用你自己的字体可以在此填写，例如：Microsoft YaHei'),
+
   key: Schema.string()
     .pattern(/^[0-9a-f]{32}$/)
     .role('secret')
@@ -68,7 +72,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(Database)
   // Regist server
   ctx.plugin(Wbi, { key: config.key })
-  ctx.plugin(GenerateImg, { cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd })
+  ctx.plugin(GenerateImg, { cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)
