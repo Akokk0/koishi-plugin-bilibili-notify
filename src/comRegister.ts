@@ -40,7 +40,7 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        /* ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+        ctx.command('test', { hidden: true, /* permissions: ['authority:5'] */ })
             .subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
@@ -87,11 +87,15 @@ class ComRegister {
             .subcommand('.gimg <uid:string> <index:number>')
             .usage('测试图片生成')
             .example('test.gimg')
-            .action(async (_, uid, index) => {
+            .action(async ({ session }, uid, index) => {
                 // 获取用户空间动态数据
                 const { data } = await ctx.biliAPI.getUserSpaceDynamic(uid)
-                const [pic] = await ctx.gimg.generateDynamicImg(data.items[index])
-                return pic
+                // 获取动态推送图片
+                const { pic, buffer } = await ctx.gimg.generateDynamicImg(data.items[index])
+                // 如果pic存在，则直接返回pic
+                if (pic) return pic
+                // pic不存在，说明使用的是page模式
+                await session.send(h.image(buffer, 'image/png'))
             })
 
         ctx.command('test')
@@ -110,21 +114,13 @@ class ComRegister {
                 console.log(session);
             })
 
-        // ctx.command('test')
-        //     .subcommand('.dynamic <uid:string>')
-        //     .usage('测试动态监测')
-        //     .example('test dynamic uid')
-        //     .action(({ session }, uid) => {
-        //         ctx.setInterval(this.test_dynamicDetect(ctx, session, uid), 30000)
-        //     })
-
         ctx.command('test')
             .subcommand('.utc')
             .usage('获取当前UTC+8 Unix时间戳')
             .example('test utc')
-            .action(() => {
-                console.log(ctx.biliAPI.getUTCPlus8Time());
-            }) */
+            .action(async () => {
+                console.log(await ctx.biliAPI.getServerUTCTime());
+            })
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
             .subcommand('.login', '登录B站之后才可以进行之后的操作')
@@ -467,16 +463,17 @@ class ComRegister {
                     return
                 }
 
-                let liveTime = (new Date(data.live_time).getTime()) / 1000
-
-                const string = await ctx.gimg.generateLiveImg(
+                const { pic, buffer } = await ctx.gimg.generateLiveImg(
                     data,
                     userData,
                     data.live_status !== 1 ?
                         LiveType.NotLiveBroadcast :
                         LiveType.LiveBroadcast
                 )
-                session.send(string)
+                // pic 存在，使用的是render模式
+                if (pic) return pic
+                // pic不存在，说明使用的是page模式
+                await session.send(h.image(buffer, 'image/png'))
             })
     }
 
@@ -501,7 +498,7 @@ class ComRegister {
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
-                timePoint = ctx.biliAPI.getUTCPlus8Time()
+                timePoint = await ctx.biliAPI.getServerUTCTime()
                 // 设置第一次为false
                 firstSubscription = false
                 return
@@ -558,9 +555,14 @@ class ComRegister {
                     let attempts = 3;
                     for (let i = 0; i < attempts; i++) {
                         try {
-                            const [pic] = await ctx.gimg.generateDynamicImg(items[num]);
-                            await bot.sendMessage(guildId, pic);
-                            break;  // 如果成功，那么跳出循环
+                            // 获取动态推送图片
+                            const { pic, buffer } = await ctx.gimg.generateDynamicImg(items[num])
+                            // 如果pic存在，则直接返回pic
+                            if (pic) return await bot.sendMessage(guildId, pic)
+                            // pic不存在，说明使用的是page模式
+                            await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+                            // 如果成功，那么跳出循环
+                            break
                         } catch (e) {
                             if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
                                 throw e;
@@ -585,6 +587,16 @@ class ComRegister {
         let uData: any;
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
+
+        async function sendLiveNotifyCard(data: any, uData: any, liveType: LiveType) {
+            // 获取直播通知卡片
+            const { pic, buffer } = await ctx.gimg.generateLiveImg(data, uData, liveType)
+            // 推送直播信息
+            // pic 存在，使用的是render模式
+            if (pic) return bot.sendMessage(guildId, pic)
+            // pic不存在，说明使用的是page模式
+            await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+        }
 
         return async () => {
             try {
@@ -629,20 +641,13 @@ class ComRegister {
                     if (data.live_status === 1) { // 当前正在直播
                         // 设置开播时间
                         liveTime = data.live_time
-                        // 推送直播信息
-                        await bot.sendMessage(guildId, await ctx
-                            .gimg
-                            .generateLiveImg(
-                                data,
-                                uData,
-                                LiveType.LiveBroadcast
-                            ))
+                        // 发送直播通知卡片
+                        sendLiveNotifyCard(data, uData, LiveType.LiveBroadcast)
                         // 改变开播状态
                         open = true
                     } // 未开播，直接返回
                     return
                 }
-
                 // 检查直播状态
                 switch (data.live_status) {
                     case 0:
@@ -653,7 +658,7 @@ class ComRegister {
                             // 下播了将定时器清零
                             timer = 0
                             // 发送下播通知
-                            bot.sendMessage(guildId, `${uData.info.uname}下播啦，本次直播了${ctx.gimg.getTimeDifference(liveTime)}`)
+                            bot.sendMessage(guildId, `${uData.info.uname}下播啦，本次直播了${await ctx.gimg.getTimeDifference(liveTime)}`)
                         }
                         // 未进循环，还未开播，继续循环
                         break
@@ -674,12 +679,8 @@ class ComRegister {
                             }
                             // 主播信息不会变，开播时刷新一次即可
                             uData = userData
-                            // 发送直播通知
-                            await bot.sendMessage(guildId, await ctx.gimg.generateLiveImg(
-                                data,
-                                uData,
-                                LiveType.StartBroadcasting
-                            ))
+                            // 发送直播通知卡片
+                            sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
                                 timer++
@@ -687,14 +688,8 @@ class ComRegister {
                                 if (timer >= (6 * 60 * this.config.pushTime)) { // 到时间推送直播消息
                                     // 到时间重新计时
                                     timer = 0
-                                    // 发送状态信息
-                                    bot.sendMessage(guildId, await ctx
-                                        .gimg
-                                        .generateLiveImg(
-                                            data,
-                                            uData,
-                                            LiveType.LiveBroadcast
-                                        ))
+                                    // 发送直播通知卡片
+                                    sendLiveNotifyCard(data, uData, LiveType.LiveBroadcast)
                                 }
                             }
                             // 否则继续循环
@@ -804,7 +799,6 @@ class ComRegister {
                 if (index === -1) return '未订阅该用户，无需取消订阅'
                 // 取消订阅
                 this.subManager[index].live && this.subManager[index].liveDispose()
-
                 // 如果没有对这个UP的任何订阅，则移除
                 if (!this.subManager[index].dynamic) {
                     // 获取要删除行的id
@@ -864,82 +858,6 @@ class ComRegister {
         }
         return false
     }
-
-    // test_dynamicDetect(
-    //     ctx: Context,
-    //     session: Session,
-    //     uid: string,
-    // ) {
-    //     let firstSubscription: boolean = true
-    //     let timePoint: number
-    //     // Test code
-    //     let timer = 0
-
-    //     return async () => {
-    //         // Test code
-    //         console.log('timer:' + timer++);
-    //         console.log('firstSubscription:' + firstSubscription);
-    //         console.log(`timePoint: ${timePoint}`);
-    //         console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`);
-
-    //         // 第一次订阅判断
-    //         if (firstSubscription) {
-    //             // 设置第一次的时间点
-    //             timePoint = Math.floor(Date.now() / 1000)
-    //             // 设置第一次为false
-    //             firstSubscription = false
-    //             return
-    //         }
-    //         // 获取用户空间动态数据
-    //         let content: any
-    //         try {
-    //             content = await ctx.biliAPI.getUserSpaceDynamic(uid)
-    //         } catch (e) {
-    //             return this.logger.error('dynamicDetect getUserSpaceDynamic() 网络请求失败')
-    //         }
-    //         // 判断是否出现其他问题
-    //         if (content.code !== 0) {
-    //             switch (content.code) {
-    //                 case -101: { // 账号未登录
-    //                     await session.send('账号未登录，请登录后重新订阅动态')
-    //                 }
-    //                 default: { // 未知错误
-    //                     await session.send('未知错误，请重新订阅动态')
-    //                 }
-    //             }
-    //             // 取消订阅
-    //             this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
-    //             return
-    //         }
-    //         // 获取数据内容
-    //         const items = content.data.items
-    //         // 发送请求 只查看前五条数据
-    //         for (let num = 4; num >= 0; num--) {
-    //             // 没有动态内容则直接跳过
-    //             if (!items[num]) continue
-
-    //             // Test code
-    //             console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
-
-    //             // 寻找发布时间比时间点时间更晚的动态
-    //             if (items[num].modules.module_author.pub_ts > timePoint) {
-    //                 // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
-    //                 /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
-    //                 if (num === 0) {
-    //                     timePoint = items[num].modules.module_author.pub_ts
-    //                  } */
-    //                 switch (num) {
-    //                     // 如果是置顶动态，则跳过
-    //                     case 0: if (items[num].modules.module_tag) continue
-    //                     case 1: timePoint = items[num].modules.module_author.pub_ts
-    //                 }
-    //                 // 推送该条动态
-    //                 const [pic] = await ctx.gimg.generateDynamicImg(items[num])
-    //                 await session.send(pic)
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 namespace ComRegister {

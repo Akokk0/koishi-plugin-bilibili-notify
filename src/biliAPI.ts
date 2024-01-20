@@ -21,6 +21,7 @@ const GET_LOGIN_STATUS = 'https://passport.bilibili.com/x/passport-login/web/qrc
 const GET_LIVE_ROOM_INFO = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 const GET_MASTER_INFO = 'https://api.live.bilibili.com/live_user/v1/Master/info'
 const GET_TIME_NOW = 'https://api.bilibili.com/x/report/click/now'
+const GET_SERVER_UTC_TIME = 'https://interface.bilibili.com/serverdate.js'
 
 class BiliAPI extends Service {
     static inject = ['database', 'wbi', 'notifier']
@@ -43,6 +44,22 @@ class BiliAPI extends Service {
         this.loadCookiesFromDatabase()
 
         this.logger.info('BiliAPI已被注册到Context中')
+    }
+
+    async getServerUTCTime() {
+        try {
+            const { data } = await this.client.get(GET_SERVER_UTC_TIME);
+            const regex = /Date\.UTC\((.*?)\)/;
+            const match = data.match(regex);
+            if (match) {
+                const timestamp = new Function(`return Date.UTC(${match[1]})`)();
+                return timestamp / 1000;
+            } else {
+                throw new Error('Failed to parse server time');
+            }
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！');
+        }
     }
 
     async getTimeNow() {
@@ -126,13 +143,6 @@ class BiliAPI extends Service {
         } catch (e) {
             throw new Error('网络异常，本次请求失败！')
         }
-    }
-
-    getUTCPlus8Time() {
-        // 获取当前时间的UTC+8时间对象
-        const currentTimeInUtc8 = new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' });
-        // 将时间转换为Unix时间戳（单位：秒）
-        return Math.floor(new Date(currentTimeInUtc8).getTime() / 1000);
     }
 
     disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }

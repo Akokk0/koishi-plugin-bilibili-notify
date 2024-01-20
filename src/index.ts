@@ -17,6 +17,7 @@ export interface Config {
   pushTime: number,
   dynamicCheckNumber: number,
   dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
+  renderType: 'render' | 'page',
   cardColorStart: string,
   cardColorEnd: string,
   font: string,
@@ -44,6 +45,11 @@ export const Config: Schema<Config> = Schema.object({
     .default('2分钟')
     .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
 
+  renderType: Schema.union(['render', 'page'])
+    .role('')
+    .default('render')
+    .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
+
   cardColorStart: Schema.string()
     .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
     .default('#F38AB5')
@@ -68,14 +74,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.notifier.create({
     content: '请记得使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
   })
-  // load database
-  ctx.plugin(Database)
-  // Regist server
-  ctx.plugin(Wbi, { key: config.key })
-  ctx.plugin(GenerateImg, { cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
-  ctx.plugin(BiliAPI)
-  // load plugin
-  // ctx.plugin(Authority)
+  // load config
   // 转换为具体时间
   let dynamicLoopTime: number
   switch (config.dynamicLoopTime) {
@@ -84,6 +83,20 @@ export function apply(ctx: Context, config: Config) {
     case '3分钟': dynamicLoopTime = 180; break;
     case '5分钟': dynamicLoopTime = 300; break;
   }
+  // 渲染模式
+  let renderType: number
+  switch (config.renderType) {
+    case 'render': renderType = 0; break;
+    case 'page': renderType = 1; break;
+  }
+  // load database
+  ctx.plugin(Database)
+  // Regist server
+  ctx.plugin(Wbi, { key: config.key })
+  ctx.plugin(GenerateImg, { renderType, cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
+  ctx.plugin(BiliAPI)
+  // load plugin
+  // ctx.plugin(Authority)
   ctx.plugin(ComRegister, { pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber, dynamicLoopTime })
   // 当用户输入“恶魔兔，启动！”时，执行 help 指令
   ctx.middleware((session, next) => {

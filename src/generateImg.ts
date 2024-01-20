@@ -1,5 +1,7 @@
 import { Context, Schema, Service } from "koishi";
 import { } from 'koishi-plugin-puppeteer'
+import { resolve } from "path";
+import { pathToFileURL } from "url";
 
 declare module 'koishi' {
     interface Context {
@@ -55,135 +57,164 @@ class GenerateImg extends Service {
     }
 
     async generateLiveImg(data: any, userData: any, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
-        let [titleStatus, liveTime, cover] = this.getLiveStatus(data.live_time, liveStatus)
-        return this.ctx.puppeteer.render(`
-        <!DOCTYPE html>
-        <html>
-        
-        <head>
-            <title>直播通知</title>
-            <style>
-            *{
-                margin: 0;
-                padding: 0;
-                font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
-            }
+        const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
+        // 加载字体
+        const fontURL = pathToFileURL(resolve(__dirname, '../font/HYZhengYuan-55W.ttf'))
+        // 卡片内容
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>直播通知</title>
+                <style>
+                    @font-face {
+                        font-family: "Custom Font";
+                        src: url(${fontURL});
+                    }
+            
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
 
-            html {
-                width: 770px;
-                height: auto;
-            }
+                    html {
+                        width: 770px;
+                        height: auto;
+                    }
 
-            .background {
-                width: 770px;
-                height: auto;
-                background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
-                overflow: hidden;
-            }
+                    .background {
+                        width: 770px;
+                        height: auto;
+                        background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
+                        overflow: hidden;
+                    }
 
-            .card {
-                width: 740px;
-                height: auto;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                border-radius: 5px;
-                margin: 15px auto;
-                overflow: hidden;
-                background-color: #FFF5EE;
-            }
+                    .card {
+                        width: 740px;
+                        height: auto;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        border-radius: 5px;
+                        margin: 15px auto;
+                        overflow: hidden;
+                        background-color: #FFF5EE;
+                    }
 
-            .base-plate {
-                width: 704px;
-                height: auto;
-                margin: 20px auto;
-                border-radius: 10px;
-                background-color: #fff;
-            }
+                    .base-plate {
+                        width: 704px;
+                        height: auto;
+                        margin: 20px auto;
+                        border-radius: 10px;
+                        background-color: #fff;
+                    }
 
-            .card img {
-                border-radius: 5px 5px 0 0;
-                max-width: 100%;
-                /* 设置最大宽度为容器宽度的100% */
-                max-height: 80%;
-                /* 设置最大高度为容器高度的90% */
-            }
+                    .card img {
+                        border-radius: 5px 5px 0 0;
+                        max-width: 100%;
+                        /* 设置最大宽度为容器宽度的100% */
+                        max-height: 80%;
+                        /* 设置最大高度为容器高度的90% */
+                    }
 
-            .card-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-top: 5px;
-                margin-bottom: 10px;
-            }
+                    .card-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-top: 5px;
+                        margin-bottom: 10px;
+                    }
 
-            .card-title {
-                line-height: 50px;
-            }
+                    .card-title {
+                        line-height: 50px;
+                    }
 
-            .card-body {
-                padding: 2px 16px;
-                margin-bottom: 10px;
-            }
+                    .card-body {
+                        padding: 2px 16px;
+                        margin-bottom: 10px;
+                    }
 
-            .live-broadcast-info {
-                display: flex;
-                align-items: center;
-                margin-bottom: 10px;
-            }
+                    .live-broadcast-info {
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 10px;
+                    }
 
-            .anchor-avatar {
-                width: 50px;
-                /* 主播头像大小 */
-                height: auto;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-            }
+                    .anchor-avatar {
+                        width: 50px;
+                        /* 主播头像大小 */
+                        height: auto;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                    }
 
-            .broadcast-message {
-                display: inline-block;
-                margin-left: 10px;
-                font-size: 20px;
-                color: #333;
-            }
+                    .broadcast-message {
+                        display: inline-block;
+                        margin-left: 10px;
+                        font-size: 20px;
+                        color: #333;
+                    }
 
-            .card-text {
-                color: grey;
-                font-size: 20px;
-            }
+                    .card-text {
+                        color: grey;
+                        font-size: 20px;
+                    }
 
-            .card-link {
-                text-decoration: none;
-                font-size: 20px;
-                margin-top: 10px;
-                margin-bottom: 10px;
-            }
-            </style>
-        </head>
-
-        <body>
-            <div class="background">
-                <div class="card">
-                    <div class="base-plate">
-                        <img src="${cover ? data.user_cover : data.keyframe}"
-                        alt="封面">
-                        <div class="card-body">
-                            <div class="card-header">
-                                <h1 class="card-title">${data.title}</h1>
-                                <div class="live-broadcast-info">
-                                    <!-- 主播头像 -->
-                                    <img style="border-radius: 10px; margin-left: 10px" class="anchor-avatar"
-                                        src="${userData.info.face}" alt="主播头像">
-                                    <span class="broadcast-message">${userData.info.uname}${titleStatus}</span>
+                    .card-link {
+                        text-decoration: none;
+                        font-size: 20px;
+                        margin-top: 10px;
+                        margin-bottom: 10px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="background">
+                    <div class="card">
+                        <div class="base-plate">
+                            <img src="${cover ? data.user_cover : data.keyframe}"
+                            alt="封面">
+                            <div class="card-body">
+                                <div class="card-header">
+                                    <h1 class="card-title">${data.title}</h1>
+                                    <div class="live-broadcast-info">
+                                        <!-- 主播头像 -->
+                                        <img style="border-radius: 10px; margin-left: 10px" class="anchor-avatar"
+                                            src="${userData.info.face}" alt="主播头像">
+                                        <span class="broadcast-message">${userData.info.uname}${titleStatus}</span>
+                                    </div>
                                 </div>
+                                <p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>
+                                <p class="card-link">${liveTime}</p>
                             </div>
-                            <p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>
-                            <p class="card-link">${liveTime}</p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </body>
-
-        </html>
-    `)
+            </body>
+            </html>
+        `
+        // 判断渲染方式
+        if (this.config.renderType) { // 为1则为真，进入page模式
+            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/0.html';
+            const page = await this.ctx.puppeteer.page()
+            await page.goto(htmlPath)
+            await page.setContent(html, { waitUntil: 'networkidle0' })
+            const elementHandle = await page.$('html')
+            const boundingBox = await elementHandle.boundingBox()
+            const buffer = await page.screenshot({
+                type: 'png',
+                clip: {
+                    x: boundingBox.x,
+                    y: boundingBox.y,
+                    width: boundingBox.width,
+                    height: boundingBox.height
+                }
+            })
+            await elementHandle.dispose();
+            await page.close()
+            return { buffer }
+        }
+        // 使用render模式渲染
+        const pic = await this.ctx.puppeteer.render(html)
+        return { pic }
     }
 
     async generateDynamicImg(data: any) {
@@ -482,412 +513,439 @@ class GenerateImg extends Service {
         }
 
         const [main, link] = await getDynamicMajor(data, false)
-
-        const pic = await this.ctx.puppeteer.render(`
-    <!DOCTYPE html>
-    <html>
-    
-    <head>
-        <title>动态通知</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
-            }
-    
-            html {
-                width: 770px;
-                height: auto;
-            }
-    
-            .background {
-                width: 770px;
-                height: auto;
-                background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
-                overflow: hidden;
-            }
-    
-            .card {
-                width: 740px;
-                height: auto;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                border-radius: 5px;
-                margin: 15px auto;
-                overflow: hidden;
-                background-color: #FFF5EE;
-            }
-    
-            .base-plate {
-                width: 704px;
-                height: auto;
-                margin: 20px auto;
-                border-radius: 10px;
-                background-color: #fff;
-            }
-    
-            .card-body {
-                display: flex;
-                padding: 15px;
-            }
-    
-            .card .anchor-avatar {
-                border-radius: 5px 5px 0 0;
-                max-width: 50px;
-                /* 设置最大宽度为容器宽度的100% */
-                max-height: 50px;
-                /* 设置最大高度为容器高度的90% */
-                margin-right: 20px;
-                border-radius: 10px;
-            }
-    
-            .card .card-body .card-content {
-                width: 100%;
-            }
-    
-            .card .card-body .card-content .card-header {
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-            }
-    
-            .card .up-info {
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                height: 50px;
-            }
-    
-            .card .up-info .up-name {
-                font-size: 20px;
-            }
-    
-            .card .pub-time {
-                font-size: 12px;
-                color: grey;
-            }
-    
-            .card .card-header img {
-                height: 50px;
-            }
-
-            .card .dress-up {
-                position: relative;
-                max-width: 110px;
-                max-height: 34px;
-                /* background-image: url('${dynamicCardUrl}');
-                background-size: cover; */
-                font-size: 12px;
-                line-height: 33px;
-            }
-
-            .card .dress-up img {
-                max-width: 100%;
-                max-height: 100%;
-            }
-
-            .card .dress-up span {
-                position: absolute;
-                color: ${dynamicCardColor};
-                right: 37px;
-                top: 5px;
-            }
-
-            .card .card-topic {
-                display: flex;
-                align-items: center;
-                margin-top: 10px;
-                color: #008AC5;
-                gap: 3px;
-            }
-    
-            .card .card-details {
-                margin-bottom: 15px;
-                width: 90%;
-            }
-    
-            .card .card-major {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 5px;
-            }
-    
-            .card .card-major .photo-item {
-                border-radius: 10px;
-                overflow: hidden;
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-            }
-
-            .card .card-major .single-photo-item {
-                max-width: 500px;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .card .card-major .four-photo-item {
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-                border-radius: 10px;
-                overflow: hidden;
-                flex-basis: 20%; /* or any value less than 50% */
-            }
-    
-            .card .card-stat {
-                display: flex;
-                justify-content: space-between;
-                width: 90%;
-                margin-top: 15px;
-                color: gray;
-                font-size: 14px;
-            }
-    
-            .card .card-stat .stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-video {
-                display: flex;
-                overflow: hidden;
-                border-radius: 5px 0 0 5px;
-                margin-top: 10px;
-                height: 132px;
-            }
-    
-            .card .video-cover {
-                position: relative;
-                flex: 2;
-                overflow: hidden;
-            }
-    
-            .card .video-cover img {
-                width: 236px;
-            }
-
-            .card .cover-mask {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                top: 0;
-                left: 0;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
-            }
-    
-            .card .video-cover span {
-                position: absolute;
-                color: #fff;
-                font-size: 14px;
-                right: 10px;
-                bottom: 8px;
-            }
-    
-            .card .video-info {
-                display: flex;
-                justify-content: space-between;
-                flex-direction: column;
-                flex: 3;
-                border: #e5e7e9 1px solid;
-                border-left: none;
-                border-radius: 0 5px 5px 0;
-                padding: 12px 16px 10px;
-                background-color: #fff;
-            }
-    
-            .card .video-info-header .video-title {
-                font-size: 16px;
-            }
-    
-            .card .video-info-header .video-introduction {
-                margin-top: 5px;
-                font-size: 12px;
-                color: #AAA;
-                display: -webkit-box;
-                /* 必须设置为 -webkit-box 或 -webkit-inline-box */
-                -webkit-box-orient: vertical;
-                /* 必须设置为 vertical */
-                -webkit-line-clamp: 2;
-                /* 显示的文本行数 */
-                overflow: hidden;
-                /* 必须设置为 hidden */
-            }
-    
-            .card .video-stat {
-                font-size: 12px;
-                color: #AAA;
-                display: flex;
-                gap: 35px
-            }
-    
-            .card .video-stat .video-stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-forward {
-                margin: 0 -15px 0 -85px;
-                padding: 12px 15px 14px 85px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-forward .forward-userinfo {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                height: 30px;
-            }
-    
-            .forward-userinfo img {
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-            }
-    
-            .forward-userinfo span {
-                color: #61666D;
-                font-size: 15px;
-            }
-
-            .card .card-reserve {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 10px 20px 10px 20px;
-                margin-top: 10px;
-                border-radius: 10px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-reserve .reserve-title {
-                font-size: 14px;
-                color: #18191C;
-            }
-    
-            .card-reserve .reserve-desc {
-                margin-top: 7px;
-                font-size: 12px;
-                color: #9499A0;
-            }
-    
-            .reserve-info .reserve-time {
-                margin-right: 7px;
-            }
-    
-            .card-reserve .reserve-prize {
-                display: flex;
-                align-items: center;
-                margin-top: 3px;
-                gap: 3px;
-                color: #00AEEC;
-            }
-    
-            .card .card-reserve .reserve-button button {
-                border: none;
-                height: 30px;
-                width: 72px;
-                font-size: 13px;
-                border-radius: 7px;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-end {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #9499A0;
-                background-color: #E3E5E7;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-ing {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #FFF;
-                background-color: #00A0D8;
-            }
-        </style>
-    </head>
-    
-    <body>
-        <div class="background">
-            <div class="card">
-                <div class="base-plate">
-                    <div class="card-body">
-                        <!-- 主播头像 -->
-                        <img class="anchor-avatar"
-                            src="${avatarUrl}"
-                            alt="主播头像">
-                        <div class="card-content">
-                            <div class="card-header">
-                                <div class="up-info">
-                                    <div class="up-name" style="${module_author.vip.type !== 0 ? 'color: #FB7299' : ''}">${upName}</div>
-                                    <div class="pub-time">${pubTime}</div>
-                                </div>
-                                ${module_author.decorate ? `
-                                <div class="dress-up">
-                                    <img src="${dynamicCardUrl}" />
-                                    <span>${dynamicCardId}</span>
-                                </div>
-                                ` : ''}
-                            </div>
-                            <div class="card-topic">
-                                ${topic ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
-                                class="bili-dyn-topic__icon">
-                                <path fill-rule="evenodd" clip-rule="evenodd"
-                                    d="M11.4302 2.57458C11.4416 2.51023 11.4439 2.43974 11.4218 2.3528C11.3281 1.98196 10.9517 1.72037 10.5284 1.7527C10.432 1.76018 10.3599 1.78383 10.297 1.81376C10.2347 1.84398 10.1832 1.88155 10.1401 1.92465C10.1195 1.94485 10.1017 1.96692 10.0839 1.98897L10.0808 1.99289L10.0237 2.06277L9.91103 2.2033C9.76177 2.39141 9.61593 2.58191 9.47513 2.77556C9.33433 2.96936 9.19744 3.16585 9.06672 3.36638C9.00275 3.46491 8.93968 3.56401 8.87883 3.66461L8.56966 3.6613C8.00282 3.6574 7.43605 3.65952 6.86935 3.67034C6.80747 3.56778 6.74325 3.46677 6.67818 3.3664C6.54732 3.16585 6.41045 2.96934 6.26968 2.77568C6.12891 2.58186 5.98309 2.39134 5.83387 2.20322L5.72122 2.06268L5.66416 1.99279L5.6622 1.99036C5.64401 1.96783 5.62586 1.94535 5.60483 1.92454C5.56192 1.88144 5.51022 1.84388 5.44797 1.81364C5.38522 1.78386 5.31305 1.76006 5.21665 1.75273C4.80555 1.72085 4.4203 1.97094 4.32341 2.35273C4.30147 2.43968 4.30358 2.51018 4.31512 2.57453C4.32715 2.63859 4.34975 2.69546 4.38112 2.74649C4.39567 2.77075 4.41283 2.79315 4.42999 2.81557C4.43104 2.81694 4.43209 2.81831 4.43314 2.81968L4.48759 2.89122L4.59781 3.03355C4.74589 3.22242 4.89739 3.40905 5.05377 3.59254C5.09243 3.63788 5.13136 3.68306 5.17057 3.72785C4.99083 3.73681 4.81112 3.7467 4.63143 3.75756C4.41278 3.771 4.19397 3.78537 3.97547 3.80206L3.64757 3.82786L3.48362 3.84177L3.39157 3.85181C3.36984 3.8543 3.34834 3.8577 3.32679 3.86111C3.31761 3.86257 3.30843 3.86402 3.29921 3.86541C3.05406 3.90681 2.81526 3.98901 2.59645 4.10752C2.37765 4.22603 2.17867 4.38039 2.00992 4.56302C1.84117 4.74565 1.70247 4.95593 1.60144 5.18337C1.50025 5.4105 1.43687 5.65447 1.41362 5.90153C1.33103 6.77513 1.27663 7.6515 1.25742 8.5302C1.23758 9.40951 1.25835 10.2891 1.3098 11.1655C1.32266 11.3846 1.33738 11.6035 1.35396 11.8223L1.38046 12.1505L1.39472 12.3144L1.39658 12.335L1.39906 12.3583L1.40417 12.4048C1.40671 12.4305 1.41072 12.4558 1.41473 12.4811C1.41561 12.4866 1.41648 12.4922 1.41734 12.4977C1.45717 12.7449 1.53806 12.9859 1.65567 13.2074C1.77314 13.4289 1.92779 13.6304 2.11049 13.8022C2.29319 13.974 2.50441 14.1159 2.73329 14.2197C2.96201 14.3235 3.2084 14.3901 3.45836 14.4135C3.47066 14.415 3.48114 14.4159 3.49135 14.4167C3.49477 14.417 3.49817 14.4173 3.50159 14.4176L3.5425 14.4212L3.62448 14.4283L3.78843 14.4417L4.11633 14.4674C4.33514 14.4831 4.55379 14.4983 4.7726 14.5111C6.52291 14.6145 8.27492 14.6346 10.0263 14.5706C10.4642 14.5547 10.9019 14.5332 11.3396 14.5062C11.5584 14.4923 11.7772 14.4776 11.9959 14.4604L12.3239 14.434L12.4881 14.4196L12.5813 14.4093C12.6035 14.4065 12.6255 14.403 12.6474 14.3995C12.6565 14.3981 12.6655 14.3966 12.6746 14.3952C12.9226 14.3527 13.1635 14.2691 13.3844 14.1486C13.6052 14.0284 13.8059 13.8716 13.9759 13.6868C14.1463 13.5022 14.2861 13.2892 14.3874 13.0593C14.4381 12.9444 14.4793 12.8253 14.5108 12.7037C14.519 12.6734 14.5257 12.6428 14.5322 12.612L14.5421 12.566L14.55 12.5196C14.5556 12.4887 14.5607 12.4578 14.5641 12.4266C14.5681 12.3959 14.5723 12.363 14.5746 12.3373C14.6642 11.4637 14.7237 10.5864 14.7435 9.70617C14.764 8.825 14.7347 7.94337 14.6719 7.06715C14.6561 6.8479 14.6385 6.62896 14.6183 6.41033L14.5867 6.08246L14.5697 5.91853L14.5655 5.87758C14.5641 5.86445 14.5618 5.8473 14.5599 5.83231C14.5588 5.8242 14.5578 5.81609 14.5567 5.80797C14.5538 5.78514 14.5509 5.76229 14.5466 5.7396C14.5064 5.49301 14.4252 5.25275 14.3067 5.03242C14.1886 4.81208 14.0343 4.61153 13.8519 4.44095C13.6695 4.27038 13.4589 4.12993 13.2311 4.02733C13.0033 3.92458 12.7583 3.85907 12.5099 3.83636C12.4974 3.83492 12.4865 3.83394 12.4759 3.833C12.4729 3.83273 12.4698 3.83246 12.4668 3.83219L12.4258 3.82879L12.3438 3.82199L12.1798 3.80886L11.8516 3.78413C11.633 3.76915 11.4143 3.75478 11.1955 3.74288C10.993 3.73147 10.7904 3.72134 10.5878 3.71243L10.6914 3.59236C10.8479 3.40903 10.9992 3.22242 11.1473 3.03341L11.2576 2.89124L11.312 2.81971C11.3136 2.81773 11.3151 2.81575 11.3166 2.81377C11.3333 2.79197 11.3501 2.77013 11.3641 2.74653C11.3954 2.6955 11.418 2.63863 11.4302 2.57458ZM9.33039 5.49268C9.38381 5.16945 9.67705 4.95281 9.98536 5.00882L9.98871 5.00944C10.2991 5.06783 10.5063 5.37802 10.4524 5.70377L10.2398 6.99039L11.3846 6.9904C11.7245 6.9904 12 7.27925 12 7.63557C12 7.99188 11.7245 8.28073 11.3846 8.28073L10.0266 8.28059L9.7707 9.82911L11.0154 9.82913C11.3553 9.82913 11.6308 10.118 11.6308 10.4743C11.6308 10.8306 11.3553 11.1195 11.0154 11.1195L9.55737 11.1195L9.32807 12.5073C9.27465 12.8306 8.98141 13.0472 8.6731 12.9912L8.66975 12.9906C8.35937 12.9322 8.1522 12.622 8.20604 12.2962L8.40041 11.1195H6.89891L6.66961 12.5073C6.61619 12.8306 6.32295 13.0472 6.01464 12.9912L6.01129 12.9906C5.7009 12.9322 5.49374 12.622 5.54758 12.2962L5.74196 11.1195L4.61538 11.1195C4.27552 11.1195 4 10.8306 4 10.4743C4 10.118 4.27552 9.82913 4.61538 9.82913L5.95514 9.82911L6.21103 8.28059L4.98462 8.28073C4.64475 8.28073 4.36923 7.99188 4.36923 7.63557C4.36923 7.27925 4.64475 6.9904 4.98462 6.9904L6.42421 6.99039L6.67193 5.49268C6.72535 5.16945 7.01859 4.95281 7.3269 5.00882L7.33025 5.00944C7.64063 5.06783 7.8478 5.37802 7.79396 5.70377L7.58132 6.99039H9.08281L9.33039 5.49268ZM8.61374 9.82911L8.86963 8.28059H7.36813L7.11225 9.82911H8.61374Z"
-                                    fill="currentColor"></path>
-                                </svg>
-                                ${topic}` : ''}
-                            </div>
-                            ${main}
-                            <div class="card-stat">
-                                <div class="stat-item">
-                                    <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
-                                        height="18">
-                                        <path
-                                            d="M9.789075 2.2956175C8.97235 1.6308450000000003 7.74999 2.212005 7.74999 3.26506L7.74999 5.3915500000000005C6.642015000000001 5.5780325 5.3073725 6.040405 4.141735000000001 7.11143C2.809155 8.335825 1.751515 10.3041 1.45716 13.404099999999998C1.409905 13.9018 1.7595399999999999 14.22505 2.105415 14.317499999999999C2.442215 14.40755 2.8807175 14.314625 3.127745 13.92915C3.9664525 12.620249999999999 4.89282 11.894575 5.765827499999999 11.50585C6.4628049999999995 11.19545 7.14528 11.093125 7.74999 11.0959L7.74999 13.235025C7.74999 14.2881 8.97235 14.869250000000001 9.789075 14.2045L15.556199999999999 9.510425000000001C16.355075 8.860149999999999 16.355075 7.640124999999999 15.556199999999999 6.989840000000001L9.789075 2.2956175zM9.165099999999999 3.0768275000000003L14.895025 7.739050000000001C15.227975 7.980475 15.235775 8.468875 14.943874999999998 8.7142L9.17615 13.416800000000002C8.979474999999999 13.562024999999998 8.75 13.4269 8.75 13.227375000000002L8.75 10.638175C8.75 10.326975000000001 8.542125 10.134725 8.2544 10.1118C7.186765 10.02955 6.1563175 10.2037 5.150895 10.69295C4.14982 11.186925 3.2102250000000003 12.096525 2.573625 13.00995C2.54981 13.046975 2.52013 13.046025 2.5211725 12.986C2.8971525 10.0573 3.9373475 8.652125 4.807025 7.85305C5.87747 6.8694775 7.213197500000001 6.444867500000001 8.2272 6.33056C8.606525 6.287802500000001 8.74805 6.0849325 8.74805 5.7032275L8.74805 3.2615475C8.74805 3.0764875000000007 8.993175 2.9321925 9.165099999999999 3.0768275000000003z"
+        // 加载字体
+        const fontURL = pathToFileURL(resolve(__dirname, '../font/HYZhengYuan-55W.ttf'))
+        // 定义卡片内容
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>动态通知</title>
+                <style>
+                    @font-face {
+                        font-family: "Custom Font";
+                        src: url(${fontURL});
+                    }
+            
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
+            
+                    html {
+                        width: 770px;
+                        height: auto;
+                    }
+            
+                    .background {
+                        width: 770px;
+                        height: auto;
+                        background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
+                        overflow: hidden;
+                    }
+            
+                    .card {
+                        width: 740px;
+                        height: auto;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        border-radius: 5px;
+                        margin: 15px auto;
+                        overflow: hidden;
+                        background-color: #FFF5EE;
+                    }
+            
+                    .base-plate {
+                        width: 704px;
+                        height: auto;
+                        margin: 20px auto;
+                        border-radius: 10px;
+                        background-color: #fff;
+                    }
+            
+                    .card-body {
+                        display: flex;
+                        padding: 15px;
+                    }
+            
+                    .card .anchor-avatar {
+                        border-radius: 5px 5px 0 0;
+                        max-width: 50px;
+                        /* 设置最大宽度为容器宽度的100% */
+                        max-height: 50px;
+                        /* 设置最大高度为容器高度的90% */
+                        margin-right: 20px;
+                        border-radius: 10px;
+                    }
+            
+                    .card .card-body .card-content {
+                        width: 100%;
+                    }
+            
+                    .card .card-body .card-content .card-header {
+                        width: 100%;
+                        display: flex;
+                        justify-content: space-between;
+                    }
+            
+                    .card .up-info {
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        height: 50px;
+                    }
+            
+                    .card .up-info .up-name {
+                        font-size: 20px;
+                    }
+            
+                    .card .pub-time {
+                        font-size: 12px;
+                        color: grey;
+                    }
+            
+                    .card .card-header img {
+                        height: 50px;
+                    }
+        
+                    .card .dress-up {
+                        position: relative;
+                        max-width: 110px;
+                        max-height: 34px;
+                        /* background-image: url('${dynamicCardUrl}');
+                        background-size: cover; */
+                        font-size: 12px;
+                        line-height: 33px;
+                    }
+        
+                    .card .dress-up img {
+                        max-width: 100%;
+                        max-height: 100%;
+                    }
+        
+                    .card .dress-up span {
+                        position: absolute;
+                        color: ${dynamicCardColor};
+                        right: 37px;
+                        top: 5px;
+                    }
+        
+                    .card .card-topic {
+                        display: flex;
+                        align-items: center;
+                        margin-top: 10px;
+                        color: #008AC5;
+                        gap: 3px;
+                    }
+            
+                    .card .card-details {
+                        margin-bottom: 15px;
+                        width: 90%;
+                    }
+            
+                    .card .card-major {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 5px;
+                    }
+            
+                    .card .card-major .photo-item {
+                        border-radius: 10px;
+                        overflow: hidden;
+                        width: 170px;
+                        height: 170px;
+                        object-fit: cover;
+                    }
+        
+                    .card .card-major .single-photo-item {
+                        max-width: 500px;
+                        border-radius: 10px;
+                        overflow: hidden;
+                    }
+        
+                    .card .card-major .four-photo-item {
+                        width: 170px;
+                        height: 170px;
+                        object-fit: cover;
+                        border-radius: 10px;
+                        overflow: hidden;
+                        flex-basis: 20%; /* or any value less than 50% */
+                    }
+            
+                    .card .card-stat {
+                        display: flex;
+                        justify-content: space-between;
+                        width: 90%;
+                        margin-top: 15px;
+                        color: gray;
+                        font-size: 14px;
+                    }
+            
+                    .card .card-stat .stat-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 3px;
+                    }
+        
+                    .card .card-video {
+                        display: flex;
+                        overflow: hidden;
+                        border-radius: 5px 0 0 5px;
+                        margin-top: 10px;
+                        height: 132px;
+                    }
+            
+                    .card .video-cover {
+                        position: relative;
+                        flex: 2;
+                        overflow: hidden;
+                    }
+            
+                    .card .video-cover img {
+                        width: 236px;
+                    }
+        
+                    .card .cover-mask {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        top: 0;
+                        left: 0;
+                        background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
+                    }
+            
+                    .card .video-cover span {
+                        position: absolute;
+                        color: #fff;
+                        font-size: 14px;
+                        right: 10px;
+                        bottom: 8px;
+                    }
+            
+                    .card .video-info {
+                        display: flex;
+                        justify-content: space-between;
+                        flex-direction: column;
+                        flex: 3;
+                        border: #e5e7e9 1px solid;
+                        border-left: none;
+                        border-radius: 0 5px 5px 0;
+                        padding: 12px 16px 10px;
+                        background-color: #fff;
+                    }
+            
+                    .card .video-info-header .video-title {
+                        font-size: 16px;
+                    }
+            
+                    .card .video-info-header .video-introduction {
+                        margin-top: 5px;
+                        font-size: 12px;
+                        color: #AAA;
+                        display: -webkit-box;
+                        /* 必须设置为 -webkit-box 或 -webkit-inline-box */
+                        -webkit-box-orient: vertical;
+                        /* 必须设置为 vertical */
+                        -webkit-line-clamp: 2;
+                        /* 显示的文本行数 */
+                        overflow: hidden;
+                        /* 必须设置为 hidden */
+                    }
+            
+                    .card .video-stat {
+                        font-size: 12px;
+                        color: #AAA;
+                        display: flex;
+                        gap: 35px
+                    }
+            
+                    .card .video-stat .video-stat-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 3px;
+                    }
+        
+                    .card .card-forward {
+                        margin: 0 -15px 0 -85px;
+                        padding: 12px 15px 14px 85px;
+                        background-color: #F6F7F8;
+                    }
+            
+                    .card-forward .forward-userinfo {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                        height: 30px;
+                    }
+            
+                    .forward-userinfo img {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                    }
+            
+                    .forward-userinfo span {
+                        color: #61666D;
+                        font-size: 15px;
+                    }
+        
+                    .card .card-reserve {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px 20px 10px 20px;
+                        margin-top: 10px;
+                        border-radius: 10px;
+                        background-color: #F6F7F8;
+                    }
+            
+                    .card-reserve .reserve-title {
+                        font-size: 14px;
+                        color: #18191C;
+                    }
+            
+                    .card-reserve .reserve-desc {
+                        margin-top: 7px;
+                        font-size: 12px;
+                        color: #9499A0;
+                    }
+            
+                    .reserve-info .reserve-time {
+                        margin-right: 7px;
+                    }
+            
+                    .card-reserve .reserve-prize {
+                        display: flex;
+                        align-items: center;
+                        margin-top: 3px;
+                        gap: 3px;
+                        color: #00AEEC;
+                    }
+            
+                    .card .card-reserve .reserve-button button {
+                        border: none;
+                        height: 30px;
+                        width: 72px;
+                        font-size: 13px;
+                        border-radius: 7px;
+                    }
+            
+                    .card .card-reserve .reserve-button .reserve-button-end {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #9499A0;
+                        background-color: #E3E5E7;
+                    }
+            
+                    .card .card-reserve .reserve-button .reserve-button-ing {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #FFF;
+                        background-color: #00A0D8;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="background">
+                    <div class="card">
+                        <div class="base-plate">
+                            <div class="card-body">
+                                <!-- 主播头像 -->
+                                <img class="anchor-avatar"
+                                    src="${avatarUrl}"
+                                    alt="主播头像">
+                                <div class="card-content">
+                                    <div class="card-header">
+                                        <div class="up-info">
+                                            <div class="up-name" style="${module_author.vip.type !== 0 ? 'color: #FB7299' : ''}">${upName}</div>
+                                            <div class="pub-time">${pubTime}</div>
+                                        </div>
+                                        ${module_author.decorate ? `
+                                        <div class="dress-up">
+                                            <img src="${dynamicCardUrl}" />
+                                            <span>${dynamicCardId}</span>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="card-topic">
+                                        ${topic ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                        class="bili-dyn-topic__icon">
+                                        <path fill-rule="evenodd" clip-rule="evenodd"
+                                            d="M11.4302 2.57458C11.4416 2.51023 11.4439 2.43974 11.4218 2.3528C11.3281 1.98196 10.9517 1.72037 10.5284 1.7527C10.432 1.76018 10.3599 1.78383 10.297 1.81376C10.2347 1.84398 10.1832 1.88155 10.1401 1.92465C10.1195 1.94485 10.1017 1.96692 10.0839 1.98897L10.0808 1.99289L10.0237 2.06277L9.91103 2.2033C9.76177 2.39141 9.61593 2.58191 9.47513 2.77556C9.33433 2.96936 9.19744 3.16585 9.06672 3.36638C9.00275 3.46491 8.93968 3.56401 8.87883 3.66461L8.56966 3.6613C8.00282 3.6574 7.43605 3.65952 6.86935 3.67034C6.80747 3.56778 6.74325 3.46677 6.67818 3.3664C6.54732 3.16585 6.41045 2.96934 6.26968 2.77568C6.12891 2.58186 5.98309 2.39134 5.83387 2.20322L5.72122 2.06268L5.66416 1.99279L5.6622 1.99036C5.64401 1.96783 5.62586 1.94535 5.60483 1.92454C5.56192 1.88144 5.51022 1.84388 5.44797 1.81364C5.38522 1.78386 5.31305 1.76006 5.21665 1.75273C4.80555 1.72085 4.4203 1.97094 4.32341 2.35273C4.30147 2.43968 4.30358 2.51018 4.31512 2.57453C4.32715 2.63859 4.34975 2.69546 4.38112 2.74649C4.39567 2.77075 4.41283 2.79315 4.42999 2.81557C4.43104 2.81694 4.43209 2.81831 4.43314 2.81968L4.48759 2.89122L4.59781 3.03355C4.74589 3.22242 4.89739 3.40905 5.05377 3.59254C5.09243 3.63788 5.13136 3.68306 5.17057 3.72785C4.99083 3.73681 4.81112 3.7467 4.63143 3.75756C4.41278 3.771 4.19397 3.78537 3.97547 3.80206L3.64757 3.82786L3.48362 3.84177L3.39157 3.85181C3.36984 3.8543 3.34834 3.8577 3.32679 3.86111C3.31761 3.86257 3.30843 3.86402 3.29921 3.86541C3.05406 3.90681 2.81526 3.98901 2.59645 4.10752C2.37765 4.22603 2.17867 4.38039 2.00992 4.56302C1.84117 4.74565 1.70247 4.95593 1.60144 5.18337C1.50025 5.4105 1.43687 5.65447 1.41362 5.90153C1.33103 6.77513 1.27663 7.6515 1.25742 8.5302C1.23758 9.40951 1.25835 10.2891 1.3098 11.1655C1.32266 11.3846 1.33738 11.6035 1.35396 11.8223L1.38046 12.1505L1.39472 12.3144L1.39658 12.335L1.39906 12.3583L1.40417 12.4048C1.40671 12.4305 1.41072 12.4558 1.41473 12.4811C1.41561 12.4866 1.41648 12.4922 1.41734 12.4977C1.45717 12.7449 1.53806 12.9859 1.65567 13.2074C1.77314 13.4289 1.92779 13.6304 2.11049 13.8022C2.29319 13.974 2.50441 14.1159 2.73329 14.2197C2.96201 14.3235 3.2084 14.3901 3.45836 14.4135C3.47066 14.415 3.48114 14.4159 3.49135 14.4167C3.49477 14.417 3.49817 14.4173 3.50159 14.4176L3.5425 14.4212L3.62448 14.4283L3.78843 14.4417L4.11633 14.4674C4.33514 14.4831 4.55379 14.4983 4.7726 14.5111C6.52291 14.6145 8.27492 14.6346 10.0263 14.5706C10.4642 14.5547 10.9019 14.5332 11.3396 14.5062C11.5584 14.4923 11.7772 14.4776 11.9959 14.4604L12.3239 14.434L12.4881 14.4196L12.5813 14.4093C12.6035 14.4065 12.6255 14.403 12.6474 14.3995C12.6565 14.3981 12.6655 14.3966 12.6746 14.3952C12.9226 14.3527 13.1635 14.2691 13.3844 14.1486C13.6052 14.0284 13.8059 13.8716 13.9759 13.6868C14.1463 13.5022 14.2861 13.2892 14.3874 13.0593C14.4381 12.9444 14.4793 12.8253 14.5108 12.7037C14.519 12.6734 14.5257 12.6428 14.5322 12.612L14.5421 12.566L14.55 12.5196C14.5556 12.4887 14.5607 12.4578 14.5641 12.4266C14.5681 12.3959 14.5723 12.363 14.5746 12.3373C14.6642 11.4637 14.7237 10.5864 14.7435 9.70617C14.764 8.825 14.7347 7.94337 14.6719 7.06715C14.6561 6.8479 14.6385 6.62896 14.6183 6.41033L14.5867 6.08246L14.5697 5.91853L14.5655 5.87758C14.5641 5.86445 14.5618 5.8473 14.5599 5.83231C14.5588 5.8242 14.5578 5.81609 14.5567 5.80797C14.5538 5.78514 14.5509 5.76229 14.5466 5.7396C14.5064 5.49301 14.4252 5.25275 14.3067 5.03242C14.1886 4.81208 14.0343 4.61153 13.8519 4.44095C13.6695 4.27038 13.4589 4.12993 13.2311 4.02733C13.0033 3.92458 12.7583 3.85907 12.5099 3.83636C12.4974 3.83492 12.4865 3.83394 12.4759 3.833C12.4729 3.83273 12.4698 3.83246 12.4668 3.83219L12.4258 3.82879L12.3438 3.82199L12.1798 3.80886L11.8516 3.78413C11.633 3.76915 11.4143 3.75478 11.1955 3.74288C10.993 3.73147 10.7904 3.72134 10.5878 3.71243L10.6914 3.59236C10.8479 3.40903 10.9992 3.22242 11.1473 3.03341L11.2576 2.89124L11.312 2.81971C11.3136 2.81773 11.3151 2.81575 11.3166 2.81377C11.3333 2.79197 11.3501 2.77013 11.3641 2.74653C11.3954 2.6955 11.418 2.63863 11.4302 2.57458ZM9.33039 5.49268C9.38381 5.16945 9.67705 4.95281 9.98536 5.00882L9.98871 5.00944C10.2991 5.06783 10.5063 5.37802 10.4524 5.70377L10.2398 6.99039L11.3846 6.9904C11.7245 6.9904 12 7.27925 12 7.63557C12 7.99188 11.7245 8.28073 11.3846 8.28073L10.0266 8.28059L9.7707 9.82911L11.0154 9.82913C11.3553 9.82913 11.6308 10.118 11.6308 10.4743C11.6308 10.8306 11.3553 11.1195 11.0154 11.1195L9.55737 11.1195L9.32807 12.5073C9.27465 12.8306 8.98141 13.0472 8.6731 12.9912L8.66975 12.9906C8.35937 12.9322 8.1522 12.622 8.20604 12.2962L8.40041 11.1195H6.89891L6.66961 12.5073C6.61619 12.8306 6.32295 13.0472 6.01464 12.9912L6.01129 12.9906C5.7009 12.9322 5.49374 12.622 5.54758 12.2962L5.74196 11.1195L4.61538 11.1195C4.27552 11.1195 4 10.8306 4 10.4743C4 10.118 4.27552 9.82913 4.61538 9.82913L5.95514 9.82911L6.21103 8.28059L4.98462 8.28073C4.64475 8.28073 4.36923 7.99188 4.36923 7.63557C4.36923 7.27925 4.64475 6.9904 4.98462 6.9904L6.42421 6.99039L6.67193 5.49268C6.72535 5.16945 7.01859 4.95281 7.3269 5.00882L7.33025 5.00944C7.64063 5.06783 7.8478 5.37802 7.79396 5.70377L7.58132 6.99039H9.08281L9.33039 5.49268ZM8.61374 9.82911L8.86963 8.28059H7.36813L7.11225 9.82911H8.61374Z"
                                             fill="currentColor"></path>
-                                    </svg>
-                                    <span>${forward}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
-                                        height="18">
-                                        <path
-                                            d="M1.5625 7.875C1.5625 4.595807499999999 4.220807499999999 1.9375 7.5 1.9375L10.5 1.9375C13.779175 1.9375 16.4375 4.595807499999999 16.4375 7.875C16.4375 11.0504 13.944675 13.6435 10.809275 13.80405C10.097025 14.722974999999998 8.920875 15.880675 7.267095 16.331325C6.9735075 16.4113 6.704762499999999 16.286224999999998 6.55411 16.092325C6.40789 15.904149999999998 6.3561 15.634350000000001 6.4652449999999995 15.383025C6.72879 14.776249999999997 6.776465 14.221025000000001 6.7340175 13.761800000000001C3.8167675 13.387125 1.5625 10.894475 1.5625 7.875zM7.5 2.9375C4.773095 2.9375 2.5625 5.148095 2.5625 7.875C2.5625 10.502575 4.61524 12.651075000000002 7.2041924999999996 12.8038C7.4305875 12.817174999999999 7.619625000000001 12.981200000000001 7.664724999999999 13.203475C7.772575 13.734575000000001 7.8012 14.405425000000001 7.5884275 15.148399999999999C8.748325 14.6682 9.606 13.759825 10.151275 13.016475C10.24445 12.889475 10.392050000000001 12.8138 10.54955 12.812275C13.253575 12.785725 15.4375 10.58535 15.4375 7.875C15.4375 5.148095 13.226899999999999 2.9375 10.5 2.9375L7.5 2.9375z"
-                                            fill="currentColor"></path>
-                                    </svg>
-                                    <span>${comment}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
-                                        height="18">
-                                        <path
-                                            d="M10.4511 2.2220125C10.218425 2.194885 10.002175 2.2953725 9.884175 2.433395C9.4264 2.9688525 9.321875 3.7501399999999996 8.978575 4.3581725C8.533574999999999 5.146395 8.1198 5.6213375 7.609775000000001 6.068507499999999C7.1751375 6.449565 6.738407499999999 6.697442499999999 6.3125 6.8050575L6.3125 14.854575C6.9198900000000005 14.868174999999999 7.572900000000001 14.876875 8.25 14.876875C9.936425 14.876875 11.367025 14.823325 12.33115 14.773699999999998C13.03235 14.737575 13.646025000000002 14.390075 13.966750000000001 13.81945C14.401900000000001 13.04535 14.9387 11.909650000000001 15.264174999999998 10.571200000000001C15.56665 9.327275 15.704699999999999 8.304325 15.766675 7.582224999999999C15.7988 7.208262500000001 15.50165 6.875019999999999 15.059999999999999 6.875019999999999L11.323274999999999 6.875019999999999C11.156575 6.875019999999999 11.000800000000002 6.791952499999999 10.907975 6.653499999999999C10.783725 6.468192500000001 10.82855 6.2670175 10.9037 6.07485C11.059 5.675084999999999 11.29355 4.9974475 11.382425000000001 4.4018275C11.470875000000001 3.80917 11.450999999999999 3.32219 11.212050000000001 2.86913C10.9571 2.3857825 10.66065 2.2464475 10.4511 2.2220125zM12.034300000000002 5.87502L15.059999999999999 5.87502C16.02035 5.87502 16.850875 6.64489 16.763 7.667825C16.697100000000002 8.435525 16.55155 9.5092 16.235825000000002 10.807500000000001C15.882625 12.259950000000002 15.3035 13.482225 14.838450000000002 14.309474999999999C14.32695 15.2194 13.377475 15.721150000000002 12.38255 15.772375C11.405125 15.822725 9.956949999999999 15.876875000000002 8.25 15.876875000000002C6.5961925 15.876875000000002 5.0846825 15.826025000000001 4.0136674999999995 15.77715C2.8370825 15.723474999999999 1.8519999999999999 14.850000000000001 1.725645 13.654824999999999C1.6404649999999998 12.849274999999999 1.5625 11.80725 1.5625 10.689375C1.5625 9.665175000000001 1.6279400000000002 8.736175 1.7045524999999997 7.998975C1.8351224999999998 6.7427075 2.9137075 5.87502 4.130655 5.87502L5.8125 5.87502C6.072015 5.87502 6.457235 5.7490675 6.9505175 5.316582499999999C7.377705000000001 4.942045 7.7193000000000005 4.5546075 8.107775 3.8665374999999997C8.492075 3.18585 8.605825 2.389785 9.124075 1.783595C9.452975 1.3988800000000001 9.99475 1.162025 10.5669 1.228745C11.16225 1.29816 11.717425 1.683875 12.09655 2.4025825000000003C12.478275 3.1262375000000002 12.474075 3.8618225 12.371500000000001 4.54938C12.302149999999997 5.0139949999999995 12.155425000000001 5.510059999999999 12.034300000000002 5.87502zM5.3125 14.82705L5.3125 6.875019999999999L4.130655 6.875019999999999C3.3792199999999997 6.875019999999999 2.77211 7.400795 2.6991975000000004 8.10235C2.6253525 8.812875 2.5625 9.70665 2.5625 10.689375C2.5625 11.762875 2.6374975 12.768475 2.7200975 13.549700000000001C2.7919925 14.229675 3.3521950000000005 14.74595 4.05924 14.778224999999999C4.4278775 14.795 4.849985 14.812050000000001 5.3125 14.82705z"
-                                            fill="currentColor"></path>
-                                    </svg>
-                                    <span>${like}</span>
+                                        </svg>
+                                        ${topic}` : ''}
+                                    </div>
+                                    ${main}
+                                    <div class="card-stat">
+                                        <div class="stat-item">
+                                            <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
+                                                xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
+                                                height="18">
+                                                <path
+                                                    d="M9.789075 2.2956175C8.97235 1.6308450000000003 7.74999 2.212005 7.74999 3.26506L7.74999 5.3915500000000005C6.642015000000001 5.5780325 5.3073725 6.040405 4.141735000000001 7.11143C2.809155 8.335825 1.751515 10.3041 1.45716 13.404099999999998C1.409905 13.9018 1.7595399999999999 14.22505 2.105415 14.317499999999999C2.442215 14.40755 2.8807175 14.314625 3.127745 13.92915C3.9664525 12.620249999999999 4.89282 11.894575 5.765827499999999 11.50585C6.4628049999999995 11.19545 7.14528 11.093125 7.74999 11.0959L7.74999 13.235025C7.74999 14.2881 8.97235 14.869250000000001 9.789075 14.2045L15.556199999999999 9.510425000000001C16.355075 8.860149999999999 16.355075 7.640124999999999 15.556199999999999 6.989840000000001L9.789075 2.2956175zM9.165099999999999 3.0768275000000003L14.895025 7.739050000000001C15.227975 7.980475 15.235775 8.468875 14.943874999999998 8.7142L9.17615 13.416800000000002C8.979474999999999 13.562024999999998 8.75 13.4269 8.75 13.227375000000002L8.75 10.638175C8.75 10.326975000000001 8.542125 10.134725 8.2544 10.1118C7.186765 10.02955 6.1563175 10.2037 5.150895 10.69295C4.14982 11.186925 3.2102250000000003 12.096525 2.573625 13.00995C2.54981 13.046975 2.52013 13.046025 2.5211725 12.986C2.8971525 10.0573 3.9373475 8.652125 4.807025 7.85305C5.87747 6.8694775 7.213197500000001 6.444867500000001 8.2272 6.33056C8.606525 6.287802500000001 8.74805 6.0849325 8.74805 5.7032275L8.74805 3.2615475C8.74805 3.0764875000000007 8.993175 2.9321925 9.165099999999999 3.0768275000000003z"
+                                                    fill="currentColor"></path>
+                                            </svg>
+                                            <span>${forward}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
+                                                xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
+                                                height="18">
+                                                <path
+                                                    d="M1.5625 7.875C1.5625 4.595807499999999 4.220807499999999 1.9375 7.5 1.9375L10.5 1.9375C13.779175 1.9375 16.4375 4.595807499999999 16.4375 7.875C16.4375 11.0504 13.944675 13.6435 10.809275 13.80405C10.097025 14.722974999999998 8.920875 15.880675 7.267095 16.331325C6.9735075 16.4113 6.704762499999999 16.286224999999998 6.55411 16.092325C6.40789 15.904149999999998 6.3561 15.634350000000001 6.4652449999999995 15.383025C6.72879 14.776249999999997 6.776465 14.221025000000001 6.7340175 13.761800000000001C3.8167675 13.387125 1.5625 10.894475 1.5625 7.875zM7.5 2.9375C4.773095 2.9375 2.5625 5.148095 2.5625 7.875C2.5625 10.502575 4.61524 12.651075000000002 7.2041924999999996 12.8038C7.4305875 12.817174999999999 7.619625000000001 12.981200000000001 7.664724999999999 13.203475C7.772575 13.734575000000001 7.8012 14.405425000000001 7.5884275 15.148399999999999C8.748325 14.6682 9.606 13.759825 10.151275 13.016475C10.24445 12.889475 10.392050000000001 12.8138 10.54955 12.812275C13.253575 12.785725 15.4375 10.58535 15.4375 7.875C15.4375 5.148095 13.226899999999999 2.9375 10.5 2.9375L7.5 2.9375z"
+                                                    fill="currentColor"></path>
+                                            </svg>
+                                            <span>${comment}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <svg style="width: 18px; height: 18px;" xmlns="http://www.w3.org/2000/svg"
+                                                xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 18 18" width="18"
+                                                height="18">
+                                                <path
+                                                    d="M10.4511 2.2220125C10.218425 2.194885 10.002175 2.2953725 9.884175 2.433395C9.4264 2.9688525 9.321875 3.7501399999999996 8.978575 4.3581725C8.533574999999999 5.146395 8.1198 5.6213375 7.609775000000001 6.068507499999999C7.1751375 6.449565 6.738407499999999 6.697442499999999 6.3125 6.8050575L6.3125 14.854575C6.9198900000000005 14.868174999999999 7.572900000000001 14.876875 8.25 14.876875C9.936425 14.876875 11.367025 14.823325 12.33115 14.773699999999998C13.03235 14.737575 13.646025000000002 14.390075 13.966750000000001 13.81945C14.401900000000001 13.04535 14.9387 11.909650000000001 15.264174999999998 10.571200000000001C15.56665 9.327275 15.704699999999999 8.304325 15.766675 7.582224999999999C15.7988 7.208262500000001 15.50165 6.875019999999999 15.059999999999999 6.875019999999999L11.323274999999999 6.875019999999999C11.156575 6.875019999999999 11.000800000000002 6.791952499999999 10.907975 6.653499999999999C10.783725 6.468192500000001 10.82855 6.2670175 10.9037 6.07485C11.059 5.675084999999999 11.29355 4.9974475 11.382425000000001 4.4018275C11.470875000000001 3.80917 11.450999999999999 3.32219 11.212050000000001 2.86913C10.9571 2.3857825 10.66065 2.2464475 10.4511 2.2220125zM12.034300000000002 5.87502L15.059999999999999 5.87502C16.02035 5.87502 16.850875 6.64489 16.763 7.667825C16.697100000000002 8.435525 16.55155 9.5092 16.235825000000002 10.807500000000001C15.882625 12.259950000000002 15.3035 13.482225 14.838450000000002 14.309474999999999C14.32695 15.2194 13.377475 15.721150000000002 12.38255 15.772375C11.405125 15.822725 9.956949999999999 15.876875000000002 8.25 15.876875000000002C6.5961925 15.876875000000002 5.0846825 15.826025000000001 4.0136674999999995 15.77715C2.8370825 15.723474999999999 1.8519999999999999 14.850000000000001 1.725645 13.654824999999999C1.6404649999999998 12.849274999999999 1.5625 11.80725 1.5625 10.689375C1.5625 9.665175000000001 1.6279400000000002 8.736175 1.7045524999999997 7.998975C1.8351224999999998 6.7427075 2.9137075 5.87502 4.130655 5.87502L5.8125 5.87502C6.072015 5.87502 6.457235 5.7490675 6.9505175 5.316582499999999C7.377705000000001 4.942045 7.7193000000000005 4.5546075 8.107775 3.8665374999999997C8.492075 3.18585 8.605825 2.389785 9.124075 1.783595C9.452975 1.3988800000000001 9.99475 1.162025 10.5669 1.228745C11.16225 1.29816 11.717425 1.683875 12.09655 2.4025825000000003C12.478275 3.1262375000000002 12.474075 3.8618225 12.371500000000001 4.54938C12.302149999999997 5.0139949999999995 12.155425000000001 5.510059999999999 12.034300000000002 5.87502zM5.3125 14.82705L5.3125 6.875019999999999L4.130655 6.875019999999999C3.3792199999999997 6.875019999999999 2.77211 7.400795 2.6991975000000004 8.10235C2.6253525 8.812875 2.5625 9.70665 2.5625 10.689375C2.5625 11.762875 2.6374975 12.768475 2.7200975 13.549700000000001C2.7919925 14.229675 3.3521950000000005 14.74595 4.05924 14.778224999999999C4.4278775 14.795 4.849985 14.812050000000001 5.3125 14.82705z"
+                                                    fill="currentColor"></path>
+                                            </svg>
+                                            <span>${like}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </body>
-    
-    </html>
-    `)
-        return [pic, link]
+            </body>
+            </html>
+        `
+        // 判断渲染方式
+        if (this.config.renderType) { // 为1则为真，进入page模式
+            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/0.html';
+            const page = await this.ctx.puppeteer.page()
+            await page.goto(htmlPath)
+            await page.setContent(html, { waitUntil: 'networkidle0' })
+            const elementHandle = await page.$('html')
+            const boundingBox = await elementHandle.boundingBox()
+            const buffer = await page.screenshot({
+                type: 'png',
+                clip: {
+                    x: boundingBox.x,
+                    y: boundingBox.y,
+                    width: boundingBox.width,
+                    height: boundingBox.height
+                }
+            })
+            await elementHandle.dispose();
+            await page.close()
+            return { buffer, link }
+        }
+        // 使用render模式渲染
+        const pic = await this.ctx.puppeteer.render(html)
+        return { pic, link }
     }
 
-    getLiveStatus(time: string, liveStatus: number): [string, string, boolean] {
+    async getLiveStatus(time: string, liveStatus: number): Promise<[string, string, boolean]> {
         let titleStatus: string;
         let liveTime: string;
         let cover: boolean;
@@ -906,7 +964,7 @@ class GenerateImg extends Service {
             }
             case 2: {
                 titleStatus = '正在直播';
-                liveTime = `直播时长：${this.getTimeDifference(time)}`;
+                liveTime = `直播时长：${await this.getTimeDifference(time)}`;
                 cover = false;
                 break;
             }
@@ -914,21 +972,20 @@ class GenerateImg extends Service {
         return [titleStatus, liveTime, cover]
     }
 
-    getTimeDifference(dateString: string) {
+    async getTimeDifference(dateString: string) {
         // 将日期字符串转换为Date对象
         const date = new Date(dateString);
         // 获取Unix时间戳（以毫秒为单位）
-        const unixTime = date.getTime();
+        const unixTime = date.getTime() / 1000;
         // 获取当前Unix时间戳
-        const now = this.ctx.biliAPI.getUTCPlus8Time()
+        const now = await this.ctx.biliAPI.getServerUTCTime()
         // 计算时间差（以秒为单位）
-        const differenceInSeconds = Math.floor((now - unixTime) / 1000);
+        const differenceInSeconds = Math.floor(now - unixTime);
         // 获取yyyy:MM:dd HH:mm:ss
         const days = Math.floor(differenceInSeconds / (24 * 60 * 60));
         const hours = Math.floor((differenceInSeconds % (24 * 60 * 60)) / (60 * 60));
         const minutes = Math.floor((differenceInSeconds % (60 * 60)) / 60);
         const seconds = differenceInSeconds % 60;
-
         // 返回格式化的字符串
         return days ?
             `${days} 天 ${hours}小时${minutes.toString().padStart(2, '0')}分钟${seconds.toString().padStart(2, '0')}秒` :
@@ -949,22 +1006,16 @@ class GenerateImg extends Service {
 
 namespace GenerateImg {
     export interface Config {
+        renderType: number,
         cardColorStart: string,
         cardColorEnd: string,
         font: string
     }
 
     export const Config: Schema<Config> = Schema.object({
-        cardColorStart: Schema.string()
-            .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
-            .default('#F38AB5')
-            .description('推送卡片的开始渐变背景色，请填入16进制颜色代码，参考网站：https://webkul.github.io/coolhue/'),
-
-        cardColorEnd: Schema.string()
-            .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
-            .default('#F9CCDF')
-            .description('推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/'),
-
+        renderType: Schema.number(),
+        cardColorStart: Schema.string(),
+        cardColorEnd: Schema.string(),
         font: Schema.string()
     })
 }
