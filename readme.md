@@ -1,6 +1,4 @@
-<center>
 # Bilibili-Botify
-</center>
 
 基于 [koishi](../../../../koishijs/koishi) 框架的B站推送插件
 

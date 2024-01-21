@@ -71,7 +71,7 @@ class ComRegister {
             .example('test.time')
             .action(async () => {
                 const content = await ctx.biliAPI.getTimeNow()
-                console.log(content);
+                return content
             })
 
         ctx.command('test')
@@ -118,8 +118,8 @@ class ComRegister {
             .subcommand('.utc')
             .usage('获取当前UTC+8 Unix时间戳')
             .example('test utc')
-            .action(async () => {
-                console.log(await ctx.biliAPI.getServerUTCTime());
+            .action(async ({ session }) => {
+                session.send((await ctx.biliAPI.getServerUTCTime()).toString())
             })
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -486,14 +486,14 @@ class ComRegister {
         let firstSubscription: boolean = true
         let timePoint: number
         // Test code
-        // let timer = 0
+        let timer = 0
 
         return async () => {
             // Test code
-            /* console.log('timer:' + timer++);
+            console.log('timer:' + timer++);
             console.log('firstSubscription:' + firstSubscription);
             console.log(`timePoint: ${timePoint}`);
-            console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`); */
+            console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`);
 
             // 第一次订阅判断
             if (firstSubscription) {
@@ -526,13 +526,14 @@ class ComRegister {
             }
             // 获取数据内容
             const items = content.data.items
-            // 发送请求 默认只查看前五条数据
+            // 发送请求 默认只查看配置文件规定的数据
             for (let num = this.config.dynamicCheckNumber - 1; num >= 0; num--) {
                 // 没有动态内容则直接跳过
                 if (!items[num]) continue
 
                 // Test code
-                // console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
+                console.log(`items[${num}].modules.module_author.pub_ts: ${items[num].modules.module_author.pub_ts}`);
+                console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
 
                 // 寻找发布时间比时间点时间更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
