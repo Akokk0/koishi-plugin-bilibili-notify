@@ -53,13 +53,13 @@ class GenerateImg extends Service {
     }
 
     protected start(): void | Promise<void> {
-        this.logger.info('GenerateImg已被注册到Context中');
+        // this.logger.info('GenerateImg已被注册到Context中');
     }
 
     async generateLiveImg(data: any, userData: any, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
         const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
         // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, '../font/HYZhengYuan-55W.ttf'))
+        const fontURL = pathToFileURL(resolve(__dirname, './HYZhengYuan-55W.ttf'))
         // 卡片内容
         const html = `
             <!DOCTYPE html>
@@ -514,7 +514,7 @@ class GenerateImg extends Service {
 
         const [main, link] = await getDynamicMajor(data, false)
         // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, '../font/HYZhengYuan-55W.ttf'))
+        const fontURL = pathToFileURL(resolve(__dirname, './HYZhengYuan-55W.ttf'))
         // 定义卡片内容
         const html = `
             <!DOCTYPE html>

@@ -40,7 +40,7 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        ctx.command('test', { hidden: true, /* permissions: ['authority:5'] */ })
+        /* ctx.command('test', { hidden: true, permissions: ['authority:5'] })
             .subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
@@ -69,9 +69,8 @@ class ComRegister {
             .subcommand('.time')
             .usage('测试时间接口')
             .example('test.time')
-            .action(async () => {
-                const content = await ctx.biliAPI.getTimeNow()
-                return content
+            .action(async ({ session }) => {
+                session.send(await ctx.biliAPI.getTimeNow())
             })
 
         ctx.command('test')
@@ -120,7 +119,7 @@ class ComRegister {
             .example('test utc')
             .action(async ({ session }) => {
                 session.send((await ctx.biliAPI.getServerUTCTime()).toString())
-            })
+            }) */
 
         ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
             .subcommand('.login', '登录B站之后才可以进行之后的操作')
@@ -490,10 +489,10 @@ class ComRegister {
 
         return async () => {
             // Test code
-            console.log('timer:' + timer++);
-            console.log('firstSubscription:' + firstSubscription);
-            console.log(`timePoint: ${timePoint}`);
-            console.log(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`);
+            /* this.logger.info('timer:' + timer++)
+            this.logger.info('firstSubscription:' + firstSubscription)
+            this.logger.info(`timePoint: ${timePoint}`)
+            this.logger.info(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`) */
 
             // 第一次订阅判断
             if (firstSubscription) {
@@ -526,31 +525,24 @@ class ComRegister {
             }
             // 获取数据内容
             const items = content.data.items
-            // 发送请求 默认只查看配置文件规定的数据
+            // 发送请求 默认只查看配置文件规定数量的数据
             for (let num = this.config.dynamicCheckNumber - 1; num >= 0; num--) {
                 // 没有动态内容则直接跳过
                 if (!items[num]) continue
 
                 // Test code
-                console.log(`items[${num}].modules.module_author.pub_ts: ${items[num].modules.module_author.pub_ts}`);
-                console.log(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`);
+                /* this.logger.info(`items[${num}].modules.module_author.pub_ts: ${items[num].modules.module_author.pub_ts}`)
+                this.logger.info(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`) */
 
-                // 寻找发布时间比时间点时间更晚的动态
+                // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
-                    // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
-                    /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
-                    if (num === 0) {
-                        timePoint = items[num].modules.module_author.pub_ts
-                     } */
-                    // 检查最一条动态是否是置顶动态
-                    if (num === 0) {
-                        // 如果是置顶动态，则跳过
-                        if (items[num].modules.module_tag) {
-                            // 将上一条动态的发布时间设为时间点
-                            timePoint = items[num + 1].modules.module_author.pub_ts
-                            continue
+                    // 更新时间点为当前动态的发布时间
+                    if (num === 1) { // 寻找倒数第二条动态
+                        if (items[0].modules.module_tag) { // 存在置顶动态
+                            timePoint = items[num].modules.module_author.pub_ts
+                        } else {
+                            timePoint = items[0].modules.module_author.pub_ts
                         }
-                        timePoint = items[num].modules.module_author.pub_ts
                     }
                     // 推送该条动态
                     let attempts = 3;
@@ -570,6 +562,23 @@ class ComRegister {
                             }
                         }
                     }
+
+                    // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
+                    /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
+                    if (num === 0) {
+                        timePoint = items[num].modules.module_author.pub_ts
+                     } */
+                    // 检查最一条动态是否是置顶动态 (ver 1.0.4 不用考虑置顶动态的问题)
+                    // 如果是新发布的置顶动态，直接推送即可。如果是旧的置顶动态，则无法进入这个判断
+                    /* if (num === 0) {
+                        // 如果是置顶动态，则跳过
+                        if (items[num].modules.module_tag) {
+                            // 将上一条动态的发布时间设为时间点
+                            timePoint = items[num + 1].modules.module_author.pub_ts
+                            continue
+                        }
+                        timePoint = items[num].modules.module_author.pub_ts
+                    } */
                 }
             }
         }

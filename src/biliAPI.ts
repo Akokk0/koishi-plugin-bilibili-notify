@@ -36,14 +36,11 @@ class BiliAPI extends Service {
     }
 
     protected start(): void | Promise<void> {
-        /* this.client = this.ctx.http.extend({
-            endpoint: 'https://api.live.bilibili.com',
-        }) */
-
+        // 创建新的http客户端(axios)
         this.createNewClient()
+        // 从数据库加载cookies
         this.loadCookiesFromDatabase()
-
-        this.logger.info('BiliAPI已被注册到Context中')
+        // this.logger.info('BiliAPI已被注册到Context中')
     }
 
     async getServerUTCTime() {
@@ -55,7 +52,7 @@ class BiliAPI extends Service {
                 const timestamp = new Function(`return Date.UTC(${match[1]})`)();
                 return timestamp / 1000;
             } else {
-                throw new Error('Failed to parse server time');
+                throw new Error('解析服务器时间失败！');
             }
         } catch (e) {
             throw new Error('网络异常，本次请求失败！');
@@ -318,15 +315,5 @@ class BiliAPI extends Service {
         // 没有问题，cookies已更新完成
     }
 }
-
-/* namespace LiveAPI {
-    export interface Config {
-        roomId: string
-    }
-
-    export const Config: Schema<Config> = Schema.object({
-        roomId: Schema.string().required()
-    })
-} */
 
 export default BiliAPI
