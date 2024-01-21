@@ -537,12 +537,22 @@ class ComRegister {
                 // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
                     // 更新时间点为当前动态的发布时间
-                    if (num === 1) { // 寻找倒数第二条动态
+                    /* if (num === 1) { // 寻找倒数第二条动态
                         if (items[0].modules.module_tag) { // 存在置顶动态
                             timePoint = items[num].modules.module_author.pub_ts
                         } else {
                             timePoint = items[0].modules.module_author.pub_ts
                         }
+                    } */
+                    // 更新时间点为最新发布动态的发布时间
+                    switch (num) {
+                        case 1: {
+                            if (items[0].modules.module_tag) { // 存在置顶动态
+                                timePoint = items[num].modules.module_author.pub_ts
+                            }
+                            break
+                        }
+                        case 0: timePoint = items[num].modules.module_author.pub_ts
                     }
                     // 推送该条动态
                     let attempts = 3;
