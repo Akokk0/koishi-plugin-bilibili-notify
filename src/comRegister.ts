@@ -558,8 +558,18 @@ class ComRegister {
                     let attempts = 3;
                     for (let i = 0; i < attempts; i++) {
                         try {
+                            // 定义变量
+                            let pic: string
+                            let buffer: Buffer
                             // 获取动态推送图片
-                            const { pic, buffer } = await ctx.gimg.generateDynamicImg(items[num])
+                            try {
+                                const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
+                                pic = gimgPic
+                                buffer = gimgBuffer
+                            } catch (e) {
+                                // 直播开播动态，不做处理
+                                if (e.message === '直播开播动态，不做处理') break
+                            }
                             // 如果pic存在，则直接返回pic
                             if (pic) return await bot.sendMessage(guildId, pic)
                             // pic不存在，说明使用的是page模式
@@ -620,11 +630,9 @@ class ComRegister {
 
         return async () => {
             try {
-                // console.log('start before' + ' ' + flag);
                 // 如果flag为false则说明前面的代码还未执行完，则直接返回
                 if (!flag) return
                 flag && (flag = false)
-                // console.log('start after' + ' ' + flag);
                 // 发送请求检测直播状态
                 let content: any
                 try {
@@ -717,10 +725,8 @@ class ComRegister {
                     }
                 }
             } finally {
-                // console.log('end before' + ' ' + flag);
                 // 执行完方法体不论如何都把flag设置为true
                 flag = true
-                // console.log('end after' + ' ' + flag);
             }
         }
     }
@@ -771,15 +777,61 @@ class ComRegister {
         this.num = subData.length
         // 如果订阅数量超过三个则被非法修改数据库
         // 向管理员发送重新订阅通知
-        if (this.num > 3) return
+        if (this.num > 3) {
+            ctx.notifier.create({
+                type: 'danger',
+                content: '数据库被非法修改，请你删除bilibili表的所有内容后重启插件'
+            })
+            return
+        }
         // 定义Bot
         let bot: Bot<Context>
         // 循环遍历
-        subData.forEach(sub => {
+        subData.forEach(async sub => {
             // 拿到对应bot
             switch (sub.platform) {
                 case 'qq': bot = this.qqBot
                 case 'qqguild': bot = this.qqguildBot
+            }
+            // 判断数据库是否被篡改
+            // 获取用户信息
+            let content: any
+            let attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    content = await ctx.biliAPI.getUserInfo(sub.uid)
+                    break
+                } catch (e) {
+                    this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
+                    if (i === attempts - 1) { // 已尝试三次
+                        return bot.sendMessage(sub.targetId, '你的网络可能出现了某些问题，请检查后重启插件')
+                    }
+                }
+            }
+            // 获取data
+            const { data } = content
+            // 定义函数删除数据和发送提示
+            const deleteSub = async () => {
+                // 从数据库删除该条数据
+                await ctx.database.remove('bilibili', { id: sub.id })
+                // 给用户发送提示
+                bot.sendMessage(sub.targetId, `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
+            }
+            // 判断是否有其他问题
+            if (content.code !== 0) {
+                switch (content.code) {
+                    case -352:
+                    case -403: bot.sendMessage(sub.targetId, '你的登录信息已过期，请重新登录Bilibili'); return
+                    case -400:
+                    case -404:
+                    default: deleteSub(); return
+                }
+            }
+            // 检测房间号是否被篡改
+            if (sub.live && (!data.live_room || data.live_room.roomid.toString() !== sub.room_id)) {
+                // 房间号被篡改，删除该订阅
+                deleteSub()
+                return
             }
             // 构建订阅对象
             let subManagerItem = {

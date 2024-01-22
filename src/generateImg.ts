@@ -497,7 +497,7 @@ class GenerateImg extends Service {
                 case DYNAMIC_TYPE_UGC_SEASON: return [`${upName}更新了合集，我暂时无法渲染，请自行查看`, link]
                 case DYNAMIC_TYPE_NONE: return [`${upName}发布了一条无效动态`, link]
                 // 直播开播，不做处理
-                case DYNAMIC_TYPE_LIVE_RCMD: return ['', '']
+                case DYNAMIC_TYPE_LIVE_RCMD: throw new Error('直播开播动态，不做处理')
                 case DYNAMIC_TYPE_SUBSCRIPTION_NEW:
                 case DYNAMIC_TYPE_BANNER:
                 case DYNAMIC_TYPE_SUBSCRIPTION:
@@ -512,6 +512,7 @@ class GenerateImg extends Service {
             return [main, link, forwardInfo]
         }
 
+        // 获取动态主要内容
         const [main, link] = await getDynamicMajor(data, false)
         // 加载字体
         const fontURL = pathToFileURL(resolve(__dirname, './HYZhengYuan-55W.ttf'))

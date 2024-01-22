@@ -189,7 +189,6 @@ class BiliAPI extends Service {
         // 定义CSRF Token
         let csrf: string
         cookies.forEach(cookieData => {
-            // console.log(cookieData);
             // 获取key为bili_jct的值
             if (cookieData.key === 'bili_jct') csrf = cookieData.value
             // 创建一个完整的 Cookie 实例
