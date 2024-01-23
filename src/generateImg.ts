@@ -314,7 +314,7 @@ class GenerateImg extends Service {
                         <div class="card-forward">
                             <div class="forward-userinfo">
                                 <img class="forward-avatar" src="${forwardUserAvatarUrl}" alt="">
-                                <span class="forward-username">${forwardUserName} ${forwardInfo}</span>
+                                <span class="forward-username">${forwardUserName} ${forwardInfo ? forwardInfo : ''}</span>
                             </div>
                             <div class="forward-main">
                                 ${forwardMain}

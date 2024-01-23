@@ -544,16 +544,6 @@ class ComRegister {
                             timePoint = items[0].modules.module_author.pub_ts
                         }
                     } */
-                    // 更新时间点为最新发布动态的发布时间
-                    switch (num) {
-                        case 1: {
-                            if (items[0].modules.module_tag) { // 存在置顶动态
-                                timePoint = items[num].modules.module_author.pub_ts
-                            }
-                            break
-                        }
-                        case 0: timePoint = items[num].modules.module_author.pub_ts
-                    }
                     // 推送该条动态
                     let attempts = 3;
                     for (let i = 0; i < attempts; i++) {
@@ -582,7 +572,16 @@ class ComRegister {
                             }
                         }
                     }
-
+                    // 更新时间点为最新发布动态的发布时间
+                    switch (num) {
+                        case 1: {
+                            if (items[0].modules.module_tag) { // 存在置顶动态
+                                timePoint = items[num].modules.module_author.pub_ts
+                            }
+                            break
+                        }
+                        case 0: timePoint = items[num].modules.module_author.pub_ts
+                    }
                     // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
                     /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
                     if (num === 0) {
