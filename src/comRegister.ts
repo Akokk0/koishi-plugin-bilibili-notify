@@ -2,6 +2,7 @@ import { Bot, Context, Logger, Schema, Session, h } from "koishi"
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
+import { Notifier } from "@koishijs/plugin-notifier";
 
 enum LiveType {
     NotLiveBroadcast,
@@ -14,6 +15,7 @@ class ComRegister {
     logger: Logger;
     config: ComRegister.Config
     num: number = 0
+    subNotifier: Notifier
     subManager: {
         id: number,
         uid: string,
@@ -181,13 +183,13 @@ class ComRegister {
                         }])
                         // 销毁定时器
                         dispose()
+                        // 订阅之前的订阅
+                        await this.getSubFromDatabase(ctx)
                         // 清除控制台通知
                         ctx.biliAPI.disposeNotifier()
                         // 发送成功登录推送
                         await session.send('登录成功！')
-                        // 订阅之前的订阅
-                        await this.getSubFromDatabase(ctx)
-                        // 调用bili show指令
+                        // bili show
                         await session.execute('bili show')
                         return
                     }
@@ -239,13 +241,9 @@ class ComRegister {
             .subcommand('.show', '展示订阅对象')
             .usage('展示订阅对象')
             .example('bili show')
-            .action(async ({ session }) => {
-                let table: string = ``
-                this.subManager.forEach(sub => {
-                    table += `UID:${sub.uid}  ${sub.dynamic ? '已订阅动态' : ''}  ${sub.live ? '已订阅直播' : ''}` + '\n'
-                })
-                !table && session.send('没有订阅任何UP')
-                table && session.send(table)
+            .action(() => {
+                const subTable = this.subShow()
+                return subTable
             })
 
         ctx.command('bili')
@@ -370,6 +368,15 @@ class ComRegister {
                     // 发送订阅消息通知
                     await bot.sendMessage(sub.targetId, `订阅${userData.info.uname}动态通知`)
                 }
+                // 新增订阅展示到控制台
+                // 获取subTable
+                const subTable = this.subShow()
+                // 判断之前是否存在Notifier
+                this.subNotifier && this.subNotifier.dispose()
+                this.subNotifier = ctx.notifier.create({
+                    type: 'primary',
+                    content: subTable
+                })
             })
 
         ctx.command('bili')
@@ -730,6 +737,15 @@ class ComRegister {
         }
     }
 
+    subShow() {
+        // 在控制台中显示订阅对象
+        let table: string = ``
+        this.subManager.forEach(sub => {
+            table += `UID:${sub.uid}  ${sub.dynamic ? '已订阅动态' : ''}  ${sub.live ? '已订阅直播' : ''}` + '\n'
+        })
+        return table ? table : '没有订阅任何UP'
+    }
+
     async checkIfNeedSub(comNeed: boolean, subType: string, session: Session, data?: any): Promise<boolean> {
         if (comNeed) {
             if (subType === '直播' && !data.live_room) {
@@ -767,15 +783,16 @@ class ComRegister {
     }
 
     async getSubFromDatabase(ctx: Context) {
-        if (!(await this.checkIfIsLogin(ctx))) { // 如果未登录，则直接返回
-            return
-        }
+        // 如果未登录，则直接返回
+        if (!(await this.checkIfIsLogin(ctx))) return
+        // 已存在订阅管理对象，不再进行订阅操作
+        if (this.subManager.length !== 0) return
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
         // 设定订阅数量
         this.num = subData.length
         // 如果订阅数量超过三个则被非法修改数据库
-        // 向管理员发送重新订阅通知
+        // 在控制台提示重新订阅
         if (this.num > 3) {
             ctx.notifier.create({
                 type: 'danger',
@@ -786,7 +803,7 @@ class ComRegister {
         // 定义Bot
         let bot: Bot<Context>
         // 循环遍历
-        subData.forEach(async sub => {
+        for (const sub of subData) {
             // 拿到对应bot
             switch (sub.platform) {
                 case 'qq': bot = this.qqBot
@@ -858,7 +875,15 @@ class ComRegister {
             }
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
-            // 发送订阅成功通知
+        }
+        // 在控制台中显示订阅对象
+        const subTable = this.subShow()
+        // 如果已经存在Notifier则清除原先的Notifier
+        this.subNotifier && this.subNotifier.dispose()
+        // 创建Notifier
+        this.subNotifier = ctx.notifier.create({
+            type: 'primary',
+            content: subTable
         })
     }
 
