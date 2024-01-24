@@ -206,6 +206,8 @@ class ComRegister {
                 this.logger.info('调用bili.unsub指令')
                 // 若用户UID为空则直接返回
                 if (!uid) return '用户UID不能为空'
+                // -d -l两个选项不能同时存在
+                if (options.dynamic && options.live) return '需要取消订阅该UP主请直接使用指令bili unsub 用户UID'
                 // 定义是否存在
                 let exist: boolean
                 await Promise.all(this.subManager.map(async (sub, i) => {
@@ -224,11 +226,13 @@ class ComRegister {
                         // 从数据库中删除订阅
                         await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
                         // 将该订阅对象从订阅管理对象中移除
-                        this.subManager = this.subManager.splice(i, i)
+                        this.subManager.splice(i, 1)
                         // id--
                         this.num--
                         // 发送成功通知
                         session.send('已取消订阅该用户')
+                        // 更新控制台提示
+                        this.updateSubNotifier(ctx)
                         // 将存在flag设置为true
                         exist = true
                     }
@@ -492,7 +496,7 @@ class ComRegister {
         let firstSubscription: boolean = true
         let timePoint: number
         // Test code
-        let timer = 0
+        // let timer = 0
 
         return async () => {
             // Test code
@@ -782,6 +786,18 @@ class ComRegister {
         }
     }
 
+    updateSubNotifier(ctx: Context) {
+        // 更新控制台提示
+        this.subNotifier && this.subNotifier.dispose()
+        // 获取subTable
+        const subTable = this.subShow()
+        // 设置更新后的提示
+        this.subNotifier = ctx.notifier.create({
+            type: 'primary',
+            content: subTable
+        })
+    }
+
     async getSubFromDatabase(ctx: Context) {
         // 如果未登录，则直接返回
         if (!(await this.checkIfIsLogin(ctx))) return
@@ -804,6 +820,13 @@ class ComRegister {
         let bot: Bot<Context>
         // 循环遍历
         for (const sub of subData) {
+            // 判断是否存在没有任何订阅的数据
+            if (!sub.dynamic && !sub.live) { // 存在未订阅任何项目的数据
+                // 删除该条数据
+                ctx.database.remove('bilibili', {id: sub.id})
+                // 跳过下面的步骤
+                continue
+            }
             // 拿到对应bot
             switch (sub.platform) {
                 case 'qq': bot = this.qqBot
@@ -877,71 +900,67 @@ class ComRegister {
             this.subManager.push(subManagerItem)
         }
         // 在控制台中显示订阅对象
-        const subTable = this.subShow()
-        // 如果已经存在Notifier则清除原先的Notifier
-        this.subNotifier && this.subNotifier.dispose()
-        // 创建Notifier
-        this.subNotifier = ctx.notifier.create({
-            type: 'primary',
-            content: subTable
-        })
+        this.updateSubNotifier(ctx)
     }
 
     unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
         let index: number
-        switch (type) {
-            case 0: { // 取消Live订阅
-                index = this.subManager.findIndex(sub => sub.roomId === id)
-                if (index === -1) return '未订阅该用户，无需取消订阅'
-                // 取消订阅
-                this.subManager[index].live && this.subManager[index].liveDispose()
-                // 如果没有对这个UP的任何订阅，则移除
-                if (!this.subManager[index].dynamic) {
-                    // 获取要删除行的id
-                    const id = this.subManager[index].id
-                    // 从管理对象中移除
-                    this.subManager = this.subManager.splice(index, index)
-                    // 从数据库中删除
-                    ctx.database.remove('bilibili', [id])
-                    // num--
-                    this.num--
-                    return '已取消订阅该用户'
-                }
-                this.subManager[index].liveDispose = null
-                this.subManager[index].live = false
-                // 更新数据库
-                ctx.database.upsert('bilibili', [{
-                    id: +`${this.subManager[index].id}`,
-                    live: 0
-                }])
-                return '已取消订阅Live'
+
+        const checkIfNoSubExist = (index: number) => {
+            if (!this.subManager[index].dynamic && !this.subManager[index].live) {
+                // 获取要删除行的id
+                const id = this.subManager[index].id
+                // 从管理对象中移除
+                this.subManager.splice(index, 1)
+                // 从数据库中删除
+                ctx.database.remove('bilibili', [id])
+                // num--
+                this.num--
+                return '已取消订阅该用户'
             }
-            case 1: { // 取消Dynamic订阅
-                index = this.subManager.findIndex(sub => sub.uid === id)
-                if (index === -1) return '未订阅该用户，无需取消订阅'
-                // 取消订阅
-                this.subManager[index].dynamic && this.subManager[index].dynamicDispose()
-                // 如果没有对这个UP的任何订阅，则移除
-                if (!this.subManager[index].live) {
-                    // 获取要删除行的id
-                    const id = this.subManager[index].id
-                    // 从管理对象中移除
-                    this.subManager = this.subManager.splice(index, index)
-                    // 从数据库中删除
-                    ctx.database.remove('bilibili', [id])
-                    // num--
-                    this.num--
-                    return '已取消订阅该用户'
+            return null
+        }
+
+        try {
+            switch (type) {
+                case 0: { // 取消Live订阅
+                    index = this.subManager.findIndex(sub => sub.roomId === id)
+                    if (index === -1) return '未订阅该用户，无需取消订阅'
+                    // 取消订阅
+                    this.subManager[index].live && this.subManager[index].liveDispose()
+                    this.subManager[index].liveDispose = null
+                    this.subManager[index].live = false
+                    // 如果没有对这个UP的任何订阅，则移除
+                    const info = checkIfNoSubExist(index)
+                    if (info) return info
+                    // 更新数据库
+                    ctx.database.upsert('bilibili', [{
+                        id: +`${this.subManager[index].id}`,
+                        live: 0
+                    }])
+                    return '已取消订阅Live'
                 }
-                this.subManager[index].dynamicDispose = null
-                this.subManager[index].dynamic = false
-                // 更新数据库
-                ctx.database.upsert('bilibili', [{
-                    id: +`${this.subManager[index].id}`,
-                    dynamic: 0
-                }])
-                return '已取消订阅Dynamic'
+                case 1: { // 取消Dynamic订阅
+                    index = this.subManager.findIndex(sub => sub.uid === id)
+                    if (index === -1) return '未订阅该用户，无需取消订阅'
+                    // 取消订阅
+                    this.subManager[index].dynamic && this.subManager[index].dynamicDispose()
+                    this.subManager[index].dynamicDispose = null
+                    this.subManager[index].dynamic = false
+                    // 如果没有对这个UP的任何订阅，则移除
+                    const info = checkIfNoSubExist(index)
+                    if (info) return info
+                    // 更新数据库
+                    ctx.database.upsert('bilibili', [{
+                        id: +`${this.subManager[index].id}`,
+                        dynamic: 0
+                    }])
+                    return '已取消订阅Dynamic'
+                }
             }
+        } finally {
+            // 执行完该方法后，保证执行一次updateSubNotifier()
+            this.updateSubNotifier(ctx)
         }
     }
 
