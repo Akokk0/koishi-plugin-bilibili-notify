@@ -14,6 +14,7 @@ export const inject = ['puppeteer', 'database', 'notifier']
 export const name = 'bilibili-notify'
 
 export interface Config {
+  unlockSubLimits: boolean,
   pushTime: number,
   dynamicCheckNumber: number,
   dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
@@ -25,6 +26,10 @@ export interface Config {
 }
 
 export const Config: Schema<Config> = Schema.object({
+  unlockSubLimits: Schema.boolean()
+  .default(false)
+  .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
+
   pushTime: Schema.number()
     .min(0)
     .max(12)
@@ -71,9 +76,17 @@ export const Config: Schema<Config> = Schema.object({
 })
 
 export function apply(ctx: Context, config: Config) {
+  // 设置提示
   ctx.notifier.create({
     content: '请记得使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
   })
+  if (config.unlockSubLimits) { // 用户允许订阅超过三个用户
+    // 设置警告
+    ctx.notifier.create({
+      type: 'danger',
+      content: '过多的订阅可能会导致IP暂时被封禁！'
+    })
+  }
   // load config
   // 转换为具体时间
   let dynamicLoopTime: number
@@ -97,7 +110,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)
-  ctx.plugin(ComRegister, { pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber, dynamicLoopTime })
+  ctx.plugin(ComRegister, { unlockSubLimits: config.unlockSubLimits, pushTime: config.pushTime, dynamicCheckNumber: config.dynamicCheckNumber, dynamicLoopTime })
   // 当用户输入“恶魔兔，启动！”时，执行 help 指令
   ctx.middleware((session, next) => {
     if (session.content === '恶魔兔，启动！') {

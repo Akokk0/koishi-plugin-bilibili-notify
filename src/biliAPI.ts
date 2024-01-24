@@ -146,7 +146,15 @@ class BiliAPI extends Service {
 
     createNewClient() {
         this.jar = new CookieJar()
-        this.client = wrapper(axios.create({ jar: this.jar, headers: { 'Content-Type': 'application/json' } }))
+        this.client = wrapper(axios.create({
+            jar: this.jar,
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Origin': 'https://www.bilibili.com',
+                'Referer': 'https://www.bilibili.com/'
+            }
+        }))
     }
 
     getCookies() {

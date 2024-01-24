@@ -123,8 +123,9 @@ class ComRegister {
                 session.send((await ctx.biliAPI.getServerUTCTime()).toString())
             }) */
 
-        ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
-            .subcommand('.login', '登录B站之后才可以进行之后的操作')
+        const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
+
+        biliCom.subcommand('.login', '登录B站之后才可以进行之后的操作')
             .usage('使用二维码登录，登录B站之后才可以进行之后的操作')
             .example('bili login')
             .action(async ({ session }) => {
@@ -196,7 +197,7 @@ class ComRegister {
                 }, 1000)
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.unsub <uid:string>', '取消订阅UP主动态、直播或全部')
             .usage('取消订阅，加-l为取消直播订阅，加-d为取消动态订阅，什么都不加则为全部取消')
             .option('live', '-l')
@@ -241,7 +242,7 @@ class ComRegister {
                 !exist && session.send('未订阅该用户，无需取消订阅')
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.show', '展示订阅对象')
             .usage('展示订阅对象')
             .example('bili show')
@@ -250,7 +251,7 @@ class ComRegister {
                 return subTable
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.sub <mid:string> [guildId:string]', '订阅用户动态和直播通知')
             .option('live', '-l')
             .option('dynamic', '-d')
@@ -264,7 +265,7 @@ class ComRegister {
                     return '请使用指令bili login登录后再进行订阅操作'
                 }
                 // 如果订阅人数超过三个则直接返回
-                if (this.num >= 3) return '目前最多只能订阅三个人'
+                if (!config.unlockSubLimits && this.num >= 3) return '目前最多只能订阅三个人'
                 // 检查必选参数是否有值
                 if (!mid) return '请输入用户uid'
                 // 判断要订阅的用户是否已经存在于订阅管理对象中
@@ -383,7 +384,7 @@ class ComRegister {
                 })
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.dynamic <uid:string> <guildId:string>', '订阅用户动态推送', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅用户动态推送')
@@ -414,7 +415,7 @@ class ComRegister {
                 this.subManager[index].dynamicDispose = dispose
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.live <roomId:string> <guildId:string>', '订阅主播开播通知', { hidden: true })
             .option('bot', '-b <type:string>')
             .usage('订阅主播开播通知')
@@ -442,7 +443,7 @@ class ComRegister {
                 this.subManager[index].liveDispose = dispose
             })
 
-        ctx.command('bili')
+        biliCom
             .subcommand('.status <roomId:string>', '查询主播当前直播状态', { hidden: true })
             .usage('查询主播当前直播状态')
             .example('bili status 732')
@@ -790,11 +791,17 @@ class ComRegister {
         // 更新控制台提示
         this.subNotifier && this.subNotifier.dispose()
         // 获取subTable
-        const subTable = this.subShow()
+        const subTableArray = this.subShow().split('\n')
+        // 定义Table
+        let table = ''
+
+        /* subTableArray.forEach(str => {
+            table += 
+        }) */
         // 设置更新后的提示
         this.subNotifier = ctx.notifier.create({
             type: 'primary',
-            content: subTable
+            content: table
         })
     }
 
@@ -809,7 +816,7 @@ class ComRegister {
         this.num = subData.length
         // 如果订阅数量超过三个则被非法修改数据库
         // 在控制台提示重新订阅
-        if (this.num > 3) {
+        if (!this.config.unlockSubLimits && this.num > 3) {
             ctx.notifier.create({
                 type: 'danger',
                 content: '数据库被非法修改，请你删除bilibili表的所有内容后重启插件'
@@ -823,7 +830,7 @@ class ComRegister {
             // 判断是否存在没有任何订阅的数据
             if (!sub.dynamic && !sub.live) { // 存在未订阅任何项目的数据
                 // 删除该条数据
-                ctx.database.remove('bilibili', {id: sub.id})
+                ctx.database.remove('bilibili', { id: sub.id })
                 // 跳过下面的步骤
                 continue
             }
@@ -977,6 +984,7 @@ class ComRegister {
 
 namespace ComRegister {
     export interface Config {
+        unlockSubLimits: boolean,
         pushTime: number,
         liveLoopTime: number,
         dynamicLoopTime: number,
@@ -984,6 +992,7 @@ namespace ComRegister {
     }
 
     export const Config: Schema<Config> = Schema.object({
+        unlockSubLimits: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
         dynamicLoopTime: Schema.number().default(60),
