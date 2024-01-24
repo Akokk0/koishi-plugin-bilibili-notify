@@ -101,9 +101,13 @@ class GenerateImg extends Service {
                     }
 
                     .base-plate {
+                        ${this.config.removeBorder ? `
+                        width: 740px;
+                        ` : `
                         width: 704px;
-                        height: auto;
                         margin: 20px auto;
+                        `}
+                        height: auto;
                         border-radius: 10px;
                         background-color: #fff;
                     }
@@ -508,7 +512,6 @@ class GenerateImg extends Service {
                 case DYNAMIC_TYPE_COMMON_VERTICAL:
                 default: return [`${upName}发布了一条我无法识别的动态，请自行查看`, '']
             }
-
             return [main, link, forwardInfo]
         }
 
@@ -531,6 +534,7 @@ class GenerateImg extends Service {
                     * {
                         margin: 0;
                         padding: 0;
+                        box-sizing: border-box;
                         font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
             
@@ -557,9 +561,13 @@ class GenerateImg extends Service {
                     }
             
                     .base-plate {
+                        ${this.config.removeBorder ? `
+                        width: 740px;
+                        ` : `
                         width: 704px;
-                        height: auto;
                         margin: 20px auto;
+                        `}
+                        height: auto;
                         border-radius: 10px;
                         background-color: #fff;
                     }
@@ -570,10 +578,9 @@ class GenerateImg extends Service {
                     }
             
                     .card .anchor-avatar {
-                        border-radius: 5px 5px 0 0;
-                        max-width: 50px;
+                        max-width: 70px;
                         /* 设置最大宽度为容器宽度的100% */
-                        max-height: 50px;
+                        max-height: 70px;
                         /* 设置最大高度为容器高度的90% */
                         margin-right: 20px;
                         border-radius: 10px;
@@ -593,15 +600,15 @@ class GenerateImg extends Service {
                         display: flex;
                         flex-direction: column;
                         justify-content: space-between;
-                        height: 50px;
+                        height: 70px;
                     }
             
                     .card .up-info .up-name {
-                        font-size: 20px;
+                        font-size: 27px;
                     }
             
                     .card .pub-time {
-                        font-size: 12px;
+                        font-size: 20px;
                         color: grey;
                     }
             
@@ -611,12 +618,9 @@ class GenerateImg extends Service {
         
                     .card .dress-up {
                         position: relative;
-                        max-width: 110px;
-                        max-height: 34px;
                         /* background-image: url('${dynamicCardUrl}');
                         background-size: cover; */
-                        font-size: 12px;
-                        line-height: 33px;
+                        font-size: 17px;
                     }
         
                     .card .dress-up img {
@@ -627,20 +631,23 @@ class GenerateImg extends Service {
                     .card .dress-up span {
                         position: absolute;
                         color: ${dynamicCardColor};
-                        right: 37px;
-                        top: 5px;
+                        right: 67px;
+                        top: 24px;
                     }
         
                     .card .card-topic {
                         display: flex;
                         align-items: center;
                         margin-top: 10px;
+                        font-size: 20px;
                         color: #008AC5;
                         gap: 3px;
                     }
             
                     .card .card-details {
+                        margin-top: 5px;
                         margin-bottom: 15px;
+                        font-size: 22px;
                         width: 90%;
                     }
             
@@ -767,8 +774,8 @@ class GenerateImg extends Service {
                     }
         
                     .card .card-forward {
-                        margin: 0 -15px 0 -85px;
-                        padding: 12px 15px 14px 85px;
+                        margin: 0 -15px 0 -105px;
+                        padding: 12px 15px 14px 105px;
                         background-color: #F6F7F8;
                     }
             
@@ -776,18 +783,18 @@ class GenerateImg extends Service {
                         display: flex;
                         align-items: center;
                         gap: 5px;
-                        height: 30px;
+                        height: 35px;
                     }
             
                     .forward-userinfo img {
-                        width: 20px;
-                        height: 20px;
+                        width: 25px;
+                        height: 25px;
                         border-radius: 50%;
                     }
             
                     .forward-userinfo span {
                         color: #61666D;
-                        font-size: 15px;
+                        font-size: 20px;
                     }
         
                     .card .card-reserve {
@@ -1008,6 +1015,7 @@ class GenerateImg extends Service {
 namespace GenerateImg {
     export interface Config {
         renderType: number,
+        removeBorder: boolean,
         cardColorStart: string,
         cardColorEnd: string,
         font: string
@@ -1015,6 +1023,7 @@ namespace GenerateImg {
 
     export const Config: Schema<Config> = Schema.object({
         renderType: Schema.number(),
+        removeBorder: Schema.boolean(),
         cardColorStart: Schema.string(),
         cardColorEnd: Schema.string(),
         font: Schema.string()

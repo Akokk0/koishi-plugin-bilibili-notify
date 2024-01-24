@@ -42,14 +42,15 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        /* ctx.command('test', { hidden: true, permissions: ['authority:5'] })
-            .subcommand('.cookies')
+        /* const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+
+        testCom.subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
                 await ctx.biliAPI.loadCookiesFromDatabase()
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.my')
             .usage('测试指令，用于测试获取自己信息')
             .example('test.my')
@@ -58,7 +59,7 @@ class ComRegister {
                 console.log(content);
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.user <mid:string>')
             .usage('测试指令，用于测试获取用户信息')
             .example('test.user 用户UID')
@@ -67,7 +68,7 @@ class ComRegister {
                 console.log(content);
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.time')
             .usage('测试时间接口')
             .example('test.time')
@@ -75,7 +76,7 @@ class ComRegister {
                 session.send(await ctx.biliAPI.getTimeNow())
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.exist')
             .usage('测试写法')
             .example('test.exist')
@@ -84,7 +85,7 @@ class ComRegister {
                 console.log(num && `Hello World`);
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.gimg <uid:string> <index:number>')
             .usage('测试图片生成')
             .example('test.gimg')
@@ -99,7 +100,7 @@ class ComRegister {
                 await session.send(h.image(buffer, 'image/png'))
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.group')
             .usage('查看session groupId')
             .example('test group')
@@ -107,7 +108,7 @@ class ComRegister {
                 console.log(session.event.channel);
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.session')
             .usage('查看seesion')
             .example('test session')
@@ -115,7 +116,7 @@ class ComRegister {
                 console.log(session);
             })
 
-        ctx.command('test')
+        testCom
             .subcommand('.utc')
             .usage('获取当前UTC+8 Unix时间戳')
             .example('test utc')
@@ -374,14 +375,7 @@ class ComRegister {
                     await bot.sendMessage(sub.targetId, `订阅${userData.info.uname}动态通知`)
                 }
                 // 新增订阅展示到控制台
-                // 获取subTable
-                const subTable = this.subShow()
-                // 判断之前是否存在Notifier
-                this.subNotifier && this.subNotifier.dispose()
-                this.subNotifier = ctx.notifier.create({
-                    type: 'primary',
-                    content: subTable
-                })
+                this.updateSubNotifier(ctx)
             })
 
         biliCom
@@ -791,18 +785,24 @@ class ComRegister {
         // 更新控制台提示
         this.subNotifier && this.subNotifier.dispose()
         // 获取subTable
-        const subTableArray = this.subShow().split('\n')
+        let subTableArray = this.subShow().split('\n')
+        subTableArray.splice(subTableArray.length - 1, 1)
         // 定义Table
-        let table = ''
+        let table = <>
+            <ul>
+                {
+                    subTableArray.map(str => (
+                        <li>{str}</li>
+                    ))
+                }
+            </ul>
+        </>
 
         /* subTableArray.forEach(str => {
             table += 
         }) */
         // 设置更新后的提示
-        this.subNotifier = ctx.notifier.create({
-            type: 'primary',
-            content: table
-        })
+        this.subNotifier = ctx.notifier.create(table)
     }
 
     async getSubFromDatabase(ctx: Context) {
@@ -819,7 +819,7 @@ class ComRegister {
         if (!this.config.unlockSubLimits && this.num > 3) {
             ctx.notifier.create({
                 type: 'danger',
-                content: '数据库被非法修改，请你删除bilibili表的所有内容后重启插件'
+                content: '您未解锁订阅限制，且订阅数大于3人，请您手动删除bilibili表中多余的数据后，重启本插件'
             })
             return
         }

@@ -14,21 +14,35 @@ export const inject = ['puppeteer', 'database', 'notifier']
 export const name = 'bilibili-notify'
 
 export interface Config {
+  require: {},
+  key: string,
+  basicSettings: {},
   unlockSubLimits: boolean,
   pushTime: number,
   dynamicCheckNumber: number,
   dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
   renderType: 'render' | 'page',
+  style: {},
+  removeBorder: boolean,
   cardColorStart: string,
   cardColorEnd: string,
-  font: string,
-  key: string,
+  font: string
 }
 
 export const Config: Schema<Config> = Schema.object({
+  require: Schema.object({}).description('必填设置'),
+
+  key: Schema.string()
+    .pattern(/^[0-9a-f]{32}$/)
+    .role('secret')
+    .required()
+    .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/'),
+
+  basicSettings: Schema.object({}).description('基本设置'),
+
   unlockSubLimits: Schema.boolean()
-  .default(false)
-  .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
+    .default(false)
+    .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
 
   pushTime: Schema.number()
     .min(0)
@@ -55,6 +69,12 @@ export const Config: Schema<Config> = Schema.object({
     .default('render')
     .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
 
+  style: Schema.object({}).description('美化设置'),
+
+  removeBorder: Schema.boolean()
+    .default(false)
+    .description('移除推送卡片边框'),
+
   cardColorStart: Schema.string()
     .pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
     .default('#F38AB5')
@@ -66,13 +86,7 @@ export const Config: Schema<Config> = Schema.object({
     .description('推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/'),
 
   font: Schema.string()
-    .description('推送卡片的字体样式，如果你想用你自己的字体可以在此填写，例如：Microsoft YaHei'),
-
-  key: Schema.string()
-    .pattern(/^[0-9a-f]{32}$/)
-    .role('secret')
-    .required()
-    .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/')
+    .description('推送卡片的字体样式，如果你想用你自己的字体可以在此填写，例如：Microsoft YaHei')
 })
 
 export function apply(ctx: Context, config: Config) {
@@ -106,7 +120,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(Database)
   // Regist server
   ctx.plugin(Wbi, { key: config.key })
-  ctx.plugin(GenerateImg, { renderType, cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
+  ctx.plugin(GenerateImg, { renderType, removeBorder: config.removeBorder, cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)
