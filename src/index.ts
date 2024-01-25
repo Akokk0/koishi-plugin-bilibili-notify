@@ -22,6 +22,7 @@ export interface Config {
   dynamicCheckNumber: number,
   dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
   renderType: 'render' | 'page',
+  filter: {},
   style: {},
   removeBorder: boolean,
   cardColorStart: string,
@@ -68,6 +69,24 @@ export const Config: Schema<Config> = Schema.object({
     .role('')
     .default('render')
     .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
+
+  filter: Schema.intersect([
+    Schema.object({
+      enable: Schema.boolean()
+        .default(false)
+        .description('是否开启动态关键字屏蔽功能')
+    }).description('屏蔽设置'),
+    Schema.union([
+      Schema.object({
+        enable: Schema.const(true).required(),
+        regex: Schema.string()
+          .description('正则表达式屏蔽'),
+        keywords: Schema.array(String)
+          .description('关键字屏蔽，一个关键字为一项')
+      }),
+      Schema.object({})
+    ])
+  ]),
 
   style: Schema.object({}).description('美化设置'),
 
@@ -120,7 +139,7 @@ export function apply(ctx: Context, config: Config) {
   ctx.plugin(Database)
   // Regist server
   ctx.plugin(Wbi, { key: config.key })
-  ctx.plugin(GenerateImg, { renderType, removeBorder: config.removeBorder, cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
+  ctx.plugin(GenerateImg, { renderType, filter: config.filter, removeBorder: config.removeBorder, cardColorStart: config.cardColorStart, cardColorEnd: config.cardColorEnd, font: config.font })
   ctx.plugin(BiliAPI)
   // load plugin
   // ctx.plugin(Authority)

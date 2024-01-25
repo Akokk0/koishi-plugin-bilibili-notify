@@ -31,14 +31,18 @@ class ComRegister {
     qqBot: Bot<Context>
     // QQ频道机器人
     qqguildBot: Bot<Context>
+    // OneBot机器人
+    oneBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
         this.config = config
         // 拿到QQ群机器人
-        this.qqBot = ctx.bots[ctx.bots.findIndex(bot => bot.platform === 'qq')]
+        this.qqBot = ctx.bots.find(bot => bot.platform === 'qq')
         // 拿到QQ频道机器人
-        this.qqguildBot = ctx.bots[ctx.bots.findIndex(bot => bot.platform === 'qqguild')]
+        this.qqguildBot = ctx.bots.find(bot => bot.platform === 'qqguild')
+        // 拿到OneBot机器人
+        this.oneBot = ctx.bots.find(bot => bot.platform === 'onebot')
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
@@ -274,7 +278,7 @@ class ComRegister {
                     return '已订阅该用户，请勿重复订阅'
                 }
                 // 定义是否需要直播通知，动态订阅，视频推送
-                let liveMsg, dynamicMsg: boolean
+                let liveMsg: boolean, dynamicMsg: boolean
                 // 获取用户信息
                 let content: any
                 try {
@@ -304,30 +308,16 @@ class ComRegister {
                 if (!liveMsg && !dynamicMsg) {
                     return '您未订阅该UP的任何消息'
                 }
-                // 判断是哪个平台
-                let platform: string
+                // 设置群号
                 if (!guildId) { // 没有输入群号，默认当前聊天环境
                     switch (session.event.platform) {
-                        case 'qqguild': guildId = session.event.channel.id; break;
+                        case 'qqguild':
+                        case 'onebot': guildId = session.event.channel.id; break;
                         case 'qq': guildId = session.event.guild.id; break;
                         default: return '暂不支持该平台'
                     }
-                }
-                // 定义Bot
-                let bot: Bot<Context>
-                // 判断是哪个聊天平台
-                switch (session.event.platform) {
-                    case 'qqguild': {
-                        bot = this.qqguildBot
-                        platform = 'qqguild'
-                        break
-                    }
-                    case 'qq': {
-                        bot = this.qqBot
-                        platform = 'qq'
-                        break
-                    }
-                    default: return '暂不支持该平台'
+                } else {
+                    return '暂不支持群号发送！'
                 }
                 // 保存到数据库中
                 const sub = await ctx.database.create('bilibili', {
@@ -337,7 +327,7 @@ class ComRegister {
                     video: 1,
                     live: liveMsg ? 1 : 0,
                     targetId: guildId,
-                    platform,
+                    platform: session.event.platform,
                     time: new Date()
                 })
                 // 订阅数+1
@@ -364,15 +354,15 @@ class ComRegister {
                 }
                 // 需要订阅直播
                 if (liveMsg) {
-                    await session.execute(`bili live ${data.live_room.roomid} ${guildId} -b ${platform}`)
+                    await session.execute(`bili live ${data.live_room.roomid} ${guildId} -b ${session.event.platform}`)
                     // 发送订阅消息通知
-                    await bot.sendMessage(sub.targetId, `订阅${userData.info.uname}直播通知`)
+                    await session.send(`订阅${userData.info.uname}直播通知`)
                 }
                 // 需要订阅动态
                 if (dynamicMsg) {
-                    await session.execute(`bili dynamic ${mid} ${guildId} -b ${platform}`)
+                    await session.execute(`bili dynamic ${mid} ${guildId} -b ${session.event.platform}`)
                     // 发送订阅消息通知
-                    await bot.sendMessage(sub.targetId, `订阅${userData.info.uname}动态通知`)
+                    await session.send(`订阅${userData.info.uname}动态通知`)
                 }
                 // 新增订阅展示到控制台
                 this.updateSubNotifier(ctx)
@@ -401,6 +391,7 @@ class ComRegister {
                 switch (options.bot) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break;
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -429,6 +420,7 @@ class ComRegister {
                 switch (options.bot) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break;
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -565,6 +557,10 @@ class ComRegister {
                             } catch (e) {
                                 // 直播开播动态，不做处理
                                 if (e.message === '直播开播动态，不做处理') break
+                                if (e.message === '出现关键词，屏蔽该动态') {
+                                    await bot.sendMessage(guildId, `UID:${uid} 发布了一条含有屏蔽关键字的动态`)
+                                    break
+                                }
                             }
                             // 如果pic存在，则直接返回pic
                             if (pic) return await bot.sendMessage(guildId, pic)
@@ -819,7 +815,7 @@ class ComRegister {
         if (!this.config.unlockSubLimits && this.num > 3) {
             ctx.notifier.create({
                 type: 'danger',
-                content: '您未解锁订阅限制，且订阅数大于3人，请您手动删除bilibili表中多余的数据后，重启本插件'
+                content: '您未解锁订阅限制，且订阅数大于3人，请您手动删除bilibili表中多余的数据后重启本插件'
             })
             return
         }
@@ -836,8 +832,15 @@ class ComRegister {
             }
             // 拿到对应bot
             switch (sub.platform) {
-                case 'qq': bot = this.qqBot
-                case 'qqguild': bot = this.qqguildBot
+                case 'qq': bot = this.qqBot; break
+                case 'qqguild': bot = this.qqguildBot; break
+                case 'onebot': bot = this.oneBot; break
+                default: {
+                    // 本条数据被篡改，删除该条订阅
+                    ctx.database.remove('bilibili', { id: sub.id })
+                    // 继续下个循环
+                    continue
+                }
             }
             // 判断数据库是否被篡改
             // 获取用户信息

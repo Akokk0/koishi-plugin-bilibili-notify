@@ -1,4 +1,4 @@
-import { Context, Schema, Service } from "koishi";
+import { $, Context, Schema, Service } from "koishi";
 import { } from 'koishi-plugin-puppeteer'
 import { resolve } from "path";
 import { pathToFileURL } from "url";
@@ -244,7 +244,7 @@ class GenerateImg extends Service {
         // TOPIC
         const topic = data.modules.module_dynamic.topic ? data.modules.module_dynamic.topic.name : ''
 
-        async function getDynamicMajor(dynamicMajorData: any, forward: boolean): Promise<[string, string, string?]> {
+        const getDynamicMajor = async (dynamicMajorData: any, forward: boolean): Promise<[string, string, string?]> => {
             // 定义返回值
             let main: string = ''
             let link: string = ''
@@ -252,16 +252,28 @@ class GenerateImg extends Service {
             let forwardInfo: string
 
             // 最基本的图文处理
-            function basicDynamic() {
+            const basicDynamic = () => {
                 const module_dynamic = dynamicMajorData.modules.module_dynamic
                 if (module_dynamic.desc) {
                     const richText = module_dynamic.desc.rich_text_nodes.reduce((accumulator, currentValue) => {
                         if (currentValue.emoji) {
-                            return accumulator + `<img style="width:22px; height:22px;" src="${currentValue.emoji.icon_url}"/>`
+                            return accumulator + `<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`
                         } else {
                             return accumulator + currentValue.text
                         }
                     }, '');
+                    // 关键字和正则屏蔽
+                    if (this.config.filter.enable) { // 开启关键字和正则屏蔽
+                        if (this.config.filter.regex) { // 正则屏蔽
+                            const reg = new RegExp(this.config.filter.regex)
+                            if (reg.test(richText)) throw new Error('出现关键词，屏蔽该动态')
+                        }
+                        if (this.config.filter.keywords.length !== 0 &&
+                            this.config.filter.keywords
+                                .some(keyword => richText.includes(keyword))) {
+                            throw new Error('出现关键词，屏蔽该动态')
+                        }
+                    }
                     // 查找\n
                     const text = richText.replace(/\n/g, '<br>');
                     // 拼接字符串
@@ -1015,6 +1027,12 @@ class GenerateImg extends Service {
 namespace GenerateImg {
     export interface Config {
         renderType: number,
+        filter: {
+            enable: boolean,
+            regex: string,
+            keywords: Array<string>,
+            filter: boolean
+        }
         removeBorder: boolean,
         cardColorStart: string,
         cardColorEnd: string,
@@ -1023,6 +1041,12 @@ namespace GenerateImg {
 
     export const Config: Schema<Config> = Schema.object({
         renderType: Schema.number(),
+        filter: Schema.object({
+            enable: Schema.boolean(),
+            regex: Schema.string(),
+            keywords: Schema.array(String),
+            filter: Schema.boolean()
+        }),
         removeBorder: Schema.boolean(),
         cardColorStart: Schema.string(),
         cardColorEnd: Schema.string(),
