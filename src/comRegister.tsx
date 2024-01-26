@@ -14,6 +14,7 @@ class ComRegister {
     static inject = ['biliAPI', 'gimg', 'wbi', 'database'];
     logger: Logger;
     config: ComRegister.Config
+    loginTimer: Function
     num: number = 0
     subNotifier: Notifier
     subManager: {
@@ -145,7 +146,7 @@ class ComRegister {
                     return 'bili login getLoginQRCode() 本次网络请求失败'
                 }
                 // 判断是否出问题
-                if (content.code !== 0) return await session.send('出问题咯，请联系管理员解决！')
+                if (content.code !== 0) return await session.send('出问题咯，请联系管理员解决')
                 // 生成二维码
                 QRCode.toBuffer(content.data.url,
                     {
@@ -157,13 +158,13 @@ class ComRegister {
                             light: '#FFFFFF'         // 背景颜色
                         }
                     }, async (err, buffer) => {
-                        if (err) return await session.send('二维码生成出错，请联系管理员解决！')
+                        if (err) return await session.send('二维码生成出错，请重新尝试')
                         await session.send(h.image(buffer, 'image/png'))
                     })
-                // 定义定时器
-                let dispose;
+                // 检查之前是否存在登录定时器
+                this.loginTimer && this.loginTimer()
                 // 发起登录请求检查登录状态
-                dispose = ctx.setInterval(async () => {
+                this.loginTimer = ctx.setInterval(async () => {
                     let loginContent: any
                     try {
                         loginContent = await ctx.biliAPI.getLoginStatus(content.data.qrcode_key)
@@ -172,12 +173,12 @@ class ComRegister {
                         return
                     }
                     if (loginContent.code !== 0) {
-                        dispose()
-                        return await session.send('登录失败！请联系管理员解决！')
+                        this.loginTimer()
+                        return await session.send('登录失败请联系管理员解决')
                     }
                     if (loginContent.data.code === 86038) {
-                        dispose()
-                        return await session.send('二维码已失效，请重新登录！')
+                        this.loginTimer()
+                        return await session.send('二维码已失效，请重新登录')
                     }
                     if (loginContent.data.code === 0) { // 登录成功
                         const encryptedCookies = ctx.wbi.encrypt(ctx.biliAPI.getCookies())
@@ -188,13 +189,13 @@ class ComRegister {
                             bili_refresh_token: encryptedRefreshToken
                         }])
                         // 销毁定时器
-                        dispose()
+                        this.loginTimer()
                         // 订阅之前的订阅
                         await this.getSubFromDatabase(ctx)
                         // 清除控制台通知
                         ctx.biliAPI.disposeNotifier()
                         // 发送成功登录推送
-                        await session.send('登录成功！')
+                        await session.send('登录成功')
                         // bili show
                         await session.execute('bili show')
                         return
@@ -317,7 +318,7 @@ class ComRegister {
                         default: return '暂不支持该平台'
                     }
                 } else {
-                    return '暂不支持群号发送！'
+                    return '暂不支持群号发送'
                 }
                 // 保存到数据库中
                 const sub = await ctx.database.create('bilibili', {
@@ -453,9 +454,9 @@ class ComRegister {
                 // B站出问题了
                 if (content.code !== 0) {
                     if (content.msg === '未找到该房间') {
-                        session.send('未找到该房间！')
+                        session.send('未找到该房间')
                     } else {
-                        session.send('未知错误，请呼叫管理员检查问题！')
+                        session.send('未知错误，请呼叫管理员检查问题')
                     }
                     return
                 }
@@ -534,14 +535,6 @@ class ComRegister {
 
                 // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
-                    // 更新时间点为当前动态的发布时间
-                    /* if (num === 1) { // 寻找倒数第二条动态
-                        if (items[0].modules.module_tag) { // 存在置顶动态
-                            timePoint = items[num].modules.module_author.pub_ts
-                        } else {
-                            timePoint = items[0].modules.module_author.pub_ts
-                        }
-                    } */
                     // 推送该条动态
                     let attempts = 3;
                     for (let i = 0; i < attempts; i++) {
@@ -551,6 +544,7 @@ class ComRegister {
                             let buffer: Buffer
                             // 获取动态推送图片
                             try {
+                                // 渲染图片
                                 const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
                                 pic = gimgPic
                                 buffer = gimgBuffer
@@ -588,22 +582,6 @@ class ComRegister {
                         }
                         case 0: timePoint = items[num].modules.module_author.pub_ts
                     }
-                    // 如果这是遍历的最后一条，将时间点设置为这条动态的发布时间
-                    /*  if (num === 1) timePoint = items[num].modules.module_author.pub_ts
-                    if (num === 0) {
-                        timePoint = items[num].modules.module_author.pub_ts
-                     } */
-                    // 检查最一条动态是否是置顶动态 (ver 1.0.4 不用考虑置顶动态的问题)
-                    // 如果是新发布的置顶动态，直接推送即可。如果是旧的置顶动态，则无法进入这个判断
-                    /* if (num === 0) {
-                        // 如果是置顶动态，则跳过
-                        if (items[num].modules.module_tag) {
-                            // 将上一条动态的发布时间设为时间点
-                            timePoint = items[num + 1].modules.module_author.pub_ts
-                            continue
-                        }
-                        timePoint = items[num].modules.module_author.pub_ts
-                    } */
                 }
             }
         }
@@ -634,6 +612,8 @@ class ComRegister {
                     if (pic) return bot.sendMessage(guildId, pic)
                     // pic不存在，说明使用的是page模式
                     await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+                    // 成功则跳出循环
+                    break
                 } catch (e) {
                     this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败')
                     if (i === attempts - 1) { // 已尝试三次
@@ -653,7 +633,10 @@ class ComRegister {
                 let attempts = 3
                 for (let i = 0; i < attempts; i++) {
                     try {
+                        // 发送请求获取room信息
                         content = await ctx.biliAPI.getLiveRoomInfo(roomId)
+                        // 成功则跳出循环
+                        break
                     } catch (e) {
                         this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
                         if (i === attempts - 1) { // 已尝试三次
@@ -680,8 +663,11 @@ class ComRegister {
                     let attempts = 3
                     for (let i = 0; i < attempts; i++) {
                         try {
+                            // 发送请求获取主播信息
                             const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
                             userData = userInfo
+                            // 成功则跳出循环
+                            break
                         } catch (e) {
                             this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
                             if (i === attempts - 1) { // 已尝试三次
@@ -728,8 +714,11 @@ class ComRegister {
                             let attempts = 3
                             for (let i = 0; i < attempts; i++) {
                                 try {
+                                    // 获取主播信息
                                     const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
                                     userData = userInfo
+                                    // 成功则跳出循环
+                                    break
                                 } catch (e) {
                                     this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
                                     if (i === attempts - 1) { // 已尝试三次
@@ -786,7 +775,7 @@ class ComRegister {
             session.send(`是否需要订阅${subType}？需要输入 y 不需要输入 n `)
             input = await session.prompt()
             if (!input) {
-                await session.send('输入超时！请重新订阅')
+                await session.send('输入超时请重新订阅')
                 continue
             }
             switch (input) {
@@ -884,6 +873,7 @@ class ComRegister {
             for (let i = 0; i < attempts; i++) {
                 try {
                     content = await ctx.biliAPI.getUserInfo(sub.uid)
+                    // 成功则跳出循环
                     break
                 } catch (e) {
                     this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
