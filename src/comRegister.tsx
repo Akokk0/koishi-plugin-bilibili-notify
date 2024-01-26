@@ -51,7 +51,9 @@ class ComRegister {
         testCom.subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
-                await ctx.biliAPI.loadCookiesFromDatabase()
+                this.logger.info('调用test cookies指令')
+                // await ctx.biliAPI.loadCookiesFromDatabase()
+                console.log(ctx.biliAPI.getCookies());
             })
 
         testCom
@@ -144,22 +146,20 @@ class ComRegister {
                 }
                 // 判断是否出问题
                 if (content.code !== 0) return await session.send('出问题咯，请联系管理员解决！')
-                // 设置二维码参数
-                let options = {
-                    errorCorrectionLevel: 'H', // 错误更正水平
-                    type: 'image/png',         // 输出类型
-                    quality: 0.92,             // 图像质量（仅适用于'image/jpeg'）
-                    margin: 1,                 // 边距大小
-                    color: {
-                        dark: '#000000',         // 二维码颜色
-                        light: '#FFFFFF'         // 背景颜色
-                    }
-                }
                 // 生成二维码
-                QRCode.toBuffer(content.data.url, options, async (err, buffer) => {
-                    if (err) return await session.send('二维码生成出错，请联系管理员解决！')
-                    await session.send(h.image(buffer, 'image/png'))
-                })
+                QRCode.toBuffer(content.data.url,
+                    {
+                        errorCorrectionLevel: 'H', // 错误更正水平
+                        type: 'png',         // 输出类型
+                        margin: 1,                 // 边距大小
+                        color: {
+                            dark: '#000000',         // 二维码颜色
+                            light: '#FFFFFF'         // 背景颜色
+                        }
+                    }, async (err, buffer) => {
+                        if (err) return await session.send('二维码生成出错，请联系管理员解决！')
+                        await session.send(h.image(buffer, 'image/png'))
+                    })
                 // 定义定时器
                 let dispose;
                 // 发起登录请求检查登录状态
@@ -563,9 +563,13 @@ class ComRegister {
                                 }
                             }
                             // 如果pic存在，则直接返回pic
-                            if (pic) return await bot.sendMessage(guildId, pic)
-                            // pic不存在，说明使用的是page模式
-                            await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+                            if (pic) {
+                                // pic存在，使用的是render模式
+                                await bot.sendMessage(guildId, pic)
+                            } else {
+                                // pic不存在，说明使用的是page模式
+                                await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+                            }
                             // 如果成功，那么跳出循环
                             break
                         } catch (e) {
@@ -620,13 +624,23 @@ class ComRegister {
         let flag: boolean = true
 
         async function sendLiveNotifyCard(data: any, uData: any, liveType: LiveType) {
-            // 获取直播通知卡片
-            const { pic, buffer } = await ctx.gimg.generateLiveImg(data, uData, liveType)
-            // 推送直播信息
-            // pic 存在，使用的是render模式
-            if (pic) return bot.sendMessage(guildId, pic)
-            // pic不存在，说明使用的是page模式
-            await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+            let attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    // 获取直播通知卡片
+                    const { pic, buffer } = await ctx.gimg.generateLiveImg(data, uData, liveType)
+                    // 推送直播信息
+                    // pic 存在，使用的是render模式
+                    if (pic) return bot.sendMessage(guildId, pic)
+                    // pic不存在，说明使用的是page模式
+                    await bot.sendMessage(guildId, h.image(buffer, 'image/png'))
+                } catch (e) {
+                    this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败')
+                    if (i === attempts - 1) { // 已尝试三次
+                        return bot.sendMessage(guildId, '插件可能出现某些未知错误，请尝试重启插件，如果仍然会发生该错误，请向作者反馈')
+                    }
+                }
+            }
         }
 
         return async () => {
@@ -636,12 +650,17 @@ class ComRegister {
                 flag && (flag = false)
                 // 发送请求检测直播状态
                 let content: any
-                try {
-                    content = await ctx.biliAPI.getLiveRoomInfo(roomId)
-                } catch (e) {
-                    return this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
+                let attempts = 3
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        content = await ctx.biliAPI.getLiveRoomInfo(roomId)
+                    } catch (e) {
+                        this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
+                        if (i === attempts - 1) { // 已尝试三次
+                            return bot.sendMessage(guildId, '你的网络可能出现了某些问题，请检查后重启插件')
+                        }
+                    }
                 }
-
                 const { data } = content
                 // B站出问题了
                 if (content.code !== 0) {
@@ -658,11 +677,17 @@ class ComRegister {
                     firstSubscription = false
                     // 获取主播信息
                     let userData: any
-                    try {
-                        const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
-                        userData = userInfo
-                    } catch (e) {
-                        return this.logger.error('liveDetect first sub getMasterInfo() 网络请求错误')
+                    let attempts = 3
+                    for (let i = 0; i < attempts; i++) {
+                        try {
+                            const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
+                            userData = userInfo
+                        } catch (e) {
+                            this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
+                            if (i === attempts - 1) { // 已尝试三次
+                                return bot.sendMessage(guildId, '你的网络可能出现了某些问题，请检查后重启插件')
+                            }
+                        }
                     }
                     // 主播信息不会变，请求一次即可
                     uData = userData
@@ -687,7 +712,7 @@ class ComRegister {
                             // 下播了将定时器清零
                             timer = 0
                             // 发送下播通知
-                            bot.sendMessage(guildId, `${uData.info.uname}下播啦，本次直播了${await ctx.gimg.getTimeDifference(liveTime)}`)
+                            await bot.sendMessage(guildId, `${uData.info.uname}下播啦，本次直播了${await ctx.gimg.getTimeDifference(liveTime)}`)
                         }
                         // 未进循环，还未开播，继续循环
                         break
@@ -700,11 +725,17 @@ class ComRegister {
                             liveTime = data.live_time
                             // 获取主播信息
                             let userData: any
-                            try {
-                                const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
-                                userData = userInfo
-                            } catch (e) {
-                                return this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
+                            let attempts = 3
+                            for (let i = 0; i < attempts; i++) {
+                                try {
+                                    const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
+                                    userData = userInfo
+                                } catch (e) {
+                                    this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
+                                    if (i === attempts - 1) { // 已尝试三次
+                                        return bot.sendMessage(guildId, '你的网络可能出现了某些问题，请检查后重启插件')
+                                    }
+                                }
                             }
                             // 主播信息不会变，开播时刷新一次即可
                             uData = userData
@@ -780,23 +811,27 @@ class ComRegister {
     updateSubNotifier(ctx: Context) {
         // 更新控制台提示
         this.subNotifier && this.subNotifier.dispose()
-        // 获取subTable
-        let subTableArray = this.subShow().split('\n')
-        subTableArray.splice(subTableArray.length - 1, 1)
-        // 定义Table
-        let table = <>
-            <ul>
-                {
-                    subTableArray.map(str => (
-                        <li>{str}</li>
-                    ))
-                }
-            </ul>
-        </>
-
-        /* subTableArray.forEach(str => {
-            table += 
-        }) */
+        // 获取订阅信息
+        const subInfo = this.subShow()
+        // 定义table
+        let table = ''
+        if (subInfo === '没有订阅任何UP') {
+            table = subInfo
+        } else {
+            // 获取subTable
+            let subTableArray = subInfo.split('\n')
+            subTableArray.splice(subTableArray.length - 1, 1)
+            // 定义Table
+            table = <>
+                <ul>
+                    {
+                        subTableArray.map(str => (
+                            <li>{str}</li>
+                        ))
+                    }
+                </ul>
+            </>
+        }
         // 设置更新后的提示
         this.subNotifier = ctx.notifier.create(table)
     }

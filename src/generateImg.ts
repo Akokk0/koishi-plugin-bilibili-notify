@@ -712,7 +712,7 @@ class GenerateImg extends Service {
                         overflow: hidden;
                         border-radius: 5px 0 0 5px;
                         margin-top: 10px;
-                        height: 132px;
+                        height: 147px;
                     }
             
                     .card .video-cover {

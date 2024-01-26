@@ -158,11 +158,8 @@ class BiliAPI extends Service {
     }
 
     getCookies() {
-        let cookies: string;
-        this.jar.store.getAllCookies((err, c) => {
-            if (err) throw err;
-            cookies = JSON.stringify(c, null, 2)
-        })
+        let cookies: string
+        cookies = JSON.stringify(this.jar.serializeSync().cookies)
         return cookies
     }
 
@@ -212,6 +209,8 @@ class BiliAPI extends Service {
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
         })
+        // restart plugin check
+        this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
         // Open scheduled tasks and check if token need refresh
         this.ctx.setInterval(() => { // 每12小时检测一次
             this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
@@ -300,11 +299,14 @@ class BiliAPI extends Service {
         }])
         // Get new csrf from cookies
         let newCsrf: string;
-        this.jar.store.getAllCookies((err, c) => {
+        /* this.jar.store.getAllCookies((err, c) => {
             if (err) throw err;
             c.forEach(cookie => {
                 if (cookie.key === 'bili_jct') newCsrf = cookie.value
             });
+        }) */
+        this.jar.serializeSync().cookies.forEach(cookie => {
+            if (cookie.key === 'bili_jct') newCsrf = cookie.value
         })
         // Accept update
         const { data: aceeptData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/confirm/refresh', {
