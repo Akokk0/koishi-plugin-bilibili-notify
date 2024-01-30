@@ -18,6 +18,7 @@ export interface Config {
     key: string,
     basicSettings: {},
     unlockSubLimits: boolean,
+    liveStartAtAll: boolean,
     pushTime: number,
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
@@ -46,6 +47,11 @@ export const Config: Schema<Config> = Schema.object({
         .default(false)
         .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
 
+    liveStartAtAll: Schema.boolean()
+        .default(false)
+        .experimental()
+        .description('直播开始时艾特全体成员，默认关闭'),
+
     pushTime: Schema.number()
         .min(0)
         .max(12)
@@ -59,7 +65,7 @@ export const Config: Schema<Config> = Schema.object({
         .role('slider')
         .step(1)
         .default(5)
-        .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应-1。默认值为5条'),
+        .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应+1。默认值为5条'),
 
     dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟'])
         .role('')
@@ -159,6 +165,7 @@ export function apply(ctx: Context, config: Config) {
     // ctx.plugin(Authority)
     ctx.plugin(ComRegister, {
         unlockSubLimits: config.unlockSubLimits,
+        liveStartAtAll: config.liveStartAtAll,
         pushTime: config.pushTime,
         dynamicCheckNumber: config.dynamicCheckNumber,
         dynamicLoopTime

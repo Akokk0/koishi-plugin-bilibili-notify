@@ -34,16 +34,23 @@ class ComRegister {
     qqguildBot: Bot<Context>
     // OneBot机器人
     oneBot: Bot<Context>
+    // Red机器人
+    redBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
         this.config = config
-        // 拿到QQ群机器人
-        this.qqBot = ctx.bots.find(bot => bot.platform === 'qq')
-        // 拿到QQ频道机器人
-        this.qqguildBot = ctx.bots.find(bot => bot.platform === 'qqguild')
-        // 拿到OneBot机器人
-        this.oneBot = ctx.bots.find(bot => bot.platform === 'onebot')
+
+        // 拿到各类机器人
+        ctx.bots.forEach(bot => {
+            switch (bot.platform) {
+                case 'qq': this.qqBot = bot
+                case 'qqguild': this.qqguildBot = bot
+                case 'onebot': this.oneBot = bot
+                case ' red': this.redBot = bot
+            }
+        })
+
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
@@ -54,7 +61,7 @@ class ComRegister {
             .action(async () => {
                 this.logger.info('调用test cookies指令')
                 // await ctx.biliAPI.loadCookiesFromDatabase()
-                console.log(ctx.biliAPI.getCookies());
+                console.log(JSON.parse(ctx.biliAPI.getCookies()));
             })
 
         testCom
@@ -129,6 +136,14 @@ class ComRegister {
             .example('test utc')
             .action(async ({ session }) => {
                 session.send((await ctx.biliAPI.getServerUTCTime()).toString())
+            })
+
+        testCom
+            .subcommand('.refresh')
+            .usage('测试cookie刷新方法')
+            .example('test refresh')
+            .action(async ({ session }) => {
+                ctx.biliAPI.test_refresh_token()
             }) */
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -163,42 +178,52 @@ class ComRegister {
                     })
                 // 检查之前是否存在登录定时器
                 this.loginTimer && this.loginTimer()
+                // 设置flag
+                let flag = true
                 // 发起登录请求检查登录状态
                 this.loginTimer = ctx.setInterval(async () => {
-                    let loginContent: any
                     try {
-                        loginContent = await ctx.biliAPI.getLoginStatus(content.data.qrcode_key)
-                    } catch (e) {
-                        this.logger.error(e)
-                        return
-                    }
-                    if (loginContent.code !== 0) {
-                        this.loginTimer()
-                        return await session.send('登录失败请联系管理员解决')
-                    }
-                    if (loginContent.data.code === 86038) {
-                        this.loginTimer()
-                        return await session.send('二维码已失效，请重新登录')
-                    }
-                    if (loginContent.data.code === 0) { // 登录成功
-                        const encryptedCookies = ctx.wbi.encrypt(ctx.biliAPI.getCookies())
-                        const encryptedRefreshToken = ctx.wbi.encrypt(loginContent.data.refresh_token)
-                        await ctx.database.upsert('loginBili', [{
-                            id: 1,
-                            bili_cookies: encryptedCookies,
-                            bili_refresh_token: encryptedRefreshToken
-                        }])
-                        // 销毁定时器
-                        this.loginTimer()
-                        // 订阅之前的订阅
-                        await this.getSubFromDatabase(ctx)
-                        // 清除控制台通知
-                        ctx.biliAPI.disposeNotifier()
-                        // 发送成功登录推送
-                        await session.send('登录成功')
-                        // bili show
-                        await session.execute('bili show')
-                        return
+                        // 判断上一个循环是否完成
+                        if (!flag) return
+                        flag = false
+                        // 获取登录信息
+                        let loginContent: any
+                        try {
+                            loginContent = await ctx.biliAPI.getLoginStatus(content.data.qrcode_key)
+                        } catch (e) {
+                            this.logger.error(e)
+                            return
+                        }
+                        if (loginContent.code !== 0) {
+                            this.loginTimer()
+                            return await session.send('登录失败请联系管理员解决')
+                        }
+                        if (loginContent.data.code === 86038) {
+                            this.loginTimer()
+                            return await session.send('二维码已失效，请重新登录')
+                        }
+                        if (loginContent.data.code === 0) { // 登录成功
+                            const encryptedCookies = ctx.wbi.encrypt(ctx.biliAPI.getCookies())
+                            const encryptedRefreshToken = ctx.wbi.encrypt(loginContent.data.refresh_token)
+                            await ctx.database.upsert('loginBili', [{
+                                id: 1,
+                                bili_cookies: encryptedCookies,
+                                bili_refresh_token: encryptedRefreshToken
+                            }])
+                            // 销毁定时器
+                            this.loginTimer()
+                            // 订阅之前的订阅
+                            await this.getSubFromDatabase(ctx)
+                            // 清除控制台通知
+                            ctx.biliAPI.disposeNotifier()
+                            // 发送成功登录推送
+                            await session.send('登录成功')
+                            // bili show
+                            await session.execute('bili show')
+                            return
+                        }
+                    } finally {
+                        flag = true
                     }
                 }, 1000)
             })
@@ -309,11 +334,12 @@ class ComRegister {
                 if (!liveMsg && !dynamicMsg) {
                     return '您未订阅该UP的任何消息'
                 }
-                // 设置群号
-                if (!guildId) { // 没有输入群号，默认当前聊天环境
+                // 设置频道号
+                if (!guildId) { // 没有输入频道号，默认当前聊天环境
                     switch (session.event.platform) {
-                        case 'qqguild':
-                        case 'onebot': guildId = session.event.channel.id; break;
+                        case 'red':
+                        case 'onebot':
+                        case 'qqguild': guildId = session.event.channel.id; break;
                         case 'qq': guildId = session.event.guild.id; break;
                         default: return '暂不支持该平台'
                     }
@@ -392,7 +418,8 @@ class ComRegister {
                 switch (options.bot) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break;
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -421,7 +448,8 @@ class ComRegister {
                 switch (options.bot) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break;
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -730,6 +758,11 @@ class ComRegister {
                             uData = userData
                             // 发送直播通知卡片
                             sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
+                            // 判断是否需要@全体成员
+                            if (this.config.liveStartAtAll) {
+                                // 发送@全体成员通知
+                                bot.sendMessage(guildId, <at type="all" />)
+                            }
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
                                 timer++
@@ -859,6 +892,7 @@ class ComRegister {
                 case 'qq': bot = this.qqBot; break
                 case 'qqguild': bot = this.qqguildBot; break
                 case 'onebot': bot = this.oneBot; break
+                case 'red': bot = this.redBot; break
                 default: {
                     // 本条数据被篡改，删除该条订阅
                     ctx.database.remove('bilibili', { id: sub.id })
@@ -1013,6 +1047,7 @@ class ComRegister {
 namespace ComRegister {
     export interface Config {
         unlockSubLimits: boolean,
+        liveStartAtAll: boolean,
         pushTime: number,
         liveLoopTime: number,
         dynamicLoopTime: number,
@@ -1021,6 +1056,7 @@ namespace ComRegister {
 
     export const Config: Schema<Config> = Schema.object({
         unlockSubLimits: Schema.boolean().required(),
+        liveStartAtAll: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
         dynamicLoopTime: Schema.number().default(60),

@@ -30,6 +30,7 @@ class BiliAPI extends Service {
     client: any
     loginData: any
     loginNotifier: Notifier
+    refreshCookieTimer: Function
 
     constructor(ctx: Context) {
         super(ctx, 'biliAPI')
@@ -42,6 +43,53 @@ class BiliAPI extends Service {
         this.loadCookiesFromDatabase()
         // this.logger.info('BiliAPI已被注册到Context中')
     }
+
+    /* async test_refresh_token() {
+        const publicKey = await crypto.subtle.importKey(
+            "jwk",
+            {
+                kty: "RSA",
+                n: "y4HdjgJHBlbaBN04VERG4qNBIFHP6a3GozCl75AihQloSWCXC5HDNgyinEnhaQ_4-gaMud_GF50elYXLlCToR9se9Z8z433U3KjM-3Yx7ptKkmQNAMggQwAVKgq3zYAoidNEWuxpkY_mAitTSRLnsJW-NCTa0bqBFF6Wm1MxgfE",
+                e: "AQAB",
+            },
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            true,
+            ["encrypt"],
+        )
+
+        async function getCorrespondPath(timestamp) {
+            const data = new TextEncoder().encode(`refresh_${timestamp}`);
+            const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, data))
+            return encrypted.reduce((str, c) => str + c.toString(16).padStart(2, "0"), "")
+        }
+
+        const ts = Date.now()
+        const correspondPath = await getCorrespondPath(ts)
+        const { data } = await this.client.get(`https://www.bilibili.com/correspond/1/${correspondPath}`)
+        // 创建一个虚拟的DOM元素
+        const { document } = new JSDOM(data).window;
+        // 提取标签name为1-name的内容
+        const targetElement = document.getElementById('1-name');
+        const refresh_csrf = targetElement ? targetElement.textContent : null;
+        // 获取csrf
+        let csrf: string
+        const cookies = JSON.parse(this.getCookies())
+        cookies.forEach(cookie => {
+            if (cookie.key === 'bili_jct') csrf = cookie.value
+        })
+        // 读取数据库获取cookies
+        const database = (await this.ctx.database.get('loginBili', 1))[0]
+        // 获取refreshToken
+        const refresh_token = this.ctx.wbi.decrypt(database.bili_refresh_token)
+        // 发送请求
+        const { data: refreshData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/cookie/refresh', {
+            csrf,
+            refresh_csrf,
+            source: 'main_web',
+            refresh_token
+        })
+        console.log(refreshData);
+    } */
 
     async getServerUTCTime() {
         try {
@@ -212,13 +260,29 @@ class BiliAPI extends Service {
         // restart plugin check
         this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
         // Open scheduled tasks and check if token need refresh
-        this.ctx.setInterval(() => { // 每12小时检测一次
+        this.refreshCookieTimer = this.ctx.setInterval(() => { // 每12小时检测一次
             this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
         }, 43200000)
     }
 
     async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 0) {
+        // 定义数据
         let data: any
+        // 定义方法
+        const notifyAndError = (info: string) => {
+            // 设置控制台通知
+            this.loginNotifier = this.ctx.notifier.create({
+                type: 'warning',
+                content: info
+            })
+            // 重置为未登录状态
+            this.createNewClient()
+            // 关闭定时器
+            this.refreshCookieTimer()
+            // 抛出错误
+            throw new Error(info);
+        }
+        // 尝试获取Cookieinfo
         try {
             const { data: cookieData } = await this.getCookieInfo(refreshToken)
             data = cookieData
@@ -231,10 +295,9 @@ class BiliAPI extends Service {
             }, 3000)
             return
         }
-
         // 不需要刷新，直接返回
         if (!data.refresh) return
-
+        // 定义Key
         const publicKey = await crypto.subtle.importKey(
             "jwk",
             {
@@ -246,14 +309,15 @@ class BiliAPI extends Service {
             true,
             ["encrypt"],
         )
-
+        // 定义获取CorrespondPath方法
         async function getCorrespondPath(timestamp) {
             const data = new TextEncoder().encode(`refresh_${timestamp}`);
             const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, data))
             return encrypted.reduce((str, c) => str + c.toString(16).padStart(2, "0"), "")
         }
-
-        const correspondPath = await getCorrespondPath(data.timestamp)
+        // 获取CorrespondPath
+        const ts = Date.now()
+        const correspondPath = await getCorrespondPath(ts)
         // 获取refresh_csrf
         const { data: refreshCsrfHtml } = await this.client.get(`https://www.bilibili.com/correspond/1/${correspondPath}`)
         // 创建一个虚拟的DOM元素
@@ -263,19 +327,11 @@ class BiliAPI extends Service {
         const refresh_csrf = targetElement ? targetElement.textContent : null;
         // 发送刷新请求
         const { data: refreshData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/cookie/refresh', {
-            csrf: csrf.trim(),
+            csrf,
             refresh_csrf,
             source: 'main_web',
             refresh_token: refreshToken
         })
-        const notifyAndError = (info: string) => {
-            // 设置控制台通知
-            this.loginNotifier = this.ctx.notifier.create({
-                type: 'warning',
-                content: info
-            })
-            throw new Error(info);
-        }
         // 检查是否有其他问题
         switch (refreshData.code) {
             // 账号未登录
@@ -299,12 +355,6 @@ class BiliAPI extends Service {
         }])
         // Get new csrf from cookies
         let newCsrf: string;
-        /* this.jar.store.getAllCookies((err, c) => {
-            if (err) throw err;
-            c.forEach(cookie => {
-                if (cookie.key === 'bili_jct') newCsrf = cookie.value
-            });
-        }) */
         this.jar.serializeSync().cookies.forEach(cookie => {
             if (cookie.key === 'bili_jct') newCsrf = cookie.value
         })
