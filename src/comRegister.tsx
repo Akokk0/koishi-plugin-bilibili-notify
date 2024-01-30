@@ -196,7 +196,7 @@ class ComRegister {
                         }
                         if (loginContent.code !== 0) {
                             this.loginTimer()
-                            return await session.send('登录失败请联系管理员解决')
+                            return await session.send('登录失败请重试')
                         }
                         if (loginContent.data.code === 86038) {
                             this.loginTimer()
@@ -220,6 +220,8 @@ class ComRegister {
                             await session.send('登录成功')
                             // bili show
                             await session.execute('bili show')
+                            // 开启cookies刷新检测
+                            ctx.biliAPI.enableRefreshCookiesDetect(loginContent.data.refresh_token)
                             return
                         }
                     } finally {

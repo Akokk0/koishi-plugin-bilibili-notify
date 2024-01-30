@@ -44,7 +44,7 @@ class BiliAPI extends Service {
         // this.logger.info('BiliAPI已被注册到Context中')
     }
 
-    /* async test_refresh_token() {
+    async test_refresh_token() {
         const publicKey = await crypto.subtle.importKey(
             "jwk",
             {
@@ -82,14 +82,22 @@ class BiliAPI extends Service {
         // 获取refreshToken
         const refresh_token = this.ctx.wbi.decrypt(database.bili_refresh_token)
         // 发送请求
-        const { data: refreshData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/cookie/refresh', {
-            csrf,
-            refresh_csrf,
-            source: 'main_web',
-            refresh_token
-        })
+        // const { data: refreshData } = await this.client.post(`https://passport.bilibili.com/x/passport-login/web/cookie/refresh?csrf=${csrf}&refresh_csrf=${refresh_csrf}&source=main_web&refresh_token=${refresh_token}`)
+        const { data: refreshData } = await this.client.post(
+            'https://passport.bilibili.com/x/passport-login/web/cookie/refresh',
+            {
+                csrf,
+                refresh_csrf,
+                source: 'main_web',
+                refresh_token
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
         console.log(refreshData);
-    } */
+    }
 
     async getServerUTCTime() {
         try {
@@ -190,6 +198,27 @@ class BiliAPI extends Service {
         }
     }
 
+    enableRefreshCookiesDetect(refreshToken: string, csrf?: string) {
+        // 获取cookies
+        const cookies = JSON.parse(this.getCookies())
+        // 获取csrf
+        if (!csrf) {
+            cookies.find(cookie => {
+                // 获取key为bili_jct的值
+                if (cookie.key === 'bili_jct') {
+                    csrf = cookie.value
+                    return true
+                }
+            })
+        }
+        // 判断之前是否启动检测
+        this.refreshCookieTimer && this.refreshCookieTimer()
+        // Open scheduled tasks and check if token need refresh
+        this.refreshCookieTimer = this.ctx.setInterval(() => { // 每12小时检测一次
+            this.checkIfTokenNeedRefresh(refreshToken, csrf)
+        }, 43200000)
+    }
+
     disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
 
     createNewClient() {
@@ -197,7 +226,7 @@ class BiliAPI extends Service {
         this.client = wrapper(axios.create({
             jar: this.jar,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8',
+                'Content-Type': 'application/json',
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Origin': 'https://www.bilibili.com',
                 'Referer': 'https://www.bilibili.com/'
@@ -259,10 +288,8 @@ class BiliAPI extends Service {
         })
         // restart plugin check
         this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
-        // Open scheduled tasks and check if token need refresh
-        this.refreshCookieTimer = this.ctx.setInterval(() => { // 每12小时检测一次
-            this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
-        }, 43200000)
+        // enable refresh cookies detect
+        this.enableRefreshCookiesDetect(decryptedRefreshToken, csrf)
     }
 
     async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 0) {
@@ -326,12 +353,20 @@ class BiliAPI extends Service {
         const targetElement = document.getElementById('1-name');
         const refresh_csrf = targetElement ? targetElement.textContent : null;
         // 发送刷新请求
-        const { data: refreshData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/cookie/refresh', {
-            csrf,
-            refresh_csrf,
-            source: 'main_web',
-            refresh_token: refreshToken
-        })
+        const { data: refreshData } = await this.client.post(
+            'https://passport.bilibili.com/x/passport-login/web/cookie/refresh',
+            {
+                csrf,
+                refresh_csrf,
+                source: 'main_web',
+                refresh_token: refreshToken
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            }
+        )
         // 检查是否有其他问题
         switch (refreshData.code) {
             // 账号未登录
@@ -346,7 +381,7 @@ class BiliAPI extends Service {
             }
         }
         // 更新 新的cookies和refresh_token
-        const encryptedCookies = this.ctx.wbi.encrypt(this.ctx.biliAPI.getCookies())
+        const encryptedCookies = this.ctx.wbi.encrypt(this.getCookies())
         const encryptedRefreshToken = this.ctx.wbi.encrypt(refreshData.data.refresh_token)
         await this.ctx.database.upsert('loginBili', [{
             id: 1,
@@ -359,9 +394,15 @@ class BiliAPI extends Service {
             if (cookie.key === 'bili_jct') newCsrf = cookie.value
         })
         // Accept update
-        const { data: aceeptData } = await this.client.post('https://passport.bilibili.com/x/passport-login/web/confirm/refresh', {
-            csrf: newCsrf,
-            refresh_token: refreshToken
+        const { data: aceeptData } = await this.client.post(
+            'https://passport.bilibili.com/x/passport-login/web/confirm/refresh',
+            {
+                csrf: newCsrf,
+                refresh_token: refreshToken
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
         })
         // 检查是否有其他问题
         switch (aceeptData.code) {
