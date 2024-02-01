@@ -59,7 +59,7 @@ class GenerateImg extends Service {
     async generateLiveImg(data: any, userData: any, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
         const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
         // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, './HYZhengYuan-55W.ttf'))
+        const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
         // 卡片内容
         const html = `
             <!DOCTYPE html>
@@ -71,7 +71,7 @@ class GenerateImg extends Service {
                         font-family: "Custom Font";
                         src: url(${fontURL});
                     }
-            
+
                     * {
                         margin: 0;
                         padding: 0;
@@ -197,7 +197,7 @@ class GenerateImg extends Service {
         `
         // 判断渲染方式
         if (this.config.renderType) { // 为1则为真，进入page模式
-            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/0.html';
+            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
             const page = await this.ctx.puppeteer.page()
             await page.goto(htmlPath)
             await page.setContent(html, { waitUntil: 'networkidle0' })
@@ -530,7 +530,7 @@ class GenerateImg extends Service {
         // 获取动态主要内容
         const [main, link] = await getDynamicMajor(data, false)
         // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, './HYZhengYuan-55W.ttf'))
+        const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
         // 判断是否开启大字体模式
         let style: string
         if (this.config.enableLargeFont) {
@@ -1274,7 +1274,7 @@ class GenerateImg extends Service {
         `
         // 判断渲染方式
         if (this.config.renderType) { // 为1则为真，进入page模式
-            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/0.html';
+            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
             const page = await this.ctx.puppeteer.page()
             await page.goto(htmlPath)
             await page.setContent(html, { waitUntil: 'networkidle0' })

@@ -631,7 +631,7 @@ class ComRegister {
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
 
-        async function sendLiveNotifyCard(data: any, uData: any, liveType: LiveType) {
+        const sendLiveNotifyCard = async (data: any, uData: any, liveType: LiveType) => {
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
