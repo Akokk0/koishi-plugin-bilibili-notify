@@ -676,16 +676,16 @@ class ComRegister {
                 }
                 const { data } = content
                 // B站出问题了
-                if (content.code !== 0) {
+                /* if (content.code !== 0) {
                     if (content.msg === '未找到该房间') {
                         await bot.sendMessage(guildId, '未找到该房间，请检查房间号后重新订阅')
                     } else {
                         await bot.sendMessage(guildId, '未知错误，请呼叫管理员检查问题后重新订阅')
                     }
                     // dispose
-                    this.unsubSingle(ctx, roomId, 0) /* 0为取消Live订阅 */
+                    this.unsubSingle(ctx, roomId, 0) // 0为取消Live订阅
                     return
-                }
+                } */
                 if (firstSubscription) {
                     firstSubscription = false
                     // 获取主播信息
