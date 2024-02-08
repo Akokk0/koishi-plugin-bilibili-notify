@@ -319,7 +319,7 @@ class ComRegister {
                     let msg: string
                     switch (content.code) {
                         case -400: msg = '请求错误'; break;
-                        case -403: msg = '访问权限不足，尝试重新登录，如果不行请联系管理员'; break;
+                        case -403: msg = '访问权限不足，尝试重新登录，如果不行请联系作者'; break;
                         case -404: msg = '用户不存在'; break;
                         case -352: msg = '请登录后再尝试订阅'; break;
                         default: msg = '未知错误，请联系管理员'
@@ -348,10 +348,12 @@ class ComRegister {
                 } else {
                     return '暂不支持群号发送'
                 }
+                // 获取直播房间号
+                let roomId = data.live_room?.roomid.toString()
                 // 保存到数据库中
                 const sub = await ctx.database.create('bilibili', {
                     uid: mid,
-                    room_id: data.live_room?.roomid.toString(),
+                    room_id: roomId,
                     dynamic: dynamicMsg ? 1 : 0,
                     video: 1,
                     live: liveMsg ? 1 : 0,
@@ -367,7 +369,7 @@ class ComRegister {
                     id: sub.id,
                     uid: mid,
                     targetId: guildId,
-                    roomId: data.live_room?.roomid.toString(),
+                    roomId,
                     live: liveMsg,
                     dynamic: dynamicMsg,
                     liveDispose: null,
@@ -383,7 +385,7 @@ class ComRegister {
                 }
                 // 需要订阅直播
                 if (liveMsg) {
-                    await session.execute(`bili live ${data.live_room.roomid} ${guildId} -b ${session.event.platform}`)
+                    await session.execute(`bili live ${roomId} ${guildId} -b ${session.event.platform}`)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
@@ -513,16 +515,8 @@ class ComRegister {
     ) {
         let firstSubscription: boolean = true
         let timePoint: number
-        // Test code
-        // let timer = 0
 
         return async () => {
-            // Test code
-            /* this.logger.info('timer:' + timer++)
-            this.logger.info('firstSubscription:' + firstSubscription)
-            this.logger.info(`timePoint: ${timePoint}`)
-            this.logger.info(`timePoint: ${ctx.gimg.unixTimestampToString(timePoint)}`) */
-
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
@@ -558,11 +552,6 @@ class ComRegister {
             for (let num = this.config.dynamicCheckNumber - 1; num >= 0; num--) {
                 // 没有动态内容则直接跳过
                 if (!items[num]) continue
-
-                // Test code
-                /* this.logger.info(`items[${num}].modules.module_author.pub_ts: ${items[num].modules.module_author.pub_ts}`)
-                this.logger.info(`items[${num}].modules.module_author.pub_ts: ${ctx.gimg.unixTimestampToString(items[num].modules.module_author.pub_ts)}`) */
-
                 // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
                     // 推送该条动态

@@ -49,7 +49,6 @@ export const Config: Schema<Config> = Schema.object({
 
     liveStartAtAll: Schema.boolean()
         .default(false)
-        .experimental()
         .description('直播开始时艾特全体成员，默认关闭'),
 
     pushTime: Schema.number()
