@@ -47,7 +47,7 @@ class ComRegister {
                 case 'qq': this.qqBot = bot
                 case 'qqguild': this.qqguildBot = bot
                 case 'onebot': this.oneBot = bot
-                case ' red': this.redBot = bot
+                case 'red': this.redBot = bot
             }
         })
 
