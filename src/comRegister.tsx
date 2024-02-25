@@ -221,7 +221,7 @@ class ComRegister {
                             // bili show
                             await session.execute('bili show')
                             // 开启cookies刷新检测
-                            ctx.biliAPI.enableRefreshCookiesDetect(loginContent.data.refresh_token)
+                            ctx.biliAPI.enableRefreshCookiesDetect()
                             return
                         }
                     } finally {

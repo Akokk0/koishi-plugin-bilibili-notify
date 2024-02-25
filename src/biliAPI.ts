@@ -198,27 +198,6 @@ class BiliAPI extends Service {
         }
     }
 
-    enableRefreshCookiesDetect(refreshToken: string, csrf?: string) {
-        // 获取cookies
-        const cookies = JSON.parse(this.getCookies())
-        // 获取csrf
-        if (!csrf) {
-            cookies.find(cookie => {
-                // 获取key为bili_jct的值
-                if (cookie.key === 'bili_jct') {
-                    csrf = cookie.value
-                    return true
-                }
-            })
-        }
-        // 判断之前是否启动检测
-        this.refreshCookieTimer && this.refreshCookieTimer()
-        // Open scheduled tasks and check if token need refresh
-        this.refreshCookieTimer = this.ctx.setInterval(() => { // 每12小时检测一次
-            this.checkIfTokenNeedRefresh(refreshToken, csrf)
-        }, 43200000)
-    }
-
     disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
 
     createNewClient() {
@@ -240,7 +219,7 @@ class BiliAPI extends Service {
         return cookies
     }
 
-    async loadCookiesFromDatabase() {
+    async getLoginInfoFromDB() {
         // 读取数据库获取cookies
         const data = (await this.ctx.database.get('loginBili', 1))[0]
         // 判断是否登录
@@ -250,7 +229,11 @@ class BiliAPI extends Service {
                 type: 'warning',
                 content: '您尚未登录，将无法使用插件提供的指令'
             })
-            return
+            // 返回空值
+            return {
+                cookies: null,
+                refresh_token: null
+            }
         }
         // 定义解密信息
         let decryptedCookies: string
@@ -268,6 +251,18 @@ class BiliAPI extends Service {
         }
         // 解析从数据库读到的cookies
         const cookies = JSON.parse(decryptedCookies)
+        // 返回值
+        return {
+            cookies,
+            refresh_token: decryptedRefreshToken
+        }
+    }
+
+    async loadCookiesFromDatabase() {
+        // Get login info from db
+        const { cookies, refresh_token } = await this.getLoginInfoFromDB()
+        // 判断是否有值
+        if (!cookies || !refresh_token) return
         // 定义CSRF Token
         let csrf: string
         cookies.forEach(cookieData => {
@@ -287,12 +282,31 @@ class BiliAPI extends Service {
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
         })
         // restart plugin check
-        this.checkIfTokenNeedRefresh(decryptedRefreshToken, csrf)
+        this.checkIfTokenNeedRefresh(refresh_token, csrf)
         // enable refresh cookies detect
-        this.enableRefreshCookiesDetect(decryptedRefreshToken, csrf)
+        this.enableRefreshCookiesDetect()
     }
 
-    async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 0) {
+    enableRefreshCookiesDetect() {
+        // 判断之前是否启动检测
+        this.refreshCookieTimer && this.refreshCookieTimer()
+        // Open scheduled tasks and check if token need refresh
+        this.refreshCookieTimer = this.ctx.setInterval(async () => { // 每12小时检测一次
+            // 从数据库获取登录信息
+            const { cookies, refresh_token } = await this.getLoginInfoFromDB()
+            // 判断是否有值
+            if (!cookies || !refresh_token) return
+            // 获取csrf
+            const csrf = cookies.find(cookie => {
+                // 判断key是否为bili_jct
+                if (cookie.key === 'bili_jct') return true
+            }).value
+            // 检查是否需要更新
+            this.checkIfTokenNeedRefresh(refresh_token, csrf)
+        }, 43200000)
+    }
+
+    async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 3) {
         // 定义数据
         let data: any
         // 定义方法
@@ -315,10 +329,10 @@ class BiliAPI extends Service {
             data = cookieData
         } catch (e) {
             // 发送三次仍网络错误则给管理员发送错误信息
-            if (times > 3) return
+            if (times < 1) return
             // 等待3秒再次尝试
             this.ctx.setTimeout(() => {
-                this.checkIfTokenNeedRefresh(refreshToken, csrf, times + 1)
+                this.checkIfTokenNeedRefresh(refreshToken, csrf, times - 1)
             }, 3000)
             return
         }
@@ -365,8 +379,7 @@ class BiliAPI extends Service {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 }
-            }
-        )
+            })
         // 检查是否有其他问题
         switch (refreshData.code) {
             // 账号未登录
@@ -389,10 +402,9 @@ class BiliAPI extends Service {
             bili_refresh_token: encryptedRefreshToken
         }])
         // Get new csrf from cookies
-        let newCsrf: string;
-        this.jar.serializeSync().cookies.forEach(cookie => {
-            if (cookie.key === 'bili_jct') newCsrf = cookie.value
-        })
+        let newCsrf: string = this.jar.serializeSync().cookies.find(cookie => {
+            if (cookie.key === 'bili_jct') return true
+        }).value
         // Accept update
         const { data: aceeptData } = await this.client.post(
             'https://passport.bilibili.com/x/passport-login/web/confirm/refresh',
@@ -400,9 +412,9 @@ class BiliAPI extends Service {
                 csrf: newCsrf,
                 refresh_token: refreshToken
             }, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
         })
         // 检查是否有其他问题
         switch (aceeptData.code) {
