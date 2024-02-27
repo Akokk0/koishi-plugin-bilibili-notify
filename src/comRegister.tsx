@@ -748,11 +748,11 @@ class ComRegister {
                             // 主播信息不会变，开播时刷新一次即可
                             uData = userData
                             // 发送直播通知卡片
-                            sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
+                            await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
                             // 判断是否需要@全体成员
                             if (this.config.liveStartAtAll) {
                                 // 发送@全体成员通知
-                                bot.sendMessage(guildId, <at type="all" />)
+                                await bot.sendMessage(guildId, <at type="all" />)
                             }
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
