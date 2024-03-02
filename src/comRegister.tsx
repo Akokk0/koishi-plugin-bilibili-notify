@@ -337,7 +337,7 @@ class ComRegister {
                         // 定义满足条件的群组数组
                         const targetArr = []
                         // 判断群号是否符合条件
-                        for (let guild in guildId) {
+                        for (let guild of guildId) {
                             if (guildList.data.some(cv => cv.id === guild)) { // 机器人加入了该群
                                 // 保存到数组
                                 targetArr.push(guild)
