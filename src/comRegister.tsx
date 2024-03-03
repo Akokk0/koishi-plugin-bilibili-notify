@@ -1,8 +1,8 @@
 import { Bot, Context, Logger, Schema, Session, h } from "koishi"
+import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
-import { Notifier } from "@koishijs/plugin-notifier";
 
 enum LiveType {
     NotLiveBroadcast,
@@ -561,7 +561,7 @@ class ComRegister {
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
-                timePoint = await ctx.biliAPI.getServerUTCTime()
+                timePoint = ctx.biliAPI.getTimeOfUTC8()
                 // 设置第一次为false
                 firstSubscription = false
                 return
@@ -594,7 +594,6 @@ class ComRegister {
                 this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
                 return
             }
-
             // 获取数据内容
             const items = content.data.items
             // 发送请求 默认只查看配置文件规定数量的数据

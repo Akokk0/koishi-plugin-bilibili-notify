@@ -4,6 +4,7 @@ import { CookieJar, Cookie } from 'tough-cookie'
 import { wrapper } from 'axios-cookiejar-support'
 import { JSDOM } from 'jsdom'
 import { Notifier } from "@koishijs/plugin-notifier"
+import { DateTime } from "luxon"
 
 declare module 'koishi' {
     interface Context {
@@ -211,6 +212,10 @@ class BiliAPI extends Service {
                 'Referer': 'https://www.bilibili.com/'
             }
         }))
+    }
+
+    getTimeOfUTC8() {
+        return Math.floor(DateTime.now().setZone('UTC+8').toSeconds())
     }
 
     getCookies() {

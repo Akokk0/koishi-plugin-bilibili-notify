@@ -9,7 +9,7 @@ declare module 'koishi' {
 }
 
 class Wbi extends Service {
-    config: Wbi.Config
+    wbiConfig: Wbi.Config
     mixinKeyEncTab = [
         46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
         33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
@@ -19,7 +19,7 @@ class Wbi extends Service {
 
     constructor(ctx: Context, config: Wbi.Config) {
         super(ctx, 'wbi')
-        this.config = config
+        this.wbiConfig = config
     }
 
     protected start(): void | Promise<void> {
@@ -84,7 +84,7 @@ class Wbi extends Service {
 
     encrypt(text: string, secretKey?: string): string {
         const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.config.key), iv);
+        const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.wbiConfig.key), iv);
         const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
         return iv.toString('hex') + ':' + encrypted.toString('hex');
     }
@@ -93,7 +93,7 @@ class Wbi extends Service {
         let textParts = text.split(':');
         let iv = Buffer.from(textParts.shift(), 'hex');
         let encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.config.key), iv);
+        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.wbiConfig.key), iv);
         let decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]);
         return decrypted.toString();
     }

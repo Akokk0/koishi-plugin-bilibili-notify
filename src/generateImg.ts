@@ -45,11 +45,11 @@ const ADDITIONAL_TYPE_RESERVE = 'ADDITIONAL_TYPE_RESERVE'
 
 class GenerateImg extends Service {
     static inject = ['puppeteer', 'biliAPI']
-    config: GenerateImg.Config
+    giConfig: GenerateImg.Config
 
     constructor(ctx: Context, config: GenerateImg.Config) {
         super(ctx, 'gimg')
-        this.config = config
+        this.giConfig = config
     }
 
     protected start(): void | Promise<void> {
@@ -75,7 +75,7 @@ class GenerateImg extends Service {
                     * {
                         margin: 0;
                         padding: 0;
-                        font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
 
                     html {
@@ -86,7 +86,7 @@ class GenerateImg extends Service {
                     .background {
                         width: 770px;
                         height: auto;
-                        background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
+                        background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                         overflow: hidden;
                     }
 
@@ -101,7 +101,7 @@ class GenerateImg extends Service {
                     }
 
                     .base-plate {
-                        ${this.config.removeBorder ? `
+                        ${this.giConfig.removeBorder ? `
                         width: 740px;
                         ` : `
                         width: 704px;
@@ -196,7 +196,7 @@ class GenerateImg extends Service {
             </html>
         `
         // 判断渲染方式
-        if (this.config.renderType) { // 为1则为真，进入page模式
+        if (this.giConfig.renderType) { // 为1则为真，进入page模式
             const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
             const page = await this.ctx.puppeteer.page()
             await page.goto(htmlPath)
@@ -263,13 +263,13 @@ class GenerateImg extends Service {
                         }
                     }, '');
                     // 关键字和正则屏蔽
-                    if (this.config.filter.enable) { // 开启关键字和正则屏蔽
-                        if (this.config.filter.regex) { // 正则屏蔽
-                            const reg = new RegExp(this.config.filter.regex)
+                    if (this.giConfig.filter.enable) { // 开启关键字和正则屏蔽
+                        if (this.giConfig.filter.regex) { // 正则屏蔽
+                            const reg = new RegExp(this.giConfig.filter.regex)
                             if (reg.test(richText)) throw new Error('出现关键词，屏蔽该动态')
                         }
-                        if (this.config.filter.keywords.length !== 0 &&
-                            this.config.filter.keywords
+                        if (this.giConfig.filter.keywords.length !== 0 &&
+                            this.giConfig.filter.keywords
                                 .some(keyword => richText.includes(keyword))) {
                             throw new Error('出现关键词，屏蔽该动态')
                         }
@@ -533,7 +533,7 @@ class GenerateImg extends Service {
         const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
         // 判断是否开启大字体模式
         let style: string
-        if (this.config.enableLargeFont) {
+        if (this.giConfig.enableLargeFont) {
             style = `
             @font-face {
                 font-family: "Custom Font";
@@ -544,7 +544,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -555,7 +555,7 @@ class GenerateImg extends Service {
             .background {
                 width: 770px;
                 height: auto;
-                background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
+                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                 overflow: hidden;
             }
     
@@ -570,7 +570,7 @@ class GenerateImg extends Service {
             }
     
             .base-plate {
-                ${this.config.removeBorder ? `
+                ${this.giConfig.removeBorder ? `
                 width: 740px;
                 ` : `
                 width: 704px;
@@ -873,7 +873,7 @@ class GenerateImg extends Service {
             * {
                 margin: 0;
                 padding: 0;
-                font-family: "${this.config.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -884,7 +884,7 @@ class GenerateImg extends Service {
             .background {
                 width: 770px;
                 height: auto;
-                background: linear-gradient(to right bottom, ${this.config.cardColorStart}, ${this.config.cardColorEnd});
+                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                 overflow: hidden;
             }
     
@@ -1273,7 +1273,7 @@ class GenerateImg extends Service {
             </html>
         `
         // 判断渲染方式
-        if (this.config.renderType) { // 为1则为真，进入page模式
+        if (this.giConfig.renderType) { // 为1则为真，进入page模式
             const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
             const page = await this.ctx.puppeteer.page()
             await page.goto(htmlPath)
@@ -1327,11 +1327,11 @@ class GenerateImg extends Service {
 
     async getTimeDifference(dateString: string) {
         // 将日期字符串转换为Date对象
-        const date = new Date(dateString);
+        const date = new Date(dateString)
         // 获取Unix时间戳（以毫秒为单位）
-        const unixTime = date.getTime() / 1000;
+        const unixTime = date.getTime() / 1000
         // 获取当前Unix时间戳
-        const now = await this.ctx.biliAPI.getServerUTCTime()
+        const now = this.ctx.biliAPI.getTimeOfUTC8()
         // 计算时间差（以秒为单位）
         const differenceInSeconds = Math.floor(now - unixTime);
         // 获取yyyy:MM:dd HH:mm:ss
