@@ -638,8 +638,13 @@ class ComRegister {
                             // 如果成功，那么跳出循环
                             break
                         } catch (e) {
+                            this.logger.error('dynamicDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                             if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
-                                throw e;
+                                return this.sendMsg(
+                                    guildId,
+                                    bot,
+                                    '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
+                                )
                             }
                         }
                     }
@@ -693,12 +698,12 @@ class ComRegister {
                     // 成功则跳出循环
                     break
                 } catch (e) {
-                    this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败')
+                    this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
                         return this.sendMsg(
                             guildId,
                             bot,
-                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然会发生该错误，请向作者反馈'
+                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
                         )
                     }
                 }

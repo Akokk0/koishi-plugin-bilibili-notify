@@ -5,11 +5,6 @@ declare module 'koishi' {
         bilibili: Bilibili,
         loginBili: LoginBili
     }
-
-    /* interface User {
-        bili_cookies: string,
-        bili_refresh_token: string
-    } */
 }
 
 export interface Bilibili {
@@ -36,8 +31,8 @@ export function apply(ctx: Context) {
     // 新增LoginBili表
     ctx.model.extend('loginBili', {
         id: 'unsigned',
-        bili_cookies: 'string',
-        bili_refresh_token: 'string'
+        bili_cookies: 'text',
+        bili_refresh_token: 'text'
     })
 
     // 新增Bilibili表

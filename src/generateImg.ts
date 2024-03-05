@@ -195,30 +195,40 @@ class GenerateImg extends Service {
             </body>
             </html>
         `
-        // 判断渲染方式
-        if (this.giConfig.renderType) { // 为1则为真，进入page模式
-            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
-            const page = await this.ctx.puppeteer.page()
-            await page.goto(htmlPath)
-            await page.setContent(html, { waitUntil: 'networkidle0' })
-            const elementHandle = await page.$('html')
-            const boundingBox = await elementHandle.boundingBox()
-            const buffer = await page.screenshot({
-                type: 'png',
-                clip: {
-                    x: boundingBox.x,
-                    y: boundingBox.y,
-                    width: boundingBox.width,
-                    height: boundingBox.height
+        // 多次尝试生成图片
+        let attempts = 3
+        for (let i = 0; i < attempts; i++) {
+            try {
+                // 判断渲染方式
+                if (this.giConfig.renderType) { // 为1则为真，进入page模式
+                    const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
+                    const page = await this.ctx.puppeteer.page()
+                    await page.goto(htmlPath)
+                    await page.setContent(html, { waitUntil: 'networkidle0' })
+                    const elementHandle = await page.$('html')
+                    const boundingBox = await elementHandle.boundingBox()
+                    const buffer = await page.screenshot({
+                        type: 'png',
+                        clip: {
+                            x: boundingBox.x,
+                            y: boundingBox.y,
+                            width: boundingBox.width,
+                            height: boundingBox.height
+                        }
+                    })
+                    await elementHandle.dispose();
+                    await page.close()
+                    return { buffer }
                 }
-            })
-            await elementHandle.dispose();
-            await page.close()
-            return { buffer }
+                // 使用render模式渲染
+                const pic = await this.ctx.puppeteer.render(html)
+                return { pic }
+            } catch (e) {
+                if (i === attempts - 1) { // 已尝试三次
+                    throw new Error('生成图片失败！错误: ' + e.toString())
+                }
+            }
         }
-        // 使用render模式渲染
-        const pic = await this.ctx.puppeteer.render(html)
-        return { pic }
     }
 
     async generateDynamicImg(data: any) {
@@ -1272,30 +1282,40 @@ class GenerateImg extends Service {
             </body>
             </html>
         `
-        // 判断渲染方式
-        if (this.giConfig.renderType) { // 为1则为真，进入page模式
-            const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
-            const page = await this.ctx.puppeteer.page()
-            await page.goto(htmlPath)
-            await page.setContent(html, { waitUntil: 'networkidle0' })
-            const elementHandle = await page.$('html')
-            const boundingBox = await elementHandle.boundingBox()
-            const buffer = await page.screenshot({
-                type: 'png',
-                clip: {
-                    x: boundingBox.x,
-                    y: boundingBox.y,
-                    width: boundingBox.width,
-                    height: boundingBox.height
+        // 多次尝试生成图片
+        let attempts = 3
+        for (let i = 0; i < attempts; i++) {
+            try {
+                // 判断渲染方式
+                if (this.giConfig.renderType) { // 为1则为真，进入page模式
+                    const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
+                    const page = await this.ctx.puppeteer.page()
+                    await page.goto(htmlPath)
+                    await page.setContent(html, { waitUntil: 'networkidle0' })
+                    const elementHandle = await page.$('html')
+                    const boundingBox = await elementHandle.boundingBox()
+                    const buffer = await page.screenshot({
+                        type: 'png',
+                        clip: {
+                            x: boundingBox.x,
+                            y: boundingBox.y,
+                            width: boundingBox.width,
+                            height: boundingBox.height
+                        }
+                    })
+                    await elementHandle.dispose();
+                    await page.close()
+                    return { buffer, link }
                 }
-            })
-            await elementHandle.dispose();
-            await page.close()
-            return { buffer, link }
+                // 使用render模式渲染
+                const pic = await this.ctx.puppeteer.render(html)
+                return { pic, link }
+            } catch (e) {
+                if (i === attempts - 1) { // 已尝试三次
+                    throw new Error('生成图片失败！错误: ' + e.toString())
+                }
+            }
         }
-        // 使用render模式渲染
-        const pic = await this.ctx.puppeteer.render(html)
-        return { pic, link }
     }
 
     async getLiveStatus(time: string, liveStatus: number): Promise<[string, string, boolean]> {
