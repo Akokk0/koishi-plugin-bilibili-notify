@@ -18,18 +18,22 @@ export interface Config {
     key: string,
     basicSettings: {},
     unlockSubLimits: boolean,
-    liveStartAtAll: boolean,
-    pushTime: number,
+    renderType: 'render' | 'page',
+    dynamic: {},
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
-    renderType: 'render' | 'page',
-    filter: {},
+    live: {},
+    pushTime: number,
+    liveStartAtAll: boolean,
+    customLiveStart: string,
+    customLiveEnd: string,
     style: {},
     removeBorder: boolean,
     cardColorStart: string,
     cardColorEnd: string,
     enableLargeFont: boolean
     font: string
+    filter: {},
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -47,16 +51,12 @@ export const Config: Schema<Config> = Schema.object({
         .default(false)
         .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
 
-    liveStartAtAll: Schema.boolean()
-        .default(false)
-        .description('直播开始时艾特全体成员，默认关闭'),
+    renderType: Schema.union(['render', 'page'])
+        .role('')
+        .default('render')
+        .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
 
-    pushTime: Schema.number()
-        .min(0)
-        .max(12)
-        .step(0.5)
-        .default(1)
-        .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
+    dynamic: Schema.object({}).description('动态推送设置'),
 
     dynamicCheckNumber: Schema.number()
         .min(2)
@@ -71,29 +71,28 @@ export const Config: Schema<Config> = Schema.object({
         .default('2分钟')
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
 
-    renderType: Schema.union(['render', 'page'])
-        .role('')
-        .default('render')
-        .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
+    live: Schema.object({}).description('直播推送设置'),
 
-    filter: Schema.intersect([
-        Schema.object({
-            enable: Schema.boolean()
-                .default(false)
-                .description('是否开启动态关键字屏蔽功能')
-                .experimental()
-        }).description('屏蔽设置'),
-        Schema.union([
-            Schema.object({
-                enable: Schema.const(true).required().experimental(),
-                regex: Schema.string()
-                    .description('正则表达式屏蔽'),
-                keywords: Schema.array(String)
-                    .description('关键字屏蔽，一个关键字为一项')
-            }),
-            Schema.object({})
-        ])
-    ]),
+    liveStartAtAll: Schema.boolean()
+        .default(false)
+        .description('直播开始时艾特全体成员，默认关闭'),
+
+    pushTime: Schema.number()
+        .min(0)
+        .max(12)
+        .step(0.5)
+        .default(1)
+        .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
+
+    customLiveStart: Schema.string()
+        .default('-name开播啦')
+        .experimental()
+        .description('自定义开播提示语，-name代表UP昵称。例如-name开播啦，会发送为xxxUP开播啦'),
+
+    customLiveEnd: Schema.string()
+        .default('-name下播啦，本次直播了-time')
+        .experimental()
+        .description('自定义下播提示语，-name代表UP昵称，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒'),
 
     style: Schema.object({}).description('美化设置'),
 
@@ -116,7 +115,26 @@ export const Config: Schema<Config> = Schema.object({
         .description('是否开启动态推送卡片大字体模式，默认为小字体。小字体更漂亮，但阅读比较吃力，大字体更易阅读，但相对没这么好看'),
 
     font: Schema.string()
-        .description('推送卡片的字体样式，如果你想用你自己的字体可以在此填写，例如：Microsoft YaHei')
+        .description('推送卡片的字体样式，如果你想用你自己的字体可以在此填写，例如：Microsoft YaHei'),
+
+    filter: Schema.intersect([
+        Schema.object({
+            enable: Schema.boolean()
+                .default(false)
+                .description('是否开启动态关键字屏蔽功能')
+                .experimental()
+        }).description('屏蔽设置'),
+        Schema.union([
+            Schema.object({
+                enable: Schema.const(true).required().experimental(),
+                regex: Schema.string()
+                    .description('正则表达式屏蔽'),
+                keywords: Schema.array(String)
+                    .description('关键字屏蔽，一个关键字为一项')
+            }),
+            Schema.object({})
+        ])
+    ]),
 })
 
 export function apply(ctx: Context, config: Config) {
@@ -166,6 +184,8 @@ export function apply(ctx: Context, config: Config) {
         unlockSubLimits: config.unlockSubLimits,
         liveStartAtAll: config.liveStartAtAll,
         pushTime: config.pushTime,
+        customLiveStart: config.customLiveStart,
+        customLiveEnd: config.customLiveEnd,
         dynamicCheckNumber: config.dynamicCheckNumber,
         dynamicLoopTime
     })

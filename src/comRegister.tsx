@@ -292,6 +292,14 @@ class ComRegister {
             .example('bili sub 1194210119 目标QQ群号(实验性) -l -d 订阅UID为1194210119的UP主的动态和直播')
             .action(async ({ session, options }, mid, ...guildId) => {
                 this.logger.info('调用bili.sub指令')
+                // 检查是否是不支持的平台
+                switch (session.event.platform) {
+                    case 'red':
+                    case 'onebot':
+                    case 'qq':
+                    case 'qqguild': break
+                    default: return '暂不支持该平台'
+                }
                 // 检查是否登录
                 if (!(await this.checkIfIsLogin(ctx))) {
                     // 未登录直接返回
@@ -782,11 +790,15 @@ class ComRegister {
                             open = false
                             // 下播了将定时器清零
                             timer = 0
+                            // 定义下播通知消息
+                            let liveEndMsg = this.config.customLiveEnd
+                                .replace('-name', uData.info.uname)
+                                .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
                             // 发送下播通知
                             await this.sendMsg(
                                 guildId,
                                 bot,
-                                `${uData.info.uname}下播啦，本次直播了${await ctx.gimg.getTimeDifference(liveTime)}`,
+                                liveEndMsg
                             )
                         }
                         // 未进循环，还未开播，继续循环
@@ -821,12 +833,18 @@ class ComRegister {
                             }
                             // 主播信息不会变，开播时刷新一次即可
                             uData = userData
+                            // 定义开播通知语
+                            let liveStartMsg = this.config.customLiveStart
+                                .replace('-name', uData.info.uname)
+                                .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
                             // 发送直播通知卡片
                             await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
                             // 判断是否需要@全体成员
                             if (this.config.liveStartAtAll) {
                                 // 发送@全体成员通知
-                                await this.sendMsg(guildId, bot, <at type="all" />)
+                                await this.sendMsg(guildId, bot, <><at type="all" /> {liveStartMsg} </>)
+                            } else {
+                                await this.sendMsg(guildId, bot, liveStartMsg)
                             }
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
@@ -925,16 +943,21 @@ class ComRegister {
 
     async getSubFromDatabase(ctx: Context) {
         // 如果未登录，则直接返回
+        this.logger.info('Login info：', await this.checkIfIsLogin(ctx))
         if (!(await this.checkIfIsLogin(ctx))) return
         // 已存在订阅管理对象，不再进行订阅操作
+        this.logger.info('Sub Manager num：', this.subManager.length)
         if (this.subManager.length !== 0) return
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
+        this.logger.info('Sub object：')
+        this.logger.info(subData)
         // 设定订阅数量
         this.num = subData.length
-        // 如果订阅数量超过三个则被非法修改数据库
-        // 在控制台提示重新订阅
+        this.logger.info('Sub number：' + this.num)
+        // 如果订阅数量超过三个则数据库被非法修改
         if (!this.config.unlockSubLimits && this.num > 3) {
+            // 在控制台提示重新订阅
             ctx.notifier.create({
                 type: 'danger',
                 content: '您未解锁订阅限制，且订阅数大于3人，请您手动删除bilibili表中多余的数据后重启本插件'
@@ -943,6 +966,8 @@ class ComRegister {
         }
         // 循环遍历
         for (const sub of subData) {
+            this.logger.info('Single sub obj：')
+            this.logger.info(sub)
             // 定义Bot
             let bot: Bot<Context>
             // 判断是否存在没有任何订阅的数据
@@ -1138,6 +1163,8 @@ namespace ComRegister {
         liveStartAtAll: boolean,
         pushTime: number,
         liveLoopTime: number,
+        customLiveStart: string,
+        customLiveEnd: string,
         dynamicLoopTime: number,
         dynamicCheckNumber: number
     }
@@ -1147,6 +1174,8 @@ namespace ComRegister {
         liveStartAtAll: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
+        customLiveStart: Schema.string().required(),
+        customLiveEnd: Schema.string().required(),
         dynamicLoopTime: Schema.number().default(60),
         dynamicCheckNumber: Schema.number().required()
     })
