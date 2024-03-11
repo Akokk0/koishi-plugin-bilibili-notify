@@ -434,7 +434,7 @@ class ComRegister {
                     const { data } = await ctx.biliAPI.getMasterInfo(sub.uid)
                     userData = data
                 } catch (e) {
-                    return 'bili sub指令 getMasterInfo() 网络请求失败'
+                    return 'bili sub指令 getMasterInfo() 网络请求失败，请重试'
                 }
                 // 需要订阅直播
                 if (liveMsg) {
@@ -460,10 +460,13 @@ class ComRegister {
             .action(async ({ session, options }, uid, ...guildId) => {
                 this.logger.info('调用bili.dynamic指令')
                 // 如果uid为空则返回
-                if (!uid) return '用户uid不能为空'
-                if (!guildId) return '目标群组或频道不能为空'
-                if (!options.bot) return '非法调用'
-                // 保存到订阅管理对象
+                if (!uid) return `${uid}非法调用 dynamic 指令` // 用户uid不能为空
+                if (!guildId) return `${uid}非法调用 dynamic 指令` // 目标群组或频道不能为空
+                if (!options.bot) {
+                    this.logger.warn(`${uid}非法调用 dynamic 指令，未传入订阅平台`)
+                    return `${uid}非法调用 dynamic 指令`
+                }
+                // 寻找对应订阅管理对象
                 const index = this.subManager.findIndex(sub => sub.uid === uid)
                 // 不存在则直接返回
                 if (index === -1) {
@@ -478,7 +481,10 @@ class ComRegister {
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
-                    default: return '非法调用'
+                    default: {
+                        this.logger.warn(`${uid}非法调用 dynamic 指令，不支持该平台`)
+                        return '非法调用'
+                    }
                 }
                 // 开始循环检测
                 const dispose = ctx.setInterval(this.dynamicDetect(ctx, bot, uid, guildId), config.dynamicLoopTime * 1000)
@@ -494,9 +500,12 @@ class ComRegister {
             .action(async ({ options }, roomId, ...guildId) => {
                 this.logger.info('调用bili.live指令')
                 // 如果room_id为空则返回
-                if (!roomId) return '订阅主播房间号不能为空'
-                if (!guildId) return '目标群组或频道不能为空'
-                if (!options.bot) return '非法调用'
+                if (!roomId) return `${roomId}非法调用 dynamic 指令` // 订阅主播房间号不能为空
+                if (!guildId) return `${roomId}非法调用 dynamic 指令` // 目标群组或频道不能为空
+                if (!options.bot) {
+                    this.logger.warn(`${roomId}非法调用 dynamic 指令，未传入推送平台`)
+                    return `${roomId}非法调用 dynamic 指令`
+                }
                 // 保存到订阅管理对象
                 const index = this.subManager.findIndex(sub => sub.roomId === roomId)
                 // 要订阅的对象不在订阅管理对象中，直接返回
@@ -509,7 +518,10 @@ class ComRegister {
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
-                    default: return '非法调用'
+                    default: {
+                        this.logger.warn(`${roomId}非法调用 dynamic 指令，不支持该平台`)
+                        return `${roomId}非法调用 dynamic 指令`
+                    }
                 }
                 // 开始循环检测
                 const dispose = ctx.setInterval(this.liveDetect(ctx, bot, roomId, guildId), config.liveLoopTime * 1000)
