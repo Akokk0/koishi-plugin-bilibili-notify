@@ -36,6 +36,8 @@ class ComRegister {
     oneBot: Bot<Context>
     // Red机器人
     redBot: Bot<Context>
+    // Telegram机器人
+    telegramBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
@@ -47,7 +49,8 @@ class ComRegister {
                 case 'qq': this.qqBot = bot; break
                 case 'qqguild': this.qqguildBot = bot; break
                 case 'onebot': this.oneBot = bot; break
-                case 'red': this.redBot = bot
+                case 'red': this.redBot = bot; break
+                case 'telegram': this.telegramBot = bot; break
             }
         })
 
@@ -296,6 +299,7 @@ class ComRegister {
                 switch (session.event.platform) {
                     case 'red':
                     case 'onebot':
+                    case 'telegram':
                     case 'qq':
                     case 'qqguild': break
                     default: return '暂不支持该平台'
@@ -473,6 +477,7 @@ class ComRegister {
                     case 'qqguild': bot = this.qqguildBot; break
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -503,6 +508,7 @@ class ComRegister {
                     case 'qqguild': bot = this.qqguildBot; break
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
                     default: return '非法调用'
                 }
                 // 开始循环检测
@@ -943,18 +949,13 @@ class ComRegister {
 
     async getSubFromDatabase(ctx: Context) {
         // 如果未登录，则直接返回
-        this.logger.info('Login info：', await this.checkIfIsLogin(ctx))
         if (!(await this.checkIfIsLogin(ctx))) return
         // 已存在订阅管理对象，不再进行订阅操作
-        this.logger.info('Sub Manager num：', this.subManager.length)
         if (this.subManager.length !== 0) return
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
-        this.logger.info('Sub object：')
-        this.logger.info(subData)
         // 设定订阅数量
         this.num = subData.length
-        this.logger.info('Sub number：' + this.num)
         // 如果订阅数量超过三个则数据库被非法修改
         if (!this.config.unlockSubLimits && this.num > 3) {
             // 在控制台提示重新订阅
@@ -966,8 +967,6 @@ class ComRegister {
         }
         // 循环遍历
         for (const sub of subData) {
-            this.logger.info('Single sub obj：')
-            this.logger.info(sub)
             // 定义Bot
             let bot: Bot<Context>
             // 判断是否存在没有任何订阅的数据
@@ -983,6 +982,7 @@ class ComRegister {
                 case 'qqguild': bot = this.qqguildBot; break
                 case 'onebot': bot = this.oneBot; break
                 case 'red': bot = this.redBot; break
+                case 'telegram': bot = this.telegramBot; break
                 default: {
                     // 本条数据被篡改，删除该条订阅
                     ctx.database.remove('bilibili', { id: sub.id })
