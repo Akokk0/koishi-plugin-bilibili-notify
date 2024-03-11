@@ -22,6 +22,7 @@ class ComRegister {
         uid: string,
         roomId: string,
         targetId: string,
+        platform: string,
         live: boolean,
         dynamic: boolean,
         liveDispose: Function,
@@ -324,7 +325,7 @@ class ComRegister {
                 try {
                     content = await ctx.biliAPI.getUserInfo(mid)
                 } catch (e) {
-                    return 'bili sub getUserInfo() 本次网络请求失败'
+                    return 'bili sub getUserInfo() 本次网络请求失败，请重试'
                 }
                 // 判断是否有其他问题
                 if (content.code !== 0) {
@@ -423,6 +424,7 @@ class ComRegister {
                     uid: mid,
                     targetId,
                     roomId,
+                    platform: session.event.platform,
                     live: liveMsg,
                     dynamic: dynamicMsg,
                     liveDispose: null,
@@ -438,13 +440,13 @@ class ComRegister {
                 }
                 // 需要订阅直播
                 if (liveMsg) {
-                    await session.execute(`bili live ${roomId} ${targetId.split(',').join(' ')} -b ${session.event.platform}`)
+                    await session.execute(`bili live ${roomId} ${targetId.split(',').join(' ')}`)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
                 // 需要订阅动态
                 if (dynamicMsg) {
-                    await session.execute(`bili dynamic ${mid} ${targetId.split(',').join(' ')} -b ${session.event.platform}`)
+                    await session.execute(`bili dynamic ${mid} ${targetId.split(',').join(' ')}`)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}动态通知`)
                 }
@@ -454,28 +456,25 @@ class ComRegister {
 
         biliCom
             .subcommand('.dynamic <uid:string> <...guildId:string>', '订阅用户动态推送', { hidden: true })
-            .option('bot', '-b <type:string>')
+            // .option('bot', '-b <type:string>')
             .usage('订阅用户动态推送')
             .example('bili dynamic 1194210119 订阅UID为1194210119的动态')
-            .action(async ({ session, options }, uid, ...guildId) => {
+            .action(async ({ session }, uid, ...guildId) => {
                 this.logger.info('调用bili.dynamic指令')
                 // 如果uid为空则返回
                 if (!uid) return `${uid}非法调用 dynamic 指令` // 用户uid不能为空
                 if (!guildId) return `${uid}非法调用 dynamic 指令` // 目标群组或频道不能为空
-                if (!options.bot) {
+                /* if (!options.bot) {
                     this.logger.warn(`${uid}非法调用 dynamic 指令，未传入订阅平台`)
                     return `${uid}非法调用 dynamic 指令`
-                }
+                } */
                 // 寻找对应订阅管理对象
                 const index = this.subManager.findIndex(sub => sub.uid === uid)
                 // 不存在则直接返回
-                if (index === -1) {
-                    session.send('请勿直接调用该指令')
-                    return
-                }
+                if (index === -1) return '请勿直接调用该指令'
                 // 获取对应Bot
                 let bot: Bot<Context>
-                switch (options.bot) {
+                switch (session.event.platform) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
                     case 'onebot': bot = this.oneBot; break
@@ -494,25 +493,24 @@ class ComRegister {
 
         biliCom
             .subcommand('.live <roomId:string> <...guildId:string>', '订阅主播开播通知', { hidden: true })
-            .option('bot', '-b <type:string>')
+            // .option('bot', '-b <type:string>')
             .usage('订阅主播开播通知')
             .example('bili live 26316137 订阅房间号为26316137的直播间')
-            .action(async ({ options }, roomId, ...guildId) => {
+            .action(async ({ session }, roomId, ...guildId) => {
                 this.logger.info('调用bili.live指令')
                 // 如果room_id为空则返回
                 if (!roomId) return `${roomId}非法调用 dynamic 指令` // 订阅主播房间号不能为空
                 if (!guildId) return `${roomId}非法调用 dynamic 指令` // 目标群组或频道不能为空
-                if (!options.bot) {
+                /* if (!options.bot) {
                     this.logger.warn(`${roomId}非法调用 dynamic 指令，未传入推送平台`)
                     return `${roomId}非法调用 dynamic 指令`
-                }
-                // 保存到订阅管理对象
-                const index = this.subManager.findIndex(sub => sub.roomId === roomId)
+                } */
                 // 要订阅的对象不在订阅管理对象中，直接返回
+                const index = this.subManager.findIndex(sub => sub.roomId === roomId)
                 if (index === -1) return '请勿直接调用该指令'
                 // 获取对应Bot
                 let bot: Bot<Context>
-                switch (options.bot) {
+                switch (session.event.platform) {
                     case 'qq': bot = this.qqBot; break
                     case 'qqguild': bot = this.qqguildBot; break
                     case 'onebot': bot = this.oneBot; break
@@ -1066,6 +1064,7 @@ class ComRegister {
                 uid: sub.uid,
                 roomId: sub.room_id,
                 targetId: sub.targetId,
+                platform: sub.platform,
                 live: +sub.live === 1 ? true : false,
                 dynamic: +sub.dynamic === 1 ? true : false,
                 liveDispose: null,
