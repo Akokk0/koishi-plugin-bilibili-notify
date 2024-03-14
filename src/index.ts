@@ -31,8 +31,8 @@ export interface Config {
     removeBorder: boolean,
     cardColorStart: string,
     cardColorEnd: string,
-    enableLargeFont: boolean
-    font: string
+    enableLargeFont: boolean,
+    font: string,
     filter: {},
 }
 
