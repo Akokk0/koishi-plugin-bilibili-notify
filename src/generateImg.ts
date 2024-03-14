@@ -1384,7 +1384,6 @@ namespace GenerateImg {
             enable: boolean,
             regex: string,
             keywords: Array<string>,
-            filter: boolean
         }
         removeBorder: boolean,
         cardColorStart: string,
@@ -1399,7 +1398,7 @@ namespace GenerateImg {
             enable: Schema.boolean(),
             regex: Schema.string(),
             keywords: Schema.array(String),
-            filter: Schema.boolean()
+            notify: Schema.boolean(),
         }),
         removeBorder: Schema.boolean(),
         cardColorStart: Schema.string(),

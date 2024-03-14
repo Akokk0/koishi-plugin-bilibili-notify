@@ -130,7 +130,9 @@ export const Config: Schema<Config> = Schema.object({
                 regex: Schema.string()
                     .description('正则表达式屏蔽'),
                 keywords: Schema.array(String)
-                    .description('关键字屏蔽，一个关键字为一项')
+                    .description('关键字屏蔽，一个关键字为一项'),
+                notify: Schema.boolean()
+                    .description('动态被屏蔽是否发送提示')
             }),
             Schema.object({})
         ])
@@ -187,12 +189,13 @@ export function apply(ctx: Context, config: Config) {
         customLiveStart: config.customLiveStart,
         customLiveEnd: config.customLiveEnd,
         dynamicCheckNumber: config.dynamicCheckNumber,
-        dynamicLoopTime
+        dynamicLoopTime,
+        filter: config.filter
     })
     // 当用户输入“恶魔兔，启动！”时，执行 help 指令
     ctx.middleware((session, next) => {
         if (session.content === '恶魔兔，启动！') {
-            return session.execute('help', next)
+            return session.send('启动不了一点')
         } else {
             return next()
         }

@@ -43,7 +43,6 @@ class ComRegister {
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
         this.config = config
-
         // 拿到各类机器人
         ctx.bots.forEach(bot => {
             switch (bot.platform) {
@@ -643,7 +642,8 @@ class ComRegister {
                                 // 直播开播动态，不做处理
                                 if (e.message === '直播开播动态，不做处理') break
                                 if (e.message === '出现关键词，屏蔽该动态') {
-                                    await this.sendMsg(
+                                    // 如果需要发送才发送
+                                    this.config.filter.notify && await this.sendMsg(
                                         guildId,
                                         bot,
                                         `UID:${uid} 发布了一条含有屏蔽关键字的动态`,
@@ -1177,7 +1177,13 @@ namespace ComRegister {
         customLiveStart: string,
         customLiveEnd: string,
         dynamicLoopTime: number,
-        dynamicCheckNumber: number
+        dynamicCheckNumber: number,
+        filter: {
+            enable: boolean,
+            regex: string,
+            keywords: Array<string>,
+            notify: boolean
+        }
     }
 
     export const Config: Schema<Config> = Schema.object({
@@ -1188,7 +1194,13 @@ namespace ComRegister {
         customLiveStart: Schema.string().required(),
         customLiveEnd: Schema.string().required(),
         dynamicLoopTime: Schema.number().default(60),
-        dynamicCheckNumber: Schema.number().required()
+        dynamicCheckNumber: Schema.number().required(),
+        filter: Schema.object({
+            enable: Schema.boolean(),
+            regex: Schema.string(),
+            keywords: Schema.array(String),
+            notify: Schema.boolean(),
+        }),
     })
 }
 
