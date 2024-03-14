@@ -273,7 +273,7 @@ class GenerateImg extends Service {
                         }
                     }, '');
                     // 关键字和正则屏蔽
-                    if (this.giConfig.filter.enable) { // 开启关键字和正则屏蔽
+                    if (this.giConfig.filter.enable) { // 开启动态屏蔽功能
                         if (this.giConfig.filter.regex) { // 正则屏蔽
                             const reg = new RegExp(this.giConfig.filter.regex)
                             if (reg.test(richText)) throw new Error('出现关键词，屏蔽该动态')
@@ -329,6 +329,9 @@ class GenerateImg extends Service {
                     basicDynamic()
                     // 转发动态
                     if (dynamicMajorData.type === DYNAMIC_TYPE_FORWARD) {
+                        //转发动态屏蔽
+                        if (this.giConfig.filter.enable && this.giConfig.filter.forward)
+                            throw new Error('已屏蔽转发动态')
                         // User info
                         const forward_module_author = dynamicMajorData.orig.modules.module_author
                         const forwardUserAvatarUrl = forward_module_author.face
@@ -1385,6 +1388,7 @@ namespace GenerateImg {
             notify: boolean,
             regex: string,
             keywords: Array<string>,
+            forward: boolean
         }
         removeBorder: boolean,
         cardColorStart: string,
@@ -1400,6 +1404,7 @@ namespace GenerateImg {
             notify: Schema.boolean(),
             regex: Schema.string(),
             keywords: Schema.array(String),
+            forward: Schema.boolean()
         }),
         removeBorder: Schema.boolean(),
         cardColorStart: Schema.string(),

@@ -650,6 +650,14 @@ class ComRegister {
                                     )
                                     break
                                 }
+                                if (e.message === '已屏蔽转发动态') {
+                                    this.config.filter.notify && await this.sendMsg(
+                                        guildId,
+                                        bot,
+                                        `UID:${uid} 发布了一条转发动态，已屏蔽`
+                                    )
+                                    break
+                                }
                             }
                             // 如果pic存在，则直接返回pic
                             if (pic) {

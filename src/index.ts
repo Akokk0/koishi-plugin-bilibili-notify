@@ -121,18 +121,22 @@ export const Config: Schema<Config> = Schema.object({
         Schema.object({
             enable: Schema.boolean()
                 .default(false)
-                .description('是否开启动态关键字屏蔽功能')
+                .description('是否开启动态屏蔽功能')
                 .experimental()
         }).description('屏蔽设置'),
         Schema.union([
             Schema.object({
                 enable: Schema.const(true).required().experimental(),
                 notify: Schema.boolean()
+                    .default(false)
                     .description('动态被屏蔽是否发送提示'),
                 regex: Schema.string()
                     .description('正则表达式屏蔽'),
                 keywords: Schema.array(String)
                     .description('关键字屏蔽，一个关键字为一项'),
+                forward: Schema.boolean()
+                    .default(false)
+                    .description("是否屏蔽转发动态"),
             }),
             Schema.object({})
         ])
