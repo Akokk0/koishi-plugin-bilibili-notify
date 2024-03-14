@@ -1382,6 +1382,7 @@ namespace GenerateImg {
         renderType: number,
         filter: {
             enable: boolean,
+            notify: boolean,
             regex: string,
             keywords: Array<string>,
         }
@@ -1396,9 +1397,9 @@ namespace GenerateImg {
         renderType: Schema.number(),
         filter: Schema.object({
             enable: Schema.boolean(),
+            notify: Schema.boolean(),
             regex: Schema.string(),
             keywords: Schema.array(String),
-            notify: Schema.boolean(),
         }),
         removeBorder: Schema.boolean(),
         cardColorStart: Schema.string(),

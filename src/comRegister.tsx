@@ -1180,9 +1180,9 @@ namespace ComRegister {
         dynamicCheckNumber: number,
         filter: {
             enable: boolean,
+            notify: boolean
             regex: string,
             keywords: Array<string>,
-            notify: boolean
         }
     }
 
@@ -1197,9 +1197,9 @@ namespace ComRegister {
         dynamicCheckNumber: Schema.number().required(),
         filter: Schema.object({
             enable: Schema.boolean(),
+            notify: Schema.boolean(),
             regex: Schema.string(),
             keywords: Schema.array(String),
-            notify: Schema.boolean(),
         }),
     })
 }
