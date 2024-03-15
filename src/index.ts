@@ -20,6 +20,7 @@ export interface Config {
     unlockSubLimits: boolean,
     renderType: 'render' | 'page',
     dynamic: {},
+    dynamicUrl: boolean,
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
     live: {},
@@ -58,6 +59,10 @@ export const Config: Schema<Config> = Schema.object({
 
     dynamic: Schema.object({}).description('动态推送设置'),
 
+    dynamicUrl: Schema.boolean()
+        .default(false)
+        .description('发送动态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！'),
+
     dynamicCheckNumber: Schema.number()
         .min(2)
         .max(10)
@@ -86,12 +91,10 @@ export const Config: Schema<Config> = Schema.object({
 
     customLiveStart: Schema.string()
         .default('-name开播啦')
-        .experimental()
         .description('自定义开播提示语，-name代表UP昵称。例如-name开播啦，会发送为xxxUP开播啦'),
 
     customLiveEnd: Schema.string()
         .default('-name下播啦，本次直播了-time')
-        .experimental()
         .description('自定义下播提示语，-name代表UP昵称，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒'),
 
     style: Schema.object({}).description('美化设置'),
@@ -122,7 +125,6 @@ export const Config: Schema<Config> = Schema.object({
             enable: Schema.boolean()
                 .default(false)
                 .description('是否开启动态屏蔽功能')
-                .experimental()
         }).description('屏蔽设置'),
         Schema.union([
             Schema.object({
@@ -174,6 +176,7 @@ export function apply(ctx: Context, config: Config) {
     ctx.plugin(Database)
     // Regist server
     ctx.plugin(Wbi, { key: config.key })
+    ctx.plugin(BiliAPI)
     ctx.plugin(GenerateImg, {
         renderType,
         filter: config.filter,
@@ -183,9 +186,6 @@ export function apply(ctx: Context, config: Config) {
         enableLargeFont: config.enableLargeFont,
         font: config.font
     })
-    ctx.plugin(BiliAPI)
-    // load plugin
-    // ctx.plugin(Authority)
     ctx.plugin(ComRegister, {
         unlockSubLimits: config.unlockSubLimits,
         liveStartAtAll: config.liveStartAtAll,
@@ -194,6 +194,7 @@ export function apply(ctx: Context, config: Config) {
         customLiveEnd: config.customLiveEnd,
         dynamicCheckNumber: config.dynamicCheckNumber,
         dynamicLoopTime,
+        dynamicUrl: config.dynamicUrl,
         filter: config.filter
     })
     // 当用户输入“恶魔兔，启动！”时，执行 help 指令

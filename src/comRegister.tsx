@@ -455,7 +455,6 @@ class ComRegister {
 
         biliCom
             .subcommand('.dynamic <uid:string> <...guildId:string>', '订阅用户动态推送', { hidden: true })
-            // .option('bot', '-b <type:string>')
             .usage('订阅用户动态推送')
             .example('bili dynamic 1194210119 订阅UID为1194210119的动态')
             .action(async ({ session }, uid, ...guildId) => {
@@ -463,10 +462,6 @@ class ComRegister {
                 // 如果uid为空则返回
                 if (!uid) return `${uid}非法调用 dynamic 指令` // 用户uid不能为空
                 if (!guildId) return `${uid}非法调用 dynamic 指令` // 目标群组或频道不能为空
-                /* if (!options.bot) {
-                    this.logger.warn(`${uid}非法调用 dynamic 指令，未传入订阅平台`)
-                    return `${uid}非法调用 dynamic 指令`
-                } */
                 // 寻找对应订阅管理对象
                 const index = this.subManager.findIndex(sub => sub.uid === uid)
                 // 不存在则直接返回
@@ -492,7 +487,6 @@ class ComRegister {
 
         biliCom
             .subcommand('.live <roomId:string> <...guildId:string>', '订阅主播开播通知', { hidden: true })
-            // .option('bot', '-b <type:string>')
             .usage('订阅主播开播通知')
             .example('bili live 26316137 订阅房间号为26316137的直播间')
             .action(async ({ session }, roomId, ...guildId) => {
@@ -500,10 +494,6 @@ class ComRegister {
                 // 如果room_id为空则返回
                 if (!roomId) return `${roomId}非法调用 dynamic 指令` // 订阅主播房间号不能为空
                 if (!guildId) return `${roomId}非法调用 dynamic 指令` // 目标群组或频道不能为空
-                /* if (!options.bot) {
-                    this.logger.warn(`${roomId}非法调用 dynamic 指令，未传入推送平台`)
-                    return `${roomId}非法调用 dynamic 指令`
-                } */
                 // 要订阅的对象不在订阅管理对象中，直接返回
                 const index = this.subManager.findIndex(sub => sub.roomId === roomId)
                 if (index === -1) return '请勿直接调用该指令'
@@ -635,6 +625,8 @@ class ComRegister {
                             // 从动态数据中取出UP主名称和动态ID
                             const upName = content.data.items[num].modules.module_author.name
                             const dynamicId = content.data.items[num].id_str
+                            // 判断是否需要发送URL
+                            const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
                             // 获取动态推送图片
                             try {
                                 // 渲染图片
@@ -665,10 +657,10 @@ class ComRegister {
                             // 如果pic存在，则直接返回pic
                             if (pic) {
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(guildId, bot, pic+`${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`)
+                                await this.sendMsg(guildId, bot, pic + ' ' + dUrl)
                             } else {
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'+`${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`))
+                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + dUrl))
                             }
                             // 如果成功，那么跳出循环
                             break
@@ -1187,6 +1179,7 @@ namespace ComRegister {
         liveLoopTime: number,
         customLiveStart: string,
         customLiveEnd: string,
+        dynamicUrl: boolean,
         dynamicLoopTime: number,
         dynamicCheckNumber: number,
         filter: {
@@ -1204,6 +1197,7 @@ namespace ComRegister {
         liveLoopTime: Schema.number().default(10),
         customLiveStart: Schema.string().required(),
         customLiveEnd: Schema.string().required(),
+        dynamicUrl: Schema.boolean().required(),
         dynamicLoopTime: Schema.number().default(60),
         dynamicCheckNumber: Schema.number().required(),
         filter: Schema.object({
