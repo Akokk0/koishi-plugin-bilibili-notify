@@ -632,6 +632,9 @@ class ComRegister {
                             // 定义变量
                             let pic: string
                             let buffer: Buffer
+                            // 从动态数据中取出UP主名称和动态ID
+                            const upName = content.data.items[num].modules.module_author.name
+                            const dynamicId = content.data.items[num].id_str
                             // 获取动态推送图片
                             try {
                                 // 渲染图片
@@ -646,7 +649,15 @@ class ComRegister {
                                     this.config.filter.notify && await this.sendMsg(
                                         guildId,
                                         bot,
-                                        `UID:${uid} 发布了一条含有屏蔽关键字的动态`,
+                                        `${upName}发布了一条含有屏蔽关键字的动态`,
+                                    )
+                                    break
+                                }
+                                if (e.message === '已屏蔽转发动态') {
+                                    this.config.filter.notify && await this.sendMsg(
+                                        guildId,
+                                        bot,
+                                        `${upName}发布了一条转发动态，已屏蔽`
                                     )
                                     break
                                 }
@@ -654,10 +665,10 @@ class ComRegister {
                             // 如果pic存在，则直接返回pic
                             if (pic) {
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(guildId, bot, pic)
+                                await this.sendMsg(guildId, bot, pic+`${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`)
                             } else {
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'))
+                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'+`${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`))
                             }
                             // 如果成功，那么跳出循环
                             break
@@ -1180,9 +1191,9 @@ namespace ComRegister {
         dynamicCheckNumber: number,
         filter: {
             enable: boolean,
+            notify: boolean
             regex: string,
             keywords: Array<string>,
-            notify: boolean
         }
     }
 
@@ -1197,9 +1208,9 @@ namespace ComRegister {
         dynamicCheckNumber: Schema.number().required(),
         filter: Schema.object({
             enable: Schema.boolean(),
+            notify: Schema.boolean(),
             regex: Schema.string(),
             keywords: Schema.array(String),
-            notify: Schema.boolean(),
         }),
     })
 }

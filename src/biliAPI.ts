@@ -12,6 +12,9 @@ declare module 'koishi' {
     }
 }
 
+// 在getUserInfo中检测到番剧出差的UID时，要传回的数据：
+const bangumiTripData = {"code":0,"data":{"live_room":{"roomid":931774}}}
+
 // const GET_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
 const GET_USER_SPACE_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
 const GET_COOKIES_INFO = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
@@ -145,6 +148,11 @@ class BiliAPI extends Service {
     }
 
     async getUserInfo(mid: string) {
+        //如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
+        if (mid === "11783021") {
+            console.log("检测到番剧出差UID，跳过远程用户接口访问")
+            return bangumiTripData
+        }
         try {
             const wbi = await this.ctx.wbi.getWbi({ mid })
             const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
