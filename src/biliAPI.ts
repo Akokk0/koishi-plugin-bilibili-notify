@@ -48,61 +48,6 @@ class BiliAPI extends Service {
         // this.logger.info('BiliAPI已被注册到Context中')
     }
 
-    async test_refresh_token() {
-        const publicKey = await crypto.subtle.importKey(
-            "jwk",
-            {
-                kty: "RSA",
-                n: "y4HdjgJHBlbaBN04VERG4qNBIFHP6a3GozCl75AihQloSWCXC5HDNgyinEnhaQ_4-gaMud_GF50elYXLlCToR9se9Z8z433U3KjM-3Yx7ptKkmQNAMggQwAVKgq3zYAoidNEWuxpkY_mAitTSRLnsJW-NCTa0bqBFF6Wm1MxgfE",
-                e: "AQAB",
-            },
-            { name: "RSA-OAEP", hash: "SHA-256" },
-            true,
-            ["encrypt"],
-        )
-
-        async function getCorrespondPath(timestamp) {
-            const data = new TextEncoder().encode(`refresh_${timestamp}`);
-            const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, data))
-            return encrypted.reduce((str, c) => str + c.toString(16).padStart(2, "0"), "")
-        }
-
-        const ts = Date.now()
-        const correspondPath = await getCorrespondPath(ts)
-        const { data } = await this.client.get(`https://www.bilibili.com/correspond/1/${correspondPath}`)
-        // 创建一个虚拟的DOM元素
-        const { document } = new JSDOM(data).window;
-        // 提取标签name为1-name的内容
-        const targetElement = document.getElementById('1-name');
-        const refresh_csrf = targetElement ? targetElement.textContent : null;
-        // 获取csrf
-        let csrf: string
-        const cookies = JSON.parse(this.getCookies())
-        cookies.forEach(cookie => {
-            if (cookie.key === 'bili_jct') csrf = cookie.value
-        })
-        // 读取数据库获取cookies
-        const database = (await this.ctx.database.get('loginBili', 1))[0]
-        // 获取refreshToken
-        const refresh_token = this.ctx.wbi.decrypt(database.bili_refresh_token)
-        // 发送请求
-        // const { data: refreshData } = await this.client.post(`https://passport.bilibili.com/x/passport-login/web/cookie/refresh?csrf=${csrf}&refresh_csrf=${refresh_csrf}&source=main_web&refresh_token=${refresh_token}`)
-        const { data: refreshData } = await this.client.post(
-            'https://passport.bilibili.com/x/passport-login/web/cookie/refresh',
-            {
-                csrf,
-                refresh_csrf,
-                source: 'main_web',
-                refresh_token
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-        console.log(refreshData);
-    }
-
     async getServerUTCTime() {
         try {
             const { data } = await this.client.get(GET_SERVER_UTC_TIME);

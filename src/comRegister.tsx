@@ -972,6 +972,10 @@ class ComRegister {
 
     async getSubFromDatabase(ctx: Context) {
         this.logger.info('开始执行数据库读取操作')
+        // 检查登录状态
+        const isLogin = await this.checkIfIsLogin(ctx)
+        // log
+        this.logger.info(`登录状态:${isLogin}`)
         // 如果未登录，则直接返回
         if (!(await this.checkIfIsLogin(ctx))) return
         this.logger.info('已登录账号')
