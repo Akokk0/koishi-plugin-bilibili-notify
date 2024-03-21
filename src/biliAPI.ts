@@ -35,6 +35,7 @@ class BiliAPI extends Service {
     loginData: any
     loginNotifier: Notifier
     refreshCookieTimer: Function
+    loginInfoIsLoaded: boolean = false
 
     constructor(ctx: Context) {
         super(ctx, 'biliAPI')
@@ -177,6 +178,10 @@ class BiliAPI extends Service {
         return cookies
     }
 
+    getLoginInfoIsLoaded() {
+        return this.loginInfoIsLoaded
+    }
+
     async getLoginInfoFromDB() {
         // 读取数据库获取cookies
         const data = (await this.ctx.database.get('loginBili', 1))[0]
@@ -239,6 +244,8 @@ class BiliAPI extends Service {
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
         })
+        // Login info is loaded
+        this.loginInfoIsLoaded = true
         // restart plugin check
         this.checkIfTokenNeedRefresh(refresh_token, csrf)
         // enable refresh cookies detect

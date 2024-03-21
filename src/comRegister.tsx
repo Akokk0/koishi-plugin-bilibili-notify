@@ -41,6 +41,8 @@ class ComRegister {
     telegramBot: Bot<Context>
     // Satori机器人
     satoriBot: Bot<Context>
+    // Chronocat机器人
+    chronocatBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
@@ -54,6 +56,7 @@ class ComRegister {
                 case 'red': this.redBot = bot; break
                 case 'telegram': this.telegramBot = bot; break
                 case 'satori': this.satoriBot = bot; break
+                case 'chronocat': this.chronocatBot = bot; break
             }
         })
 
@@ -304,6 +307,7 @@ class ComRegister {
                     case 'onebot':
                     case 'telegram':
                     case 'satori':
+                    case 'chronocat':
                     case 'qq':
                     case 'qqguild': break
                     default: return '暂不支持该平台'
@@ -384,6 +388,10 @@ class ComRegister {
                         }
                         case 'satori': {
                             okGuild = await checkIfGuildHasJoined(this.satoriBot)
+                            break
+                        }
+                        case 'chronocat': {
+                            okGuild = await checkIfGuildHasJoined(this.chronocatBot)
                             break
                         }
                         default: {
@@ -483,6 +491,7 @@ class ComRegister {
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
                     case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
                     default: {
                         this.logger.warn(`${uid}非法调用 dynamic 指令，不支持该平台`)
                         return '非法调用'
@@ -515,6 +524,7 @@ class ComRegister {
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
                     case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
                     default: {
                         this.logger.warn(`${roomId}非法调用 dynamic 指令，不支持该平台`)
                         return `${roomId}非法调用 dynamic 指令`
@@ -568,6 +578,20 @@ class ComRegister {
                 if (pic) return pic
                 // pic不存在，说明使用的是page模式
                 await session.send(h.image(buffer, 'image/png'))
+            })
+
+        biliCom
+            .subcommand('.bot', '查询当前拥有的机器人信息', { hidden: true })
+            .usage('查询当前拥有的机器人信息')
+            .example('bili bot 查询当前拥有的机器人信息')
+            .action(() => {
+                this.logger.info('开始输出BOT信息')
+                ctx.bots.forEach(bot => {
+                    this.logger.info('--------------------------------')
+                    this.logger.info('平台：' + bot.platform)
+                    this.logger.info('名称：' + bot.user.name)
+                    this.logger.info('--------------------------------')
+                })
             })
     }
 
@@ -970,14 +994,29 @@ class ComRegister {
         this.subNotifier = ctx.notifier.create(table)
     }
 
+    async checkIfLoginInfoIsLoaded(ctx: Context) {
+        return new Promise(resolve => {
+            const check = () => {
+                if (!ctx.biliAPI.getLoginInfoIsLoaded()) {
+                    ctx.setTimeout(check, 500)
+                } else {
+                    resolve('success')
+                }
+            }
+            check()
+        })
+    }
+
     async getSubFromDatabase(ctx: Context) {
         this.logger.info('开始执行数据库读取操作')
-        // 检查登录状态
-        const isLogin = await this.checkIfIsLogin(ctx)
-        // log
-        this.logger.info(`登录状态:${isLogin}`)
+        // 判断登录信息是否已加载完毕
+        await this.checkIfLoginInfoIsLoaded(ctx)
         // 如果未登录，则直接返回
-        if (!(await this.checkIfIsLogin(ctx))) return
+        if (!(await this.checkIfIsLogin(ctx))) {
+            // log
+            this.logger.info(`账号未登录，请登录`)
+            return
+        }
         this.logger.info('已登录账号')
         // 已存在订阅管理对象，不再进行订阅操作
         if (this.subManager.length !== 0) return
@@ -1018,6 +1057,7 @@ class ComRegister {
                 case 'red': bot = this.redBot; break
                 case 'telegram': bot = this.telegramBot; break
                 case 'satori': bot = this.satoriBot; break
+                case 'chronocat': bot = this.chronocatBot; break
                 default: {
                     // 本条数据被篡改，删除该条订阅
                     ctx.database.remove('bilibili', { id: sub.id })
