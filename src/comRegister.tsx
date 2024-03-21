@@ -39,6 +39,8 @@ class ComRegister {
     redBot: Bot<Context>
     // Telegram机器人
     telegramBot: Bot<Context>
+    // Satori机器人
+    satoriBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('commandRegister')
@@ -51,6 +53,7 @@ class ComRegister {
                 case 'onebot': this.oneBot = bot; break
                 case 'red': this.redBot = bot; break
                 case 'telegram': this.telegramBot = bot; break
+                case 'satori': this.satoriBot = bot; break
             }
         })
 
@@ -300,6 +303,7 @@ class ComRegister {
                     case 'red':
                     case 'onebot':
                     case 'telegram':
+                    case 'satori':
                     case 'qq':
                     case 'qqguild': break
                     default: return '暂不支持该平台'
@@ -376,6 +380,10 @@ class ComRegister {
                         }
                         case 'red': {
                             okGuild = await checkIfGuildHasJoined(this.redBot)
+                            break
+                        }
+                        case 'satori': {
+                            okGuild = await checkIfGuildHasJoined(this.satoriBot)
                             break
                         }
                         default: {
@@ -474,6 +482,7 @@ class ComRegister {
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
                     default: {
                         this.logger.warn(`${uid}非法调用 dynamic 指令，不支持该平台`)
                         return '非法调用'
@@ -505,6 +514,7 @@ class ComRegister {
                     case 'onebot': bot = this.oneBot; break
                     case 'red': bot = this.redBot; break
                     case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
                     default: {
                         this.logger.warn(`${roomId}非法调用 dynamic 指令，不支持该平台`)
                         return `${roomId}非法调用 dynamic 指令`
@@ -961,12 +971,17 @@ class ComRegister {
     }
 
     async getSubFromDatabase(ctx: Context) {
+        this.logger.info('开始执行数据库读取操作')
         // 如果未登录，则直接返回
         if (!(await this.checkIfIsLogin(ctx))) return
+        this.logger.info('已登录账号')
         // 已存在订阅管理对象，不再进行订阅操作
         if (this.subManager.length !== 0) return
+        this.logger.info('不存在订阅管理对象')
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
+        this.logger.info('已从数据库获取到数据，数据为：')
+        this.logger.info(subData)
         // 设定订阅数量
         this.num = subData.length
         // 如果订阅数量超过三个则数据库被非法修改
@@ -986,6 +1001,8 @@ class ComRegister {
             if (!sub.dynamic && !sub.live) { // 存在未订阅任何项目的数据
                 // 删除该条数据
                 ctx.database.remove('bilibili', { id: sub.id })
+                // log
+                this.logger.warn(`UID:${sub.uid} 该条数据没有任何订阅数据，自动取消订阅`)
                 // 跳过下面的步骤
                 continue
             }
@@ -996,9 +1013,12 @@ class ComRegister {
                 case 'onebot': bot = this.oneBot; break
                 case 'red': bot = this.redBot; break
                 case 'telegram': bot = this.telegramBot; break
+                case 'satori': bot = this.satoriBot; break
                 default: {
                     // 本条数据被篡改，删除该条订阅
                     ctx.database.remove('bilibili', { id: sub.id })
+                    // 不支持的协议
+                    this.logger.info(`UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
                     // 继续下个循环
                     continue
                 }
@@ -1011,7 +1031,10 @@ class ComRegister {
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
+                    // 获取用户信息
                     content = await ctx.biliAPI.getUserInfo(sub.uid)
+                    // log
+                    this.logger.info(`UID:${sub.uid} 获取到用户信息`)
                     // 成功则跳出循环
                     break
                 } catch (e) {
@@ -1052,15 +1075,24 @@ class ComRegister {
                     }
                     case -400:
                     case -404:
-                    default: await deleteSub(); return
+                    default: {
+                        await deleteSub()
+                        // log
+                        this.logger.info(`UID:${sub.uid} 数据出现问题，自动取消订阅`)
+                        return
+                    }
                 }
             }
             // 检测房间号是否被篡改
             if (sub.live && (!data.live_room || data.live_room.roomid.toString() !== sub.room_id)) {
                 // 房间号被篡改，删除该订阅
                 await deleteSub()
+                // log
+                this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 return
             }
+            // log
+            this.logger.info(`UID:${sub.uid} 开始构建订阅对象`)
             // 构建订阅对象
             let subManagerItem = {
                 id: sub.id,
@@ -1073,6 +1105,8 @@ class ComRegister {
                 liveDispose: null,
                 dynamicDispose: null
             }
+            // log
+            this.logger.info(`UID:${sub.uid} 订阅对象构建成功，开始进行订阅操作`)
             // 判断需要订阅的服务
             if (sub.dynamic) { // 需要订阅动态
                 // 开始循环检测
@@ -1082,8 +1116,11 @@ class ComRegister {
                 )
                 // 保存销毁函数
                 subManagerItem.dynamicDispose = dispose
+                // log
+                this.logger.info(`UID:${sub.uid} 成功订阅动态`)
             }
-            if (sub.live) { // 需要订阅动态
+
+            if (sub.live) { // 需要订阅直播
                 // 开始循环检测
                 const dispose = ctx.setInterval(
                     this.liveDetect(ctx, bot, sub.room_id, targetArr),
@@ -1091,12 +1128,18 @@ class ComRegister {
                 )
                 // 保存销毁函数
                 subManagerItem.liveDispose = dispose
+                // log
+                this.logger.info(`UID:${sub.uid} 成功订阅直播`)
             }
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
+            // log
+            this.logger.info(`UID:${sub.uid} 成功保存订阅对象`)
         }
         // 在控制台中显示订阅对象
         this.updateSubNotifier(ctx)
+        // log
+        this.logger.info(`数据库读取操作已完成`)
     }
 
     unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
