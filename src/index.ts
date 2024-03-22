@@ -90,8 +90,8 @@ export const Config: Schema<Config> = Schema.object({
         .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
 
     customLiveStart: Schema.string()
-        .default('-name开播啦')
-        .description('自定义开播提示语，-name代表UP昵称。例如-name开播啦，会发送为xxxUP开播啦'),
+        .default('-name开播啦 -link')
+        .description('自定义开播提示语，-name代表UP昵称，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦'),
 
     customLiveEnd: Schema.string()
         .default('-name下播啦，本次直播了-time')

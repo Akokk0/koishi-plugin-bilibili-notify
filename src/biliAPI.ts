@@ -268,7 +268,7 @@ class BiliAPI extends Service {
             }).value
             // 检查是否需要更新
             this.checkIfTokenNeedRefresh(refresh_token, csrf)
-        }, 43200000)
+        }, 3600000)
     }
 
     async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 3) {

@@ -148,11 +148,17 @@ class ComRegister {
             })
 
         testCom
-            .subcommand('.refresh')
-            .usage('测试cookie刷新方法')
-            .example('test refresh')
+            .subcommand('.livestop', '发送下播提示语测试')
+            .usage('发送下播提示语测试')
+            .example('test livestop')
             .action(async ({ session }) => {
-                ctx.biliAPI.test_refresh_token()
+                const { data } = await ctx.biliAPI.getMasterInfo('194484313')
+                console.log(data);
+                await session.send(
+                    <>
+                        <img width="10px" height="10px" src="https://koishi.chat/logo.png"/>
+                    </>
+                )
             }) */
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -745,17 +751,29 @@ class ComRegister {
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
 
-        const sendLiveNotifyCard = async (data: any, uData: any, liveType: LiveType) => {
+        const sendLiveNotifyCard = async (data: any, uData: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 获取直播通知卡片
                     const { pic, buffer } = await ctx.gimg.generateLiveImg(data, uData, liveType)
                     // 推送直播信息
-                    // pic 存在，使用的是render模式
-                    if (pic) return await this.sendMsg(guildId, bot, pic)
-                    // pic不存在，说明使用的是page模式
-                    await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'))
+                    if (!liveStartMsg) {
+                        // pic 存在，使用的是render模式
+                        if (pic) return await this.sendMsg(guildId, bot, pic)
+                        // pic不存在，说明使用的是page模式
+                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'))
+                    } else if (liveStartMsg && atAll) {
+                        // pic 存在，使用的是render模式
+                        if (pic) return await this.sendMsg(guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
+                        // pic不存在，说明使用的是page模式
+                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + <><at type="all" /> {liveStartMsg}</>))
+                    } else {
+                        // pic 存在，使用的是render模式
+                        if (pic) return await this.sendMsg(guildId, bot, pic + liveStartMsg)
+                        // pic不存在，说明使用的是page模式
+                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + liveStartMsg))
+                    }
                     // 成功则跳出循环
                     break
                 } catch (e) {
@@ -890,14 +908,14 @@ class ComRegister {
                             let liveStartMsg = this.config.customLiveStart
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
-                            // 发送直播通知卡片
-                            await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting)
+                                .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
                             // 判断是否需要@全体成员
                             if (this.config.liveStartAtAll) {
                                 // 发送@全体成员通知
-                                await this.sendMsg(guildId, bot, <><at type="all" /> {liveStartMsg} </>)
+                                await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting, liveStartMsg, true)
                             } else {
-                                await this.sendMsg(guildId, bot, liveStartMsg)
+                                // 发送直播通知卡片
+                                await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting, liveStartMsg)
                             }
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
@@ -1008,7 +1026,6 @@ class ComRegister {
     }
 
     async getSubFromDatabase(ctx: Context) {
-        this.logger.info('开始执行数据库读取操作')
         // 判断登录信息是否已加载完毕
         await this.checkIfLoginInfoIsLoaded(ctx)
         // 如果未登录，则直接返回
@@ -1017,14 +1034,10 @@ class ComRegister {
             this.logger.info(`账号未登录，请登录`)
             return
         }
-        this.logger.info('已登录账号')
         // 已存在订阅管理对象，不再进行订阅操作
         if (this.subManager.length !== 0) return
-        this.logger.info('不存在订阅管理对象')
         // 从数据库中获取数据
         const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
-        this.logger.info('已从数据库获取到数据，数据为：')
-        this.logger.info(subData)
         // 设定订阅数量
         this.num = subData.length
         // 如果订阅数量超过三个则数据库被非法修改
@@ -1077,8 +1090,6 @@ class ComRegister {
                 try {
                     // 获取用户信息
                     content = await ctx.biliAPI.getUserInfo(sub.uid)
-                    // log
-                    this.logger.info(`UID:${sub.uid} 获取到用户信息`)
                     // 成功则跳出循环
                     break
                 } catch (e) {
@@ -1135,8 +1146,6 @@ class ComRegister {
                 this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 return
             }
-            // log
-            this.logger.info(`UID:${sub.uid} 开始构建订阅对象`)
             // 构建订阅对象
             let subManagerItem = {
                 id: sub.id,
@@ -1149,8 +1158,6 @@ class ComRegister {
                 liveDispose: null,
                 dynamicDispose: null
             }
-            // log
-            this.logger.info(`UID:${sub.uid} 订阅对象构建成功，开始进行订阅操作`)
             // 判断需要订阅的服务
             if (sub.dynamic) { // 需要订阅动态
                 // 开始循环检测
@@ -1160,8 +1167,6 @@ class ComRegister {
                 )
                 // 保存销毁函数
                 subManagerItem.dynamicDispose = dispose
-                // log
-                this.logger.info(`UID:${sub.uid} 成功订阅动态`)
             }
 
             if (sub.live) { // 需要订阅直播
@@ -1172,18 +1177,12 @@ class ComRegister {
                 )
                 // 保存销毁函数
                 subManagerItem.liveDispose = dispose
-                // log
-                this.logger.info(`UID:${sub.uid} 成功订阅直播`)
             }
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
-            // log
-            this.logger.info(`UID:${sub.uid} 成功保存订阅对象`)
         }
         // 在控制台中显示订阅对象
         this.updateSubNotifier(ctx)
-        // log
-        this.logger.info(`数据库读取操作已完成`)
     }
 
     unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
