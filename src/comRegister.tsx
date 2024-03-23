@@ -697,10 +697,10 @@ class ComRegister {
                             // 如果pic存在，则直接返回pic
                             if (pic) {
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(guildId, bot, pic + ' ' + dUrl)
+                                await this.sendMsg(guildId, bot, pic + dUrl)
                             } else {
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + dUrl))
+                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + dUrl))
                             }
                             // 如果成功，那么跳出循环
                             break
@@ -767,12 +767,12 @@ class ComRegister {
                         // pic 存在，使用的是render模式
                         if (pic) return await this.sendMsg(guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + <><at type="all" /> {liveStartMsg}</>))
+                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
                     } else {
                         // pic 存在，使用的是render模式
                         if (pic) return await this.sendMsg(guildId, bot, pic + liveStartMsg)
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + ' ' + liveStartMsg))
+                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
                     }
                     // 成功则跳出循环
                     break
