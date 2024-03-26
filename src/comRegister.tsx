@@ -11,7 +11,7 @@ enum LiveType {
 }
 
 class ComRegister {
-    static inject = ['biliAPI', 'gimg', 'wbi', 'database'];
+    static inject = ['biliAPI', 'gimg', 'wbi', 'database', 'sm'];
     logger: Logger;
     config: ComRegister.Config
     loginTimer: Function
@@ -345,7 +345,7 @@ class ComRegister {
                     let msg: string
                     switch (content.code) {
                         case -400: msg = '请求错误'; break;
-                        case -403: msg = '访问权限不足，尝试重新登录，如果不行请联系作者'; break;
+                        case -403: msg = '访问权限不足，请尝试重新登录'; break;
                         case -404: msg = '用户不存在'; break;
                         case -352: msg = '请登录后再尝试订阅'; break;
                         default: msg = '未知错误，请联系管理员'
@@ -457,7 +457,8 @@ class ComRegister {
                     const { data } = await ctx.biliAPI.getMasterInfo(sub.uid)
                     userData = data
                 } catch (e) {
-                    return 'bili sub指令 getMasterInfo() 网络请求失败，请重试'
+                    this.logger.error('bili sub指令 getMasterInfo() 网络请求失败，原因：' + e.toString())
+                    return '订阅出错啦，请重试'
                 }
                 // 需要订阅直播
                 if (liveMsg) {
@@ -568,7 +569,7 @@ class ComRegister {
                     if (content.msg === '未找到该房间') {
                         session.send('未找到该房间')
                     } else {
-                        session.send('未知错误，请呼叫管理员检查问题')
+                        session.send('未知错误')
                     }
                     return
                 }
@@ -599,6 +600,37 @@ class ComRegister {
                     this.logger.info('--------------------------------')
                 })
             })
+    }
+
+    async sendErr(guildId: Array<string>, bot: Bot<Context>, content: string) {
+        if (this.config.master.enable) {
+            if (this.config.master.masterAccountGuildId) {
+                // 向机器人主人发送消息
+                await bot.sendPrivateMessage(
+                    this.config.master.masterAccount,
+                    content,
+                    this.config.master.masterAccountGuildId
+                )
+            } else {
+                // 向机器人主人发送消息
+                await bot.sendPrivateMessage(
+                    this.config.master.masterAccount,
+                    content
+                )
+            }
+        } else {
+            await this.sendMsg(guildId, bot, content)
+        }
+    }
+
+    sendErrAndRebootService(guildId: Array<string>, bot: Bot<Context>, ctx: Context, content: string) {
+        this.sendErr(guildId, bot, content)
+        // 停用插件
+        ctx.sm.disposePlugin()
+        // 隔一秒启动插件
+        ctx.setTimeout(() => {
+            ctx.sm.registerPlugin()
+        }, 1000)
     }
 
     dynamicDetect(
@@ -707,10 +739,16 @@ class ComRegister {
                         } catch (e) {
                             this.logger.error('dynamicDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                             if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
-                                return this.sendMsg(
+                                /* return this.sendMsg(
                                     guildId,
                                     bot,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
+                                ) */
+                                this.sendErrAndRebootService(
+                                    guildId,
+                                    bot,
+                                    ctx,
+                                    '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                 )
                             }
                         }
@@ -779,10 +817,16 @@ class ComRegister {
                 } catch (e) {
                     this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
-                        return this.sendMsg(
+                        /* return this.sendMsg(
                             guildId,
                             bot,
-                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
+                            '插件可能出现某些未知错误，已自动重启插件，如果仍然发生该错误，请带着日志向作者反馈'
+                        ) */
+                        this.sendErrAndRebootService(
+                            guildId,
+                            bot,
+                            ctx,
+                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                         )
                     }
                 }
@@ -806,10 +850,16 @@ class ComRegister {
                     } catch (e) {
                         this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
                         if (i === attempts - 1) { // 已尝试三次
-                            return await this.sendMsg(
+                            /* return await this.sendMsg(
                                 guildId,
                                 bot,
                                 '你的网络可能出现了某些问题，请检查后重启插件',
+                            ) */
+                            this.sendErrAndRebootService(
+                                guildId,
+                                bot,
+                                ctx,
+                                '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                             )
                         }
                     }
@@ -831,10 +881,16 @@ class ComRegister {
                         } catch (e) {
                             this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
                             if (i === attempts - 1) { // 已尝试三次
-                                return await this.sendMsg(
+                                /* return await this.sendMsg(
                                     guildId,
                                     bot,
                                     '你的网络可能出现了某些问题，请检查后重启插件',
+                                ) */
+                                this.sendErrAndRebootService(
+                                    guildId,
+                                    bot,
+                                    ctx,
+                                    '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                 )
                             }
                         }
@@ -894,10 +950,16 @@ class ComRegister {
                                 } catch (e) {
                                     this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
                                     if (i === attempts - 1) { // 已尝试三次
-                                        return this.sendMsg(
+                                        /* return this.sendMsg(
                                             guildId,
                                             bot,
                                             '你的网络可能出现了某些问题，请检查后重启插件',
+                                        ) */
+                                        this.sendErrAndRebootService(
+                                            guildId,
+                                            bot,
+                                            ctx,
+                                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                         )
                                     }
                                 }
@@ -1062,6 +1124,8 @@ class ComRegister {
                 // 跳过下面的步骤
                 continue
             }
+            // 获取推送目标数组
+            const targetArr = sub.targetId.split(' ')
             // 拿到对应bot
             switch (sub.platform) {
                 case 'qq': bot = this.qqBot; break
@@ -1076,12 +1140,12 @@ class ComRegister {
                     ctx.database.remove('bilibili', { id: sub.id })
                     // 不支持的协议
                     this.logger.info(`UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
+                    // 发送消息
+                    await this.sendErr(targetArr, bot, `UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
                     // 继续下个循环
                     continue
                 }
             }
-            // 获取推送目标数组
-            const targetArr = sub.targetId.split(' ')
             // 判断数据库是否被篡改
             // 获取用户信息
             let content: any
@@ -1095,10 +1159,16 @@ class ComRegister {
                 } catch (e) {
                     this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
                     if (i === attempts - 1) { // 已尝试三次
-                        return await this.sendMsg(
+                        /* return await this.sendMsg(
                             targetArr,
                             bot,
                             '你的网络可能出现了某些问题，请检查后重启插件'
+                        ) */
+                        this.sendErrAndRebootService(
+                            targetArr,
+                            bot,
+                            ctx,
+                            '你的网络可能出现了某些问题，请检查后重启插件',
                         )
                     }
                 }
@@ -1110,22 +1180,24 @@ class ComRegister {
                 // 从数据库删除该条数据
                 await ctx.database.remove('bilibili', { id: sub.id })
                 // 给用户发送提示
-                this.sendMsg(
+                await this.sendErr(targetArr, bot, `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
+                /* await this.sendMsg(
                     targetArr,
                     bot,
                     `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`
-                )
+                ) */
             }
             // 判断是否有其他问题
             if (content.code !== 0) {
                 switch (content.code) {
                     case -352:
                     case -403: {
-                        this.sendMsg(
+                        await this.sendErr(targetArr, bot, '你的登录信息已过期，请重新登录Bilibili')
+                        /* this.sendMsg(
                             targetArr,
                             bot,
                             '你的登录信息已过期，请重新登录Bilibili'
-                        )
+                        ) */
                         return
                     }
                     case -400:
@@ -1144,6 +1216,8 @@ class ComRegister {
                 await deleteSub()
                 // log
                 this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
+                // Send msg
+                await this.sendErr(targetArr, bot, `UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 return
             }
             // 构建订阅对象
@@ -1259,6 +1333,11 @@ class ComRegister {
 
 namespace ComRegister {
     export interface Config {
+        master: {
+            enable: boolean
+            masterAccount: string,
+            masterAccountGuildId: string
+        },
         unlockSubLimits: boolean,
         liveStartAtAll: boolean,
         pushTime: number,
@@ -1277,6 +1356,11 @@ namespace ComRegister {
     }
 
     export const Config: Schema<Config> = Schema.object({
+        master: Schema.object({
+            enable: Schema.boolean(),
+            masterAccount: Schema.string(),
+            masterAccountGuildId: Schema.string()
+        }),
         unlockSubLimits: Schema.boolean().required(),
         liveStartAtAll: Schema.boolean().required(),
         pushTime: Schema.number().required(),

@@ -1,4 +1,4 @@
-import { Context, Schema } from 'koishi'
+import { Context, ForkScope, Schema, Service } from 'koishi'
 import { } from '@koishijs/plugin-notifier'
 // import plugins
 // import Authority from './authority'
@@ -13,9 +13,18 @@ export const inject = ['puppeteer', 'database', 'notifier']
 
 export const name = 'bilibili-notify'
 
+let globalConfig: Config
+
+declare module 'koishi' {
+    interface Context {
+        sm: ServerManager
+    }
+}
+
 export interface Config {
     require: {},
     key: string,
+    master: {},
     basicSettings: {},
     unlockSubLimits: boolean,
     renderType: 'render' | 'page',
@@ -45,6 +54,28 @@ export const Config: Schema<Config> = Schema.object({
         .role('secret')
         .required()
         .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/'),
+
+    master: Schema.intersect([
+        Schema.object({
+            enable: Schema.boolean()
+                .default(false)
+                .description('是否开启主人账号功能')
+                .experimental()
+        }).description('主人账号'),
+        Schema.union([
+            Schema.object({
+                enable: Schema.const(true).required(),
+                masterAccount: Schema.string()
+                    .role('secret')
+                    .required()
+                    .description('主人账号，在Q群使用可直接使用QQ号，若在其他平台使用，请使用inspect插件获取自身ID'),
+                masterAccountGuildId: Schema.string()
+                    .role('secret')
+                    .description('主人账号所在的群组ID，只有在QQ频道、Discord这样的环境才需要填写，请使用inspect插件获取群组ID'),
+            }),
+            Schema.object({})
+        ])
+    ]),
 
     basicSettings: Schema.object({}).description('基本设置'),
 
@@ -145,7 +176,49 @@ export const Config: Schema<Config> = Schema.object({
     ]),
 })
 
+class ServerManager extends Service {
+    servers: ForkScope[] = []
+    // 渲染模式
+    renderType: number
+
+    constructor(ctx: Context) {
+        super(ctx, 'sm')
+    }
+
+    protected start(): void | Promise<void> {
+        this.registerPlugin()
+
+        switch (globalConfig.renderType) {
+            case 'render': this.renderType = 0; break;
+            case 'page': this.renderType = 1; break;
+        }
+    }
+
+    registerPlugin = () => {
+        const biliApi = this.ctx.plugin(BiliAPI)
+        const generateImg = this.ctx.plugin(GenerateImg, {
+            renderType: this.renderType,
+            filter: globalConfig.filter,
+            removeBorder: globalConfig.removeBorder,
+            cardColorStart: globalConfig.cardColorStart,
+            cardColorEnd: globalConfig.cardColorEnd,
+            enableLargeFont: globalConfig.enableLargeFont,
+            font: globalConfig.font
+        })
+        this.servers.push(biliApi)
+        this.servers.push(generateImg)
+    }
+
+    disposePlugin = () => {
+        this.servers.forEach(fork => {
+            fork.dispose()
+        })
+    }
+}
+
 export function apply(ctx: Context, config: Config) {
+    // 设置config
+    globalConfig = config
     // 设置提示
     ctx.notifier.create({
         content: '请记得使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
@@ -166,27 +239,13 @@ export function apply(ctx: Context, config: Config) {
         case '3分钟': dynamicLoopTime = 180; break;
         case '5分钟': dynamicLoopTime = 300; break;
     }
-    // 渲染模式
-    let renderType: number
-    switch (config.renderType) {
-        case 'render': renderType = 0; break;
-        case 'page': renderType = 1; break;
-    }
     // load database
     ctx.plugin(Database)
     // Regist server
     ctx.plugin(Wbi, { key: config.key })
-    ctx.plugin(BiliAPI)
-    ctx.plugin(GenerateImg, {
-        renderType,
-        filter: config.filter,
-        removeBorder: config.removeBorder,
-        cardColorStart: config.cardColorStart,
-        cardColorEnd: config.cardColorEnd,
-        enableLargeFont: config.enableLargeFont,
-        font: config.font
-    })
+    ctx.plugin(ServerManager)
     ctx.plugin(ComRegister, {
+        master: config.master,
         unlockSubLimits: config.unlockSubLimits,
         liveStartAtAll: config.liveStartAtAll,
         pushTime: config.pushTime,

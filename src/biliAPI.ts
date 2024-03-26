@@ -13,7 +13,7 @@ declare module 'koishi' {
 }
 
 // 在getUserInfo中检测到番剧出差的UID时，要传回的数据：
-const bangumiTripData = {"code":0,"data":{"live_room":{"roomid":931774}}}
+const bangumiTripData = { "code": 0, "data": { "live_room": { "roomid": 931774 } } }
 
 // const GET_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
 const GET_USER_SPACE_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
@@ -46,7 +46,12 @@ class BiliAPI extends Service {
         this.createNewClient()
         // 从数据库加载cookies
         this.loadCookiesFromDatabase()
-        // this.logger.info('BiliAPI已被注册到Context中')
+        // logger
+        // this.logger.info('工作中')
+    }
+
+    protected stop(): void | Promise<void> {
+        // this.logger.info('已停止工作')
     }
 
     async getServerUTCTime() {
