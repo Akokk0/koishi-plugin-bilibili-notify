@@ -600,9 +600,17 @@ class ComRegister {
                     this.logger.info('--------------------------------')
                 })
             })
+
+        biliCom
+            .subcommand('.private', '向主人账号发送一条测试消息', { hidden: true })
+            .usage('向主人账号发送一条测试消息')
+            .example('bili private 向主人账号发送一条测试消息')
+            .action(() => {
+
+            })
     }
 
-    async sendErr(guildId: Array<string>, bot: Bot<Context>, content: string) {
+    async sendPrivateMsg(bot: Bot<Context>, content: string) {
         if (this.config.master.enable) {
             if (this.config.master.masterAccountGuildId) {
                 // 向机器人主人发送消息
@@ -618,13 +626,11 @@ class ComRegister {
                     content
                 )
             }
-        } else {
-            await this.sendMsg(guildId, bot, content)
         }
     }
 
-    sendErrAndRebootService(guildId: Array<string>, bot: Bot<Context>, ctx: Context, content: string) {
-        this.sendErr(guildId, bot, content)
+    async sendPrivateMsgAndRebootService(bot: Bot<Context>, ctx: Context, content: string) {
+        await this.sendPrivateMsg(bot, content)
         // 停用插件
         ctx.sm.disposePlugin()
         // 隔一秒启动插件
@@ -662,18 +668,10 @@ class ComRegister {
             if (content.code !== 0) {
                 switch (content.code) {
                     case -101: { // 账号未登录
-                        await this.sendMsg(
-                            guildId,
-                            bot,
-                            '账号未登录，请登录后重新订阅动态')
+                        await this.sendPrivateMsg(bot, '账号未登录，请登录后重新订阅动态')
+                        break
                     }
-                    default: { // 未知错误
-                        await this.sendMsg(
-                            guildId,
-                            bot,
-                            '未知错误，请重新订阅动态'
-                        )
-                    }
+                    default: await this.sendPrivateMsg(bot, '未知错误，请重新订阅动态') // 未知错误
                 }
                 // 取消订阅
                 this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
@@ -744,8 +742,7 @@ class ComRegister {
                                     bot,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
                                 ) */
-                                this.sendErrAndRebootService(
-                                    guildId,
+                                return await this.sendPrivateMsgAndRebootService(
                                     bot,
                                     ctx,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
@@ -822,8 +819,7 @@ class ComRegister {
                             bot,
                             '插件可能出现某些未知错误，已自动重启插件，如果仍然发生该错误，请带着日志向作者反馈'
                         ) */
-                        this.sendErrAndRebootService(
-                            guildId,
+                        return await this.sendPrivateMsgAndRebootService(
                             bot,
                             ctx,
                             '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
@@ -855,8 +851,7 @@ class ComRegister {
                                 bot,
                                 '你的网络可能出现了某些问题，请检查后重启插件',
                             ) */
-                            this.sendErrAndRebootService(
-                                guildId,
+                            return await this.sendPrivateMsgAndRebootService(
                                 bot,
                                 ctx,
                                 '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
@@ -886,8 +881,7 @@ class ComRegister {
                                     bot,
                                     '你的网络可能出现了某些问题，请检查后重启插件',
                                 ) */
-                                this.sendErrAndRebootService(
-                                    guildId,
+                                return await this.sendPrivateMsgAndRebootService(
                                     bot,
                                     ctx,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
@@ -955,8 +949,7 @@ class ComRegister {
                                             bot,
                                             '你的网络可能出现了某些问题，请检查后重启插件',
                                         ) */
-                                        this.sendErrAndRebootService(
-                                            guildId,
+                                        return await this.sendPrivateMsgAndRebootService(
                                             bot,
                                             ctx,
                                             '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
@@ -1141,7 +1134,7 @@ class ComRegister {
                     // 不支持的协议
                     this.logger.info(`UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
                     // 发送消息
-                    await this.sendErr(targetArr, bot, `UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
+                    await this.sendPrivateMsg(bot, `UID:${sub.uid} 出现不支持的协议，该条数据被篡改，自动取消订阅`)
                     // 继续下个循环
                     continue
                 }
@@ -1164,8 +1157,7 @@ class ComRegister {
                             bot,
                             '你的网络可能出现了某些问题，请检查后重启插件'
                         ) */
-                        this.sendErrAndRebootService(
-                            targetArr,
+                        return await this.sendPrivateMsgAndRebootService(
                             bot,
                             ctx,
                             '你的网络可能出现了某些问题，请检查后重启插件',
@@ -1180,7 +1172,7 @@ class ComRegister {
                 // 从数据库删除该条数据
                 await ctx.database.remove('bilibili', { id: sub.id })
                 // 给用户发送提示
-                await this.sendErr(targetArr, bot, `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
+                await this.sendPrivateMsg(bot, `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
                 /* await this.sendMsg(
                     targetArr,
                     bot,
@@ -1192,7 +1184,7 @@ class ComRegister {
                 switch (content.code) {
                     case -352:
                     case -403: {
-                        await this.sendErr(targetArr, bot, '你的登录信息已过期，请重新登录Bilibili')
+                        await this.sendPrivateMsg(bot, '你的登录信息已过期，请重新登录Bilibili')
                         /* this.sendMsg(
                             targetArr,
                             bot,
@@ -1204,6 +1196,8 @@ class ComRegister {
                     case -404:
                     default: {
                         await deleteSub()
+                        // PrivateMsg
+                        await this.sendPrivateMsg(bot, `UID:${sub.uid} 数据出现问题，自动取消订阅`)
                         // log
                         this.logger.info(`UID:${sub.uid} 数据出现问题，自动取消订阅`)
                         return
@@ -1217,7 +1211,7 @@ class ComRegister {
                 // log
                 this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 // Send msg
-                await this.sendErr(targetArr, bot, `UID:${sub.uid} 房间号被篡改，自动取消订阅`)
+                await this.sendPrivateMsg(bot, `UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 return
             }
             // 构建订阅对象

@@ -59,7 +59,7 @@ export const Config: Schema<Config> = Schema.object({
         Schema.object({
             enable: Schema.boolean()
                 .default(false)
-                .description('是否开启主人账号功能')
+                .description('是否开启主人账号功能，如果您的机器人没有私聊权限请不要开启此功能。开启后如果机器人运行错误会向您进行报告')
                 .experimental()
         }).description('主人账号'),
         Schema.union([
