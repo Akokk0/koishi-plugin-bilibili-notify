@@ -605,8 +605,23 @@ class ComRegister {
             .subcommand('.private', '向主人账号发送一条测试消息', { hidden: true })
             .usage('向主人账号发送一条测试消息')
             .example('bili private 向主人账号发送一条测试消息')
-            .action(() => {
-
+            .action(async ({ session }) => {
+                // 获取对应Bot
+                let bot: Bot<Context>
+                switch (session.event.platform) {
+                    case 'qq': bot = this.qqBot; break
+                    case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
+                    default: {
+                        return `暂不支持该平台`
+                    }
+                }
+                await this.sendPrivateMsg(bot, 'Hello World')
+                await session.send('已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误')
             })
     }
 
