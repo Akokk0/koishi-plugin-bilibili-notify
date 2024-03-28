@@ -623,6 +623,31 @@ class ComRegister {
                 await this.sendPrivateMsg(bot, 'Hello World')
                 await session.send('已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误')
             })
+
+        biliCom
+            .subcommand('.reboot', '测试插件自动重启功能', { hidden: true })
+            .usage('测试插件自动重启功能')
+            .example('bili reboot 测试插件自动重启功能')
+            .action(async ({ session }) => {
+                // 发送提示消息
+                await session.send('测试biliAPI等服务自动重启功能')
+                // 获取对应Bot
+                let bot: Bot<Context>
+                switch (session.event.platform) {
+                    case 'qq': bot = this.qqBot; break
+                    case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
+                    default: {
+                        return `暂不支持该平台`
+                    }
+                }
+                // 发送提示消息，重启服务
+                await this.sendPrivateMsgAndRebootService(bot, ctx, '测试biliAPI等服务自动重启功能')
+            })
     }
 
     async sendPrivateMsg(bot: Bot<Context>, content: string) {
