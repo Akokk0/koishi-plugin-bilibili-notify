@@ -673,6 +673,27 @@ class ComRegister {
                 await this.sendMsg(['ALL'], bot, 'Hello World')
                 await session.send('已向机器人加入的所有群发送了消息')
             })
+
+        biliCom
+            .subcommand('.list', '获取机器人加入的所有群组', { hidden: true })
+            .usage('获取当前机器人加入的所有群聊')
+            .example('bili list 获取当前机器人加入的所有群聊')
+            .action(async ({ session }) => {
+                let bot: Bot<Context>
+                switch (session.event.platform) {
+                    case 'qq': bot = this.qqBot; break
+                    case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
+                    default: {
+                        return `暂不支持该平台`
+                    }
+                }
+                (await bot.getGuildList()).data.map(item => this.logger.info(`已加入${item.id}`))
+            })
     }
 
     async sendPrivateMsg(bot: Bot<Context>, content: string) {
@@ -831,8 +852,8 @@ class ComRegister {
         // 判断是否需要推送所有机器人加入的群
         if (targets[0] === 'ALL') {
             // 获取所有guild
-            for (let guild in (await bot.getGuildList()).data) {
-                sendArr.push(guild)
+            for (let guild of (await bot.getGuildList()).data) {
+                sendArr.push(guild.id)
             }
         } else {
             sendArr = targets
