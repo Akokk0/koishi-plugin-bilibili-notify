@@ -826,20 +826,25 @@ class ComRegister {
     }
 
     async sendMsg(targets: Array<string>, bot: Bot<Context>, content: any) {
-        // 判断是否需要给全部加入的群发送
+        // 定义需要发送的数组
+        let sendArr = []
+        // 判断是否需要推送所有机器人加入的群
         if (targets[0] === 'ALL') {
-            // 把All弹出
-            targets.pop()
             // 获取所有guild
-            for (let guild in await bot.getGuildList()) targets.push(guild)
+            for (let guild in (await bot.getGuildList())) {
+                this.logger.info(`已加入${guild}`)
+                sendArr.push(guild)
+            }
+        } else {
+            sendArr = targets
         }
         // 循环给每个群组发送
-        for (let guildId of targets) {
+        for (let guildId of sendArr) {
             // 多次尝试生成图片
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
-                    await bot.sendMessage(guildId, content)
+                    return await bot.sendMessage(guildId, content)
                 } catch (e) {
                     if (i === attempts - 1) { // 已尝试三次
                         throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
