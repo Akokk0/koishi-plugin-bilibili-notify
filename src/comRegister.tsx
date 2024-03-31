@@ -156,7 +156,7 @@ class ComRegister {
                 console.log(data);
                 await session.send(
                     <>
-                        <img width="10px" height="10px" src="https://koishi.chat/logo.png"/>
+                        <img width="10px" height="10px" src="https://koishi.chat/logo.png" />
                     </>
                 )
             }) */
@@ -356,6 +356,8 @@ class ComRegister {
                 let targetId: string
                 // 判断是否输入了QQ群号
                 if (guildId.length > 0) { // 输入了QQ群号
+                    // 判断是否需要加入的群全部推送
+                    if (guildId[0] === 'ALL' || guildId[0] === 'all') return ['ALL']
                     // 定义方法
                     const checkIfGuildHasJoined = async (bot: Bot<Context>): Promise<Array<string>> => {
                         // 获取机器人加入的群组
@@ -648,6 +650,29 @@ class ComRegister {
                 // 发送提示消息，重启服务
                 await this.sendPrivateMsgAndRebootService(bot, ctx, '测试biliAPI等服务自动重启功能')
             })
+
+        biliCom
+            .subcommand('.sendall', '测试给机器人加入的所有群发送消息')
+            .usage('测试给机器人加入的所有群发送消息')
+            .example('bili sendall 测试给机器人加入的所有群发送消息')
+            .action(async ({ session }) => {
+                // 获取对应Bot
+                let bot: Bot<Context>
+                switch (session.event.platform) {
+                    case 'qq': bot = this.qqBot; break
+                    case 'qqguild': bot = this.qqguildBot; break
+                    case 'onebot': bot = this.oneBot; break
+                    case 'red': bot = this.redBot; break
+                    case 'telegram': bot = this.telegramBot; break
+                    case 'satori': bot = this.satoriBot; break
+                    case 'chronocat': bot = this.chronocatBot; break
+                    default: {
+                        return `暂不支持该平台`
+                    }
+                }
+                await this.sendMsg(['ALL'], bot, 'Hello World')
+                await session.send('已向机器人加入的所有群发送了消息')
+            })
     }
 
     async sendPrivateMsg(bot: Bot<Context>, content: string) {
@@ -775,13 +800,8 @@ class ComRegister {
                             // 如果成功，那么跳出循环
                             break
                         } catch (e) {
-                            this.logger.error('dynamicDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
+                            this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.toString())
                             if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
-                                /* return this.sendMsg(
-                                    guildId,
-                                    bot,
-                                    '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈'
-                                ) */
                                 return await this.sendPrivateMsgAndRebootService(
                                     bot,
                                     ctx,
@@ -806,9 +826,26 @@ class ComRegister {
     }
 
     async sendMsg(targets: Array<string>, bot: Bot<Context>, content: any) {
+        // 判断是否需要给全部加入的群发送
+        if (targets[0] === 'ALL') {
+            // 把All弹出
+            targets.pop()
+            // 获取所有guild
+            for (let guild in await bot.getGuildList()) targets.push(guild)
+        }
         // 循环给每个群组发送
         for (let guildId of targets) {
-            bot.sendMessage(guildId, content)
+            // 多次尝试生成图片
+            let attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    await bot.sendMessage(guildId, content)
+                } catch (e) {
+                    if (i === attempts - 1) { // 已尝试三次
+                        throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
+                    }
+                }
+            }
         }
     }
 
@@ -854,11 +891,6 @@ class ComRegister {
                 } catch (e) {
                     this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
-                        /* return this.sendMsg(
-                            guildId,
-                            bot,
-                            '插件可能出现某些未知错误，已自动重启插件，如果仍然发生该错误，请带着日志向作者反馈'
-                        ) */
                         return await this.sendPrivateMsgAndRebootService(
                             bot,
                             ctx,
@@ -886,11 +918,6 @@ class ComRegister {
                     } catch (e) {
                         this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
                         if (i === attempts - 1) { // 已尝试三次
-                            /* return await this.sendMsg(
-                                guildId,
-                                bot,
-                                '你的网络可能出现了某些问题，请检查后重启插件',
-                            ) */
                             return await this.sendPrivateMsgAndRebootService(
                                 bot,
                                 ctx,
@@ -916,11 +943,6 @@ class ComRegister {
                         } catch (e) {
                             this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
                             if (i === attempts - 1) { // 已尝试三次
-                                /* return await this.sendMsg(
-                                    guildId,
-                                    bot,
-                                    '你的网络可能出现了某些问题，请检查后重启插件',
-                                ) */
                                 return await this.sendPrivateMsgAndRebootService(
                                     bot,
                                     ctx,
@@ -984,11 +1006,6 @@ class ComRegister {
                                 } catch (e) {
                                     this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
                                     if (i === attempts - 1) { // 已尝试三次
-                                        /* return this.sendMsg(
-                                            guildId,
-                                            bot,
-                                            '你的网络可能出现了某些问题，请检查后重启插件',
-                                        ) */
                                         return await this.sendPrivateMsgAndRebootService(
                                             bot,
                                             ctx,
@@ -1192,11 +1209,6 @@ class ComRegister {
                 } catch (e) {
                     this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
                     if (i === attempts - 1) { // 已尝试三次
-                        /* return await this.sendMsg(
-                            targetArr,
-                            bot,
-                            '你的网络可能出现了某些问题，请检查后重启插件'
-                        ) */
                         return await this.sendPrivateMsgAndRebootService(
                             bot,
                             ctx,
@@ -1213,11 +1225,6 @@ class ComRegister {
                 await ctx.database.remove('bilibili', { id: sub.id })
                 // 给用户发送提示
                 await this.sendPrivateMsg(bot, `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
-                /* await this.sendMsg(
-                    targetArr,
-                    bot,
-                    `UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`
-                ) */
             }
             // 判断是否有其他问题
             if (content.code !== 0) {
@@ -1225,11 +1232,6 @@ class ComRegister {
                     case -352:
                     case -403: {
                         await this.sendPrivateMsg(bot, '你的登录信息已过期，请重新登录Bilibili')
-                        /* this.sendMsg(
-                            targetArr,
-                            bot,
-                            '你的登录信息已过期，请重新登录Bilibili'
-                        ) */
                         return
                     }
                     case -400:

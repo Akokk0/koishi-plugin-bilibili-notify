@@ -277,8 +277,6 @@ class BiliAPI extends Service {
     }
 
     async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times: number = 3) {
-        // 定义数据
-        let data: any
         // 定义方法
         const notifyAndError = (info: string) => {
             // 设置控制台通知
@@ -295,19 +293,19 @@ class BiliAPI extends Service {
         }
         // 尝试获取Cookieinfo
         try {
-            const { data: cookieData } = await this.getCookieInfo(refreshToken)
-            data = cookieData
+            const { data } = await this.getCookieInfo(refreshToken)
+            // 不需要刷新，直接返回
+            if (!data.refresh) return
         } catch (e) {
-            // 发送三次仍网络错误则给管理员发送错误信息
-            if (times < 1) return
-            // 等待3秒再次尝试
-            this.ctx.setTimeout(() => {
-                this.checkIfTokenNeedRefresh(refreshToken, csrf, times - 1)
-            }, 3000)
-            return
+            // 发送三次仍网络错误则直接刷新cookie
+            if (times >= 1) {
+                // 等待3秒再次尝试
+                this.ctx.setTimeout(() => {
+                    this.checkIfTokenNeedRefresh(refreshToken, csrf, times - 1)
+                }, 3000)
+            }
+            // 如果请求失败，有可能是404，直接刷新cookie
         }
-        // 不需要刷新，直接返回
-        if (!data.refresh) return
         // 定义Key
         const publicKey = await crypto.subtle.importKey(
             "jwk",
