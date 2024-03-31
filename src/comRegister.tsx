@@ -652,7 +652,7 @@ class ComRegister {
             })
 
         biliCom
-            .subcommand('.sendall', '测试给机器人加入的所有群发送消息')
+            .subcommand('.sendall', '测试给机器人加入的所有群发送消息', { hidden: true })
             .usage('测试给机器人加入的所有群发送消息')
             .example('bili sendall 测试给机器人加入的所有群发送消息')
             .action(async ({ session }) => {
@@ -831,8 +831,7 @@ class ComRegister {
         // 判断是否需要推送所有机器人加入的群
         if (targets[0] === 'ALL') {
             // 获取所有guild
-            for (let guild in (await bot.getGuildList())) {
-                this.logger.info(`已加入${guild}`)
+            for (let guild in (await bot.getGuildList()).data) {
                 sendArr.push(guild)
             }
         } else {
