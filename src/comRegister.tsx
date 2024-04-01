@@ -159,6 +159,16 @@ class ComRegister {
                         <img width="10px" height="10px" src="https://koishi.chat/logo.png" />
                     </>
                 )
+            })
+
+        testCom
+            .subcommand('.sendmsg', '测试发送消息方法')
+            .usage('测试发送消息方法')
+            .example('test sendmsg')
+            .action(async ({ session }) => {
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
+                this.sendMsg(['all'], bot, 'Hello World')
             }) */
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
@@ -356,8 +366,6 @@ class ComRegister {
                 let targetId: string
                 // 判断是否输入了QQ群号
                 if (guildId.length > 0) { // 输入了QQ群号
-                    // 判断是否需要加入的群全部推送
-                    if (guildId[0] === 'ALL' || guildId[0] === 'all') return ['ALL']
                     // 定义方法
                     const checkIfGuildHasJoined = async (bot: Bot<Context>): Promise<Array<string>> => {
                         // 获取机器人加入的群组
@@ -380,33 +388,38 @@ class ComRegister {
                     }
                     // 定义可用的群组数组
                     let okGuild: Array<string>
-                    // 判断是否有群机器人相关Bot
-                    switch (session.event.platform) {
-                        case 'qq': {
-                            okGuild = await checkIfGuildHasJoined(this.qqBot)
-                            break
-                        }
-                        case 'onebot': {
-                            okGuild = await checkIfGuildHasJoined(this.oneBot)
-                            break
-                        }
-                        case 'red': {
-                            okGuild = await checkIfGuildHasJoined(this.redBot)
-                            break
-                        }
-                        case 'satori': {
-                            okGuild = await checkIfGuildHasJoined(this.satoriBot)
-                            break
-                        }
-                        case 'chronocat': {
-                            okGuild = await checkIfGuildHasJoined(this.chronocatBot)
-                            break
-                        }
-                        default: {
-                            // 发送错误提示并返回
-                            session.send('您尚未配置任何QQ群相关机器人，不能对QQ群进行操作')
-                            // 直接返回
-                            return
+                    // 判断是否需要加入的群全部推送
+                    if (guildId[0] === 'all') {
+                        okGuild.push('all')
+                    } else {
+                        // 判断是否有群机器人相关Bot
+                        switch (session.event.platform) {
+                            case 'qq': {
+                                okGuild = await checkIfGuildHasJoined(this.qqBot)
+                                break
+                            }
+                            case 'onebot': {
+                                okGuild = await checkIfGuildHasJoined(this.oneBot)
+                                break
+                            }
+                            case 'red': {
+                                okGuild = await checkIfGuildHasJoined(this.redBot)
+                                break
+                            }
+                            case 'satori': {
+                                okGuild = await checkIfGuildHasJoined(this.satoriBot)
+                                break
+                            }
+                            case 'chronocat': {
+                                okGuild = await checkIfGuildHasJoined(this.chronocatBot)
+                                break
+                            }
+                            default: {
+                                // 发送错误提示并返回
+                                session.send('您尚未配置任何QQ群相关机器人，不能对QQ群进行操作')
+                                // 直接返回
+                                return
+                            }
                         }
                     }
                     // 将群号用,进行分割
@@ -491,21 +504,8 @@ class ComRegister {
                 const index = this.subManager.findIndex(sub => sub.uid === uid)
                 // 不存在则直接返回
                 if (index === -1) return '请勿直接调用该指令'
-                // 获取对应Bot
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        this.logger.warn(`${uid}非法调用 dynamic 指令，不支持该平台`)
-                        return '非法调用'
-                    }
-                }
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 开始循环检测
                 const dispose = ctx.setInterval(this.dynamicDetect(ctx, bot, uid, guildId), config.dynamicLoopTime * 1000)
                 // 将销毁函数保存到订阅管理对象
@@ -524,21 +524,8 @@ class ComRegister {
                 // 要订阅的对象不在订阅管理对象中，直接返回
                 const index = this.subManager.findIndex(sub => sub.roomId === roomId)
                 if (index === -1) return '请勿直接调用该指令'
-                // 获取对应Bot
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        this.logger.warn(`${roomId}非法调用 dynamic 指令，不支持该平台`)
-                        return `${roomId}非法调用 dynamic 指令`
-                    }
-                }
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 开始循环检测
                 const dispose = ctx.setInterval(this.liveDetect(ctx, bot, roomId, guildId), config.liveLoopTime * 1000)
                 // 保存销毁函数
@@ -608,21 +595,11 @@ class ComRegister {
             .usage('向主人账号发送一条测试消息')
             .example('bili private 向主人账号发送一条测试消息')
             .action(async ({ session }) => {
-                // 获取对应Bot
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        return `暂不支持该平台`
-                    }
-                }
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
+                // 发送消息
                 await this.sendPrivateMsg(bot, 'Hello World')
+                // 发送提示
                 await session.send('已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误')
             })
 
@@ -633,20 +610,8 @@ class ComRegister {
             .action(async ({ session }) => {
                 // 发送提示消息
                 await session.send('测试biliAPI等服务自动重启功能')
-                // 获取对应Bot
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        return `暂不支持该平台`
-                    }
-                }
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 发送提示消息，重启服务
                 await this.sendPrivateMsgAndRebootService(bot, ctx, '测试biliAPI等服务自动重启功能')
             })
@@ -656,21 +621,11 @@ class ComRegister {
             .usage('测试给机器人加入的所有群发送消息')
             .example('bili sendall 测试给机器人加入的所有群发送消息')
             .action(async ({ session }) => {
-                // 获取对应Bot
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        return `暂不支持该平台`
-                    }
-                }
-                await this.sendMsg(['ALL'], bot, 'Hello World')
+                // 获得对应bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
+                // 发送消息
+                await this.sendMsg(['all'], bot, 'Hello World')
+                // 发送提示
                 await session.send('已向机器人加入的所有群发送了消息')
             })
 
@@ -679,21 +634,31 @@ class ComRegister {
             .usage('获取当前机器人加入的所有群聊')
             .example('bili list 获取当前机器人加入的所有群聊')
             .action(async ({ session }) => {
-                let bot: Bot<Context>
-                switch (session.event.platform) {
-                    case 'qq': bot = this.qqBot; break
-                    case 'qqguild': bot = this.qqguildBot; break
-                    case 'onebot': bot = this.oneBot; break
-                    case 'red': bot = this.redBot; break
-                    case 'telegram': bot = this.telegramBot; break
-                    case 'satori': bot = this.satoriBot; break
-                    case 'chronocat': bot = this.chronocatBot; break
-                    default: {
-                        return `暂不支持该平台`
-                    }
-                }
-                (await bot.getGuildList()).data.map(item => this.logger.info(`已加入${item.id}`))
+                // 获取对应Bot
+                const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
+                // 获取群列表
+                const guildList = (await bot.getGuildList()).data
+                // 遍历群列表
+                guildList.map(item => this.logger.info(`已加入${item.id}`))
             })
+    }
+
+    getTheCorrespondingBotBasedOnTheSession(session: Session) {
+        // 获取对应Bot
+        let bot: Bot<Context>
+        switch (session.event.platform) {
+            case 'qq': bot = this.qqBot; break
+            case 'qqguild': bot = this.qqguildBot; break
+            case 'onebot': bot = this.oneBot; break
+            case 'red': bot = this.redBot; break
+            case 'telegram': bot = this.telegramBot; break
+            case 'satori': bot = this.satoriBot; break
+            case 'chronocat': bot = this.chronocatBot; break
+            default: {
+                session.send('暂不支持该平台！')
+            }
+        }
+        return bot
     }
 
     async sendPrivateMsg(bot: Bot<Context>, content: string) {
@@ -850,7 +815,7 @@ class ComRegister {
         // 定义需要发送的数组
         let sendArr = []
         // 判断是否需要推送所有机器人加入的群
-        if (targets[0] === 'ALL') {
+        if (targets[0] === 'all') {
             // 获取所有guild
             for (let guild of (await bot.getGuildList()).data) {
                 sendArr.push(guild.id)
