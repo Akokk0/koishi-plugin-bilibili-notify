@@ -230,7 +230,11 @@ class BiliAPI extends Service {
         // Get login info from db
         const { cookies, refresh_token } = await this.getLoginInfoFromDB()
         // 判断是否有值
-        if (!cookies || !refresh_token) return
+        if (!cookies || !refresh_token) {
+            // Login info is loaded
+            this.loginInfoIsLoaded = true
+            return
+        }
         // 定义CSRF Token
         let csrf: string
         cookies.forEach(cookieData => {
