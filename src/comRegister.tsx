@@ -613,7 +613,7 @@ class ComRegister {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 发送提示消息，重启服务
-                await this.sendPrivateMsgAndRebootService(bot, ctx, '测试biliAPI等服务自动重启功能')
+                await this.sendPrivateMsgAndRebootService(ctx, bot, '测试biliAPI等服务自动重启功能')
             })
 
         biliCom
@@ -624,7 +624,7 @@ class ComRegister {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 发送消息
-                await this.sendMsg(['all'], bot, 'Hello World')
+                await this.sendMsg(ctx, ['all'], bot, 'Hello World')
                 // 发送提示
                 await session.send('已向机器人加入的所有群发送了消息')
             })
@@ -680,7 +680,7 @@ class ComRegister {
         }
     }
 
-    async sendPrivateMsgAndRebootService(bot: Bot<Context>, ctx: Context, content: string) {
+    async sendPrivateMsgAndRebootService(ctx: Context, bot: Bot<Context>, content: string) {
         await this.sendPrivateMsg(bot, content)
         // 停用插件
         ctx.sm.disposePlugin()
@@ -760,6 +760,7 @@ class ComRegister {
                                 if (e.message === '出现关键词，屏蔽该动态') {
                                     // 如果需要发送才发送
                                     this.config.filter.notify && await this.sendMsg(
+                                        ctx,
                                         guildId,
                                         bot,
                                         `${upName}发布了一条含有屏蔽关键字的动态`,
@@ -768,6 +769,7 @@ class ComRegister {
                                 }
                                 if (e.message === '已屏蔽转发动态') {
                                     this.config.filter.notify && await this.sendMsg(
+                                        ctx,
                                         guildId,
                                         bot,
                                         `${upName}发布了一条转发动态，已屏蔽`
@@ -778,10 +780,10 @@ class ComRegister {
                             // 如果pic存在，则直接返回pic
                             if (pic) {
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(guildId, bot, pic + dUrl)
+                                await this.sendMsg(ctx, guildId, bot, pic + dUrl)
                             } else {
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + dUrl))
+                                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + dUrl))
                             }
                             // 如果成功，那么跳出循环
                             break
@@ -789,8 +791,8 @@ class ComRegister {
                             this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.toString())
                             if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
                                 return await this.sendPrivateMsgAndRebootService(
-                                    bot,
                                     ctx,
+                                    bot,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                 )
                             }
@@ -811,7 +813,7 @@ class ComRegister {
         }
     }
 
-    async sendMsg(targets: Array<string>, bot: Bot<Context>, content: any) {
+    async sendMsg(ctx: Context, targets: Array<string>, bot: Bot<Context>, content: any) {
         // 定义需要发送的数组
         let sendArr = []
         // 判断是否需要推送所有机器人加入的群
@@ -825,7 +827,7 @@ class ComRegister {
         }
         // 循环给每个群组发送
         for (let guildId of sendArr) {
-            // 多次尝试生成图片
+            // 多次尝试发送消息
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
@@ -836,6 +838,8 @@ class ComRegister {
                     }
                 }
             }
+            // 防止消息发送速度过快被忽略
+            await ctx.sleep(500)
         }
     }
 
@@ -862,19 +866,19 @@ class ComRegister {
                     // 推送直播信息
                     if (!liveStartMsg) {
                         // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(guildId, bot, pic)
+                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic)
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png'))
+                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png'))
                     } else if (liveStartMsg && atAll) {
                         // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
+                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
+                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
                     } else {
                         // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(guildId, bot, pic + liveStartMsg)
+                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic + liveStartMsg)
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
+                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
                     }
                     // 成功则跳出循环
                     break
@@ -882,8 +886,8 @@ class ComRegister {
                     this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
                         return await this.sendPrivateMsgAndRebootService(
-                            bot,
                             ctx,
+                            bot,
                             '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                         )
                     }
@@ -909,8 +913,8 @@ class ComRegister {
                         this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
                         if (i === attempts - 1) { // 已尝试三次
                             return await this.sendPrivateMsgAndRebootService(
-                                bot,
                                 ctx,
+                                bot,
                                 '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                             )
                         }
@@ -934,8 +938,8 @@ class ComRegister {
                             this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
                             if (i === attempts - 1) { // 已尝试三次
                                 return await this.sendPrivateMsgAndRebootService(
-                                    bot,
                                     ctx,
+                                    bot,
                                     '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                 )
                             }
@@ -969,6 +973,7 @@ class ComRegister {
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
                             // 发送下播通知
                             await this.sendMsg(
+                                ctx,
                                 guildId,
                                 bot,
                                 liveEndMsg
@@ -997,8 +1002,8 @@ class ComRegister {
                                     this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
                                     if (i === attempts - 1) { // 已尝试三次
                                         return await this.sendPrivateMsgAndRebootService(
-                                            bot,
                                             ctx,
+                                            bot,
                                             '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
                                         )
                                     }
@@ -1200,8 +1205,8 @@ class ComRegister {
                     this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
                     if (i === attempts - 1) { // 已尝试三次
                         return await this.sendPrivateMsgAndRebootService(
-                            bot,
                             ctx,
+                            bot,
                             '你的网络可能出现了某些问题，请检查后重启插件',
                         )
                     }
