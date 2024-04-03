@@ -690,6 +690,37 @@ class ComRegister {
         }, 1000)
     }
 
+    async sendMsg(ctx: Context, targets: Array<string>, bot: Bot<Context>, content: any) {
+        // 定义需要发送的数组
+        let sendArr = []
+        // 判断是否需要推送所有机器人加入的群
+        if (targets[0] === 'all') {
+            // 获取所有guild
+            for (let guild of (await bot.getGuildList()).data) {
+                sendArr.push(guild.id)
+            }
+        } else {
+            sendArr = targets
+        }
+        // 循环给每个群组发送
+        for (let guildId of sendArr) {
+            // 多次尝试发送消息
+            let attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    // 发送消息
+                    await bot.sendMessage(guildId, content)
+                    // 防止消息发送速度过快被忽略
+                    await ctx.sleep(500)
+                } catch (e) {
+                    if (i === attempts - 1) { // 已尝试三次
+                        throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
+                    }
+                }
+            }
+        }
+    }
+
     dynamicDetect(
         ctx: Context,
         bot: Bot<Context>,
@@ -810,36 +841,6 @@ class ComRegister {
                     }
                 }
             }
-        }
-    }
-
-    async sendMsg(ctx: Context, targets: Array<string>, bot: Bot<Context>, content: any) {
-        // 定义需要发送的数组
-        let sendArr = []
-        // 判断是否需要推送所有机器人加入的群
-        if (targets[0] === 'all') {
-            // 获取所有guild
-            for (let guild of (await bot.getGuildList()).data) {
-                sendArr.push(guild.id)
-            }
-        } else {
-            sendArr = targets
-        }
-        // 循环给每个群组发送
-        for (let guildId of sendArr) {
-            // 多次尝试发送消息
-            let attempts = 3
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    return await bot.sendMessage(guildId, content)
-                } catch (e) {
-                    if (i === attempts - 1) { // 已尝试三次
-                        throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
-                    }
-                }
-            }
-            // 防止消息发送速度过快被忽略
-            await ctx.sleep(500)
         }
     }
 
