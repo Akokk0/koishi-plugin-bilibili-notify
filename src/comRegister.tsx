@@ -712,6 +712,8 @@ class ComRegister {
                     await bot.sendMessage(guildId, content)
                     // 防止消息发送速度过快被忽略
                     await ctx.sleep(500)
+                    // 成功发送消息，跳出循环
+                    break
                 } catch (e) {
                     if (i === attempts - 1) { // 已尝试三次
                         throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
