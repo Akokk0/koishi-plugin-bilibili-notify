@@ -177,9 +177,12 @@ export const Config: Schema<Config> = Schema.object({
 })
 
 class ServerManager extends Service {
+    // 服务
     servers: ForkScope[] = []
     // 渲染模式
     renderType: number
+    // 重启次数
+    restartCount = 0
 
     constructor(ctx: Context) {
         super(ctx, 'sm')
@@ -213,6 +216,21 @@ class ServerManager extends Service {
         this.servers.forEach(fork => {
             fork.dispose()
         })
+    }
+
+    restartPlugin = () => {
+        // 重启次数大于等于3次
+        if (this.restartCount >= 3) return false
+        // 重启次数+1
+        this.restartCount++
+        // 停用插件
+        this.disposePlugin()
+        // 隔一秒启动插件
+        this.ctx.setTimeout(() => {
+            this.registerPlugin()
+        }, 1000)
+        // 返回true
+        return true
     }
 }
 

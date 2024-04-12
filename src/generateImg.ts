@@ -79,40 +79,38 @@ class GenerateImg extends Service {
                     * {
                         margin: 0;
                         padding: 0;
+                        box-sizing: border-box;
                         font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
-
+        
                     html {
-                        width: 770px;
+                        width: 800px;
                         height: auto;
                     }
-
+        
                     .background {
-                        width: 770px;
+                        width: 100%;
                         height: auto;
+                        padding: 15px;
                         background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                         overflow: hidden;
                     }
-
-                    .card {
-                        width: 740px;
+        
+                    .base-plate {
+                        width: 100%;
                         height: auto;
                         box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                        border-radius: 5px;
-                        margin: 15px auto;
-                        overflow: hidden;
+                        padding: 15px;
+                        border-radius: 10px;
                         background-color: #FFF5EE;
                     }
-
-                    .base-plate {
-                        ${this.giConfig.removeBorder ? `
-                        width: 740px;
-                        ` : `
-                        width: 704px;
-                        margin: 20px auto;
-                        `}
+        
+                    .card {
+                        width: 100%;
                         height: auto;
-                        border-radius: 10px;
+                        border-radius: 5px;
+                        padding: 15px;
+                        overflow: hidden;
                         background-color: #fff;
                     }
 
@@ -176,8 +174,8 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div class="card">
-                        <div class="base-plate">
+                    <div ${this.giConfig.removeBorder ? '' : 'class="base-plate"'}>
+                        <div class="card">
                             <img src="${cover ? data.user_cover : data.keyframe}"
                             alt="封面">
                             <div class="card-body">
@@ -334,8 +332,9 @@ class GenerateImg extends Service {
                     // 转发动态
                     if (dynamicMajorData.type === DYNAMIC_TYPE_FORWARD) {
                         //转发动态屏蔽
-                        if (this.giConfig.filter.enable && this.giConfig.filter.forward)
+                        if (this.giConfig.filter.enable && this.giConfig.filter.forward) {
                             throw new Error('已屏蔽转发动态')
+                        }
                         // User info
                         const forward_module_author = dynamicMajorData.orig.modules.module_author
                         const forwardUserAvatarUrl = forward_module_author.face
@@ -346,7 +345,7 @@ class GenerateImg extends Service {
                         main += `
                         <div class="card-forward">
                             <div class="forward-userinfo">
-                                <img class="forward-avatar" src="${forwardUserAvatarUrl}" alt="">
+                                <img class="forward-avatar" src="${forwardUserAvatarUrl}" alt="avatar">
                                 <span class="forward-username">${forwardUserName} ${forwardInfo ? forwardInfo : ''}</span>
                             </div>
                             <div class="forward-main">
@@ -404,7 +403,7 @@ class GenerateImg extends Service {
                                                 <span class="reserve-num">${reserve.desc2.text}</span>
                                             </div>
                                             ${reserve.desc3 ?
-                                                `<div class="reserve-prize">
+                                        `<div class="reserve-prize">
                                                         <svg class="bili-dyn-card-reserve__lottery__icon"
                                                             style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg"
                                                             xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 16 16" width="16"
@@ -434,7 +433,7 @@ class GenerateImg extends Service {
                                                                 fill="currentColor"></path>
                                                         </svg>
                                                     </div>` : ''
-                                            }
+                                    }
                                         </div>
                                     </div>
                                     <div class="reserve-button">
@@ -565,38 +564,35 @@ class GenerateImg extends Service {
                 box-sizing: border-box;
                 font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
-    
+
             html {
-                width: 770px;
+                width: 800px;
                 height: auto;
             }
-    
+
             .background {
-                width: 770px;
+                width: 100%;
                 height: auto;
+                padding: 15px;
                 background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                 overflow: hidden;
             }
-    
-            .card {
-                width: 740px;
+
+            .base-plate {
+                width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                border-radius: 5px;
-                margin: 15px auto;
-                overflow: hidden;
+                padding: 15px;
+                border-radius: 10px;
                 background-color: #FFF5EE;
             }
-    
-            .base-plate {
-                ${this.giConfig.removeBorder ? `
-                width: 740px;
-                ` : `
-                width: 704px;
-                margin: 20px auto;
-                `}
+
+            .card {
+                width: 100%;
                 height: auto;
-                border-radius: 10px;
+                border-radius: 5px;
+                padding: 15px;
+                overflow: hidden;
                 background-color: #fff;
             }
     
@@ -802,8 +798,8 @@ class GenerateImg extends Service {
             }
 
             .card .card-forward {
-                margin: 0 -15px 0 -105px;
-                padding: 12px 15px 14px 105px;
+                border-radius: 5px;
+                padding: 12px 10px 14px 10px;
                 background-color: #F6F7F8;
             }
     
@@ -892,36 +888,38 @@ class GenerateImg extends Service {
             * {
                 margin: 0;
                 padding: 0;
+                box-sizing: border-box;
                 font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
-                width: 770px;
+                width: 800px;
                 height: auto;
             }
     
             .background {
-                width: 770px;
+                width: 100%;
                 height: auto;
+                padding: 15px;
                 background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
                 overflow: hidden;
             }
-    
-            .card {
-                width: 740px;
+
+            .base-plate {
+                width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                border-radius: 5px;
-                margin: 15px auto;
-                overflow: hidden;
+                padding: 15px;
+                border-radius: 10px;
                 background-color: #FFF5EE;
             }
     
-            .base-plate {
-                width: 704px;
+            .card {
+                width: 100%;
                 height: auto;
-                margin: 20px auto;
-                border-radius: 10px;
+                border-radius: 5px;
+                padding: 15px;
+                overflow: hidden;
                 background-color: #fff;
             }
     
@@ -1128,8 +1126,8 @@ class GenerateImg extends Service {
             }
 
             .card .card-forward {
-                margin: 0 -15px 0 -85px;
-                padding: 12px 15px 14px 85px;
+                border-radius: 5px;
+                padding: 12px 10px 14px 10px;
                 background-color: #F6F7F8;
             }
     
@@ -1221,8 +1219,8 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div class="card">
-                        <div class="base-plate">
+                    <div ${this.giConfig.removeBorder ? '' : 'class="base-plate"'}>
+                        <div class="card">
                             <div class="card-body">
                                 <!-- 主播头像 -->
                                 <img class="anchor-avatar"

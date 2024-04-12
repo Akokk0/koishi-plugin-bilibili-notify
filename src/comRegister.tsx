@@ -63,7 +63,7 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        /* const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+        const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
 
         testCom.subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
@@ -113,6 +113,8 @@ class ComRegister {
             .usage('测试图片生成')
             .example('test.gimg')
             .action(async ({ session }, uid, index) => {
+                // logger
+                this.logger.info('调用test gimg指令')
                 // 获取用户空间动态数据
                 const { data } = await ctx.biliAPI.getUserSpaceDynamic(uid)
                 // 获取动态推送图片
@@ -152,16 +154,20 @@ class ComRegister {
             .usage('发送下播提示语测试')
             .example('test livestop')
             .action(async ({ session }) => {
+                // logger
+                this.logger.info('调用test gimg指令')
                 const { data } = await ctx.biliAPI.getMasterInfo('194484313')
-                console.log(data);
+                // console.log(data);
+                /* const message = h('message')
+                message.children.push(h('img', { src: data.info.face }))
+                message.children.push(h.text(`主播${data.info.uname}已下播`)) */
+                // <>{h('img', { src: data.info.face })} 主播{data.info.uname}已下播</>
                 await session.send(
-                    <>
-                        <img width="10px" height="10px" src="https://koishi.chat/logo.png" />
-                    </>
+                    <>{h('img', { src: data.info.face })} 主播{data.info.uname}已下播</>
                 )
             })
 
-        testCom
+        /* testCom
             .subcommand('.sendmsg', '测试发送消息方法')
             .usage('测试发送消息方法')
             .example('test sendmsg')
@@ -682,12 +688,17 @@ class ComRegister {
 
     async sendPrivateMsgAndRebootService(ctx: Context, bot: Bot<Context>, content: string) {
         await this.sendPrivateMsg(bot, content)
-        // 停用插件
-        ctx.sm.disposePlugin()
-        // 隔一秒启动插件
-        ctx.setTimeout(() => {
-            ctx.sm.registerPlugin()
-        }, 1000)
+        // 重启插件
+        const flag = ctx.sm.restartPlugin()
+        // 判断是否重启成功
+        if (flag) {
+            this.logger.info('重启插件成功')
+        } else {
+            // 重启失败，发送消息
+            await this.sendPrivateMsg(bot, '已重启插件三次，请检查机器人状态后手动重启')
+            // 关闭插件
+            ctx.sm.disposePlugin()
+        }
     }
 
     async sendMsg(ctx: Context, targets: Array<string>, bot: Bot<Context>, content: any) {
@@ -759,6 +770,9 @@ class ComRegister {
                 }
                 // 取消订阅
                 this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
+                // 发送取消订阅消息
+                await this.sendPrivateMsg(bot, `UID:${uid}，已取消订阅动态`)
+                // 结束循环
                 return
             }
             // 获取数据内容
@@ -974,12 +988,14 @@ class ComRegister {
                             let liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
+
+                            let msg = <>{h('img', { src: data.info.face })} {liveEndMsg}</>
                             // 发送下播通知
                             await this.sendMsg(
                                 ctx,
                                 guildId,
                                 bot,
-                                liveEndMsg
+                                msg
                             )
                         }
                         // 未进循环，还未开播，继续循环
