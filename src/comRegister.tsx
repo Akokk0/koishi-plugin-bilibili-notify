@@ -348,7 +348,7 @@ class ComRegister {
                 try {
                     content = await ctx.biliAPI.getUserInfo(mid)
                 } catch (e) {
-                    return 'bili sub getUserInfo() 本次网络请求失败，请重试'
+                    return 'bili sub getUserInfo() 发生了错误，错误为：' + e.toString()
                 }
                 // 判断是否有其他问题
                 if (content.code !== 0) {
@@ -358,7 +358,7 @@ class ComRegister {
                         case -403: msg = '访问权限不足，请尝试重新登录'; break;
                         case -404: msg = '用户不存在'; break;
                         case -352: msg = '请登录后再尝试订阅'; break;
-                        default: msg = '未知错误，请联系管理员'
+                        default: msg = '未知错误，错误信息：' + content.message; break;
                     }
                     return msg
                 }
@@ -472,7 +472,7 @@ class ComRegister {
                     const { data } = await ctx.biliAPI.getMasterInfo(sub.uid)
                     userData = data
                 } catch (e) {
-                    this.logger.error('bili sub指令 getMasterInfo() 网络请求失败，原因：' + e.toString())
+                    this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.toString())
                     return '订阅出错啦，请重试'
                 }
                 // 需要订阅直播
@@ -543,7 +543,7 @@ class ComRegister {
                 try {
                     content = await ctx.biliAPI.getLiveRoomInfo(roomId)
                 } catch (e) {
-                    return 'bili status指令 getLiveRoomInfo() 本次网络请求失败'
+                    return 'bili status指令 getLiveRoomInfo() 发生了错误，错误为：' + e.toString()
                 }
                 const { data } = content
                 let userData: any
@@ -551,14 +551,14 @@ class ComRegister {
                     const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
                     userData = userInfo
                 } catch (e) {
-                    return 'bili status指令 getMasterInfo() 网络请求失败'
+                    return 'bili status指令 getMasterInfo() 发生了错误，错误为：' + e.toString()
                 }
                 // B站出问题了
                 if (content.code !== 0) {
                     if (content.msg === '未找到该房间') {
                         session.send('未找到该房间')
                     } else {
-                        session.send('未知错误')
+                        session.send('未知错误，错误信息为：' + content.message)
                     }
                     return
                 }
@@ -603,7 +603,7 @@ class ComRegister {
                 await session.send('已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误')
             })
 
-        biliCom
+        /* biliCom
             .subcommand('.reboot', '测试插件自动重启功能', { hidden: true })
             .usage('测试插件自动重启功能')
             .example('bili reboot 测试插件自动重启功能')
@@ -614,9 +614,9 @@ class ComRegister {
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 发送提示消息，重启服务
                 await this.sendPrivateMsgAndRebootService(ctx, bot, '测试biliAPI等服务自动重启功能')
-            })
+            }) */
 
-        biliCom
+        /* biliCom
             .subcommand('.sendall', '测试给机器人加入的所有群发送消息', { hidden: true })
             .usage('测试给机器人加入的所有群发送消息')
             .example('bili sendall 测试给机器人加入的所有群发送消息')
@@ -627,9 +627,9 @@ class ComRegister {
                 await this.sendMsg(ctx, ['all'], bot, 'Hello World')
                 // 发送提示
                 await session.send('已向机器人加入的所有群发送了消息')
-            })
+            }) */
 
-        biliCom
+        /* biliCom
             .subcommand('.list', '获取机器人加入的所有群组', { hidden: true })
             .usage('获取当前机器人加入的所有群聊')
             .example('bili list 获取当前机器人加入的所有群聊')
@@ -640,7 +640,7 @@ class ComRegister {
                 const guildList = (await bot.getGuildList()).data
                 // 遍历群列表
                 guildList.map(item => this.logger.info(`已加入${item.id}`))
-            })
+            }) */
     }
 
     getTheCorrespondingBotBasedOnTheSession(session: Session) {
@@ -746,7 +746,7 @@ class ComRegister {
             try {
                 content = await ctx.biliAPI.getUserSpaceDynamic(uid)
             } catch (e) {
-                return this.logger.error('dynamicDetect getUserSpaceDynamic() 网络请求失败')
+                return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.toString())
             }
             // 判断是否出现其他问题
             if (content.code !== 0) {
@@ -755,7 +755,7 @@ class ComRegister {
                         await this.sendPrivateMsg(bot, '账号未登录，请登录后重新订阅动态')
                         break
                     }
-                    default: await this.sendPrivateMsg(bot, '未知错误，请重新订阅动态') // 未知错误
+                    default: await this.sendPrivateMsg(bot, '获取动态信息错误，错误为：' + content.message) // 未知错误
                 }
                 // 取消订阅
                 this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
@@ -913,7 +913,7 @@ class ComRegister {
                         // 成功则跳出循环
                         break
                     } catch (e) {
-                        this.logger.error('liveDetect getLiveRoomInfo 网络请求失败')
+                        this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.toString())
                         if (i === attempts - 1) { // 已尝试三次
                             return await this.sendPrivateMsgAndRebootService(
                                 ctx,
@@ -938,7 +938,7 @@ class ComRegister {
                             // 成功则跳出循环
                             break
                         } catch (e) {
-                            this.logger.error('liveDetect getMasterInfo() 本次网络请求失败')
+                            this.logger.error('liveDetect getMasterInfo() 发生了错误，错误为：' + e.toString())
                             if (i === attempts - 1) { // 已尝试三次
                                 return await this.sendPrivateMsgAndRebootService(
                                     ctx,
@@ -1002,7 +1002,7 @@ class ComRegister {
                                     // 成功则跳出循环
                                     break
                                 } catch (e) {
-                                    this.logger.error('liveDetect open getMasterInfo() 网络请求错误')
+                                    this.logger.error('liveDetect open getMasterInfo() 发生了错误，错误为：' + e.toString())
                                     if (i === attempts - 1) { // 已尝试三次
                                         return await this.sendPrivateMsgAndRebootService(
                                             ctx,
@@ -1205,7 +1205,7 @@ class ComRegister {
                     // 成功则跳出循环
                     break
                 } catch (e) {
-                    this.logger.error('getSubFromDatabase() getUserInfo() 本次网络请求失败')
+                    this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
                         return await this.sendPrivateMsgAndRebootService(
                             ctx,
