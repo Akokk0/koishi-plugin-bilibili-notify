@@ -168,7 +168,10 @@ class ComRegister {
                 })
                 // 使用sharp调整图片大小
                 const resizedImage = await sharp(resp.data)
-                    .resize(100, 100)
+                    .resize(100, 100, {
+                        kernel: sharp.kernel.lanczos3
+                    })
+                    .png({ compressionLevel: 9 })
                     .toBuffer()
                 // 发送下播提示语
                 await session.send(
@@ -703,6 +706,8 @@ class ComRegister {
         if (flag) {
             this.logger.info('重启插件成功')
         } else {
+            // logger
+            this.logger.error('已重启插件三次，请检查机器人状态后手动重启')
             // 重启失败，发送消息
             await this.sendPrivateMsg(bot, '已重启插件三次，请检查机器人状态后手动重启')
             // 关闭插件
@@ -1005,7 +1010,10 @@ class ComRegister {
                             })
                             // 使用sharp调整图片大小
                             const resizedImage = await sharp(resp.data)
-                                .resize(100, 100)
+                                .resize(100, 100, {
+                                    kernel: sharp.kernel.lanczos3
+                                })
+                                .png({ compressionLevel: 9 })
                                 .toBuffer()
                             // 发送下播通知
                             await this.sendMsg(
