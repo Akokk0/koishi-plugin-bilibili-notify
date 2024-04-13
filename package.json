@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "1.2.3-rc.11",
+  "version": "1.2.3",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],
@@ -33,6 +33,7 @@
     "luxon": "^3.4.4",
     "md5": "^2.3.0",
     "qrcode": "^1.5.3",
+    "sharp": "^0.33.3",
     "tough-cookie": "^4.1.3"
   },
   "devDependencies": {

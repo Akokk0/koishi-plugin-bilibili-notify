@@ -3,6 +3,8 @@ import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
+import axios from "axios";
+import sharp from 'sharp';
 
 enum LiveType {
     NotLiveBroadcast,
@@ -63,7 +65,7 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+        /* const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
 
         testCom.subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
@@ -158,9 +160,19 @@ class ComRegister {
                 this.logger.info('调用test gimg指令')
                 // 获取主播信息
                 const { data } = await ctx.biliAPI.getMasterInfo('194484313')
+                // 获取图片二进制
+                const resp = await axios({
+                    url: data.info.face,
+                    method: 'GET',
+                    responseType: 'arraybuffer'
+                })
+                // 使用sharp调整图片大小
+                const resizedImage = await sharp(resp.data)
+                    .resize(100, 100)
+                    .toBuffer()
                 // 发送下播提示语
                 await session.send(
-                    <><img width={50} height={50} src={data.info.face} alt="avatar" />主播{data.info.uname}已下播</>
+                    <>{h.image(resizedImage, 'image/png')} 主播{data.info.uname}已下播</>
                 )
             })
 
@@ -172,7 +184,7 @@ class ComRegister {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // this.sendMsg(['all'], bot, 'Hello World')
-            })
+            }) */
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
 
@@ -985,14 +997,22 @@ class ComRegister {
                             let liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
-
-                            let msg = <><img width={50} height={50} src={uData.info.face} alt="avatar" />{liveEndMsg}</>
+                            // 获取图片二进制
+                            const resp = await axios({
+                                url: uData.info.face,
+                                method: 'GET',
+                                responseType: 'arraybuffer'
+                            })
+                            // 使用sharp调整图片大小
+                            const resizedImage = await sharp(resp.data)
+                                .resize(100, 100)
+                                .toBuffer()
                             // 发送下播通知
                             await this.sendMsg(
                                 ctx,
                                 guildId,
                                 bot,
-                                msg
+                                <>{h.image(resizedImage, 'image/png')} {liveEndMsg}</>
                             )
                         }
                         // 未进循环，还未开播，继续循环
@@ -1122,6 +1142,7 @@ class ComRegister {
             subTableArray.splice(subTableArray.length - 1, 1)
             // 定义Table
             table = <>
+                <p>当前订阅对象：</p>
                 <ul>
                     {
                         subTableArray.map(str => (
