@@ -156,26 +156,23 @@ class ComRegister {
             .action(async ({ session }) => {
                 // logger
                 this.logger.info('调用test gimg指令')
+                // 获取主播信息
                 const { data } = await ctx.biliAPI.getMasterInfo('194484313')
-                // console.log(data);
-                /* const message = h('message')
-                message.children.push(h('img', { src: data.info.face }))
-                message.children.push(h.text(`主播${data.info.uname}已下播`)) */
-                // <>{h('img', { src: data.info.face })} 主播{data.info.uname}已下播</>
+                // 发送下播提示语
                 await session.send(
-                    <>{h('img', { src: data.info.face })} 主播{data.info.uname}已下播</>
+                    <><img width={50} height={50} src={data.info.face} alt="avatar" />主播{data.info.uname}已下播</>
                 )
             })
 
-        /* testCom
+        testCom
             .subcommand('.sendmsg', '测试发送消息方法')
             .usage('测试发送消息方法')
             .example('test sendmsg')
             .action(async ({ session }) => {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
-                this.sendMsg(['all'], bot, 'Hello World')
-            }) */
+                // this.sendMsg(['all'], bot, 'Hello World')
+            })
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
 
@@ -989,7 +986,7 @@ class ComRegister {
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
 
-                            let msg = <>{h('img', { src: data.info.face })} {liveEndMsg}</>
+                            let msg = <><img width={50} height={50} src={uData.info.face} alt="avatar" />{liveEndMsg}</>
                             // 发送下播通知
                             await this.sendMsg(
                                 ctx,
