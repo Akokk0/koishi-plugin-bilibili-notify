@@ -3,8 +3,7 @@ import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
-import axios from "axios";
-import sharp from 'sharp';
+import Jimp from 'jimp'
 
 enum LiveType {
     NotLiveBroadcast,
@@ -160,19 +159,9 @@ class ComRegister {
                 this.logger.info('调用test gimg指令')
                 // 获取主播信息
                 const { data } = await ctx.biliAPI.getMasterInfo('194484313')
-                // 获取图片二进制
-                const resp = await axios({
-                    url: data.info.face,
-                    method: 'GET',
-                    responseType: 'arraybuffer'
+                const resizedImage = await Jimp.read(data.info.face).then(async image => {
+                    return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
                 })
-                // 使用sharp调整图片大小
-                const resizedImage = await sharp(resp.data)
-                    .resize(100, 100, {
-                        kernel: sharp.kernel.lanczos3
-                    })
-                    .png({ compressionLevel: 9 })
-                    .toBuffer()
                 // 发送下播提示语
                 await session.send(
                     <>{h.image(resizedImage, 'image/png')} 主播{data.info.uname}已下播</>
@@ -741,7 +730,8 @@ class ComRegister {
                     break
                 } catch (e) {
                     if (i === attempts - 1) { // 已尝试三次
-                        throw new Error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
+                        this.logger.error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
+                        this.sendPrivateMsg(bot, `发送群组ID:${guildId}消息失败，请检查机器人状态`)
                     }
                 }
             }
@@ -797,60 +787,47 @@ class ComRegister {
                 if (!items[num]) continue
                 // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
+                    // 定义变量
+                    let pic: string
+                    let buffer: Buffer
+                    // 从动态数据中取出UP主名称和动态ID
+                    const upName = content.data.items[num].modules.module_author.name
+                    const dynamicId = content.data.items[num].id_str
                     // 推送该条动态
                     let attempts = 3;
                     for (let i = 0; i < attempts; i++) {
+                        // 获取动态推送图片
                         try {
-                            // 定义变量
-                            let pic: string
-                            let buffer: Buffer
-                            // 从动态数据中取出UP主名称和动态ID
-                            const upName = content.data.items[num].modules.module_author.name
-                            const dynamicId = content.data.items[num].id_str
-                            // 判断是否需要发送URL
-                            const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
-                            // 获取动态推送图片
-                            try {
-                                // 渲染图片
-                                const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
-                                pic = gimgPic
-                                buffer = gimgBuffer
-                            } catch (e) {
-                                // 直播开播动态，不做处理
-                                if (e.message === '直播开播动态，不做处理') break
-                                if (e.message === '出现关键词，屏蔽该动态') {
-                                    // 如果需要发送才发送
-                                    this.config.filter.notify && await this.sendMsg(
-                                        ctx,
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条含有屏蔽关键字的动态`,
-                                    )
-                                    break
-                                }
-                                if (e.message === '已屏蔽转发动态') {
-                                    this.config.filter.notify && await this.sendMsg(
-                                        ctx,
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条转发动态，已屏蔽`
-                                    )
-                                    break
-                                }
-                            }
-                            // 如果pic存在，则直接返回pic
-                            if (pic) {
-                                // pic存在，使用的是render模式
-                                await this.sendMsg(ctx, guildId, bot, pic + dUrl)
-                            } else {
-                                // pic不存在，说明使用的是page模式
-                                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + dUrl))
-                            }
-                            // 如果成功，那么跳出循环
-                            break
+                            // 渲染图片
+                            const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
+                            pic = gimgPic
+                            buffer = gimgBuffer
                         } catch (e) {
-                            this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.toString())
-                            if (i === attempts - 1) {  // 如果已经尝试了三次，那么抛出错误
+                            // 直播开播动态，不做处理
+                            if (e.message === '直播开播动态，不做处理') break
+                            if (e.message === '出现关键词，屏蔽该动态') {
+                                // 如果需要发送才发送
+                                this.config.filter.notify && await this.sendMsg(
+                                    ctx,
+                                    guildId,
+                                    bot,
+                                    `${upName}发布了一条含有屏蔽关键字的动态`,
+                                )
+                                break
+                            }
+                            if (e.message === '已屏蔽转发动态') {
+                                this.config.filter.notify && await this.sendMsg(
+                                    ctx,
+                                    guildId,
+                                    bot,
+                                    `${upName}发布了一条转发动态，已屏蔽`
+                                )
+                                break
+                            }
+                            // 未知错误
+                            if (i === attempts - 1) {
+                                this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.toString())
+                                // 发送私聊消息并重启服务
                                 return await this.sendPrivateMsgAndRebootService(
                                     ctx,
                                     bot,
@@ -858,6 +835,16 @@ class ComRegister {
                                 )
                             }
                         }
+                    }
+                    // 判断是否需要发送URL
+                    const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
+                    // 如果pic存在，则直接返回pic
+                    if (pic) {
+                        // pic存在，使用的是render模式
+                        await this.sendMsg(ctx, guildId, bot, pic + dUrl)
+                    } else {
+                        // pic不存在，说明使用的是page模式
+                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + dUrl))
                     }
                     // 更新时间点为最新发布动态的发布时间
                     switch (num) {
@@ -889,33 +876,23 @@ class ComRegister {
         let flag: boolean = true
 
         const sendLiveNotifyCard = async (data: any, uData: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
+            // 定义变量
+            let pic: string
+            let buffer: Buffer
+            // 多次尝试生成图片
             let attempts = 3
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 获取直播通知卡片
-                    const { pic, buffer } = await ctx.gimg.generateLiveImg(data, uData, liveType)
-                    // 推送直播信息
-                    if (!liveStartMsg) {
-                        // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic)
-                        // pic不存在，说明使用的是page模式
-                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png'))
-                    } else if (liveStartMsg && atAll) {
-                        // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
-                        // pic不存在，说明使用的是page模式
-                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
-                    } else {
-                        // pic 存在，使用的是render模式
-                        if (pic) return await this.sendMsg(ctx, guildId, bot, pic + liveStartMsg)
-                        // pic不存在，说明使用的是page模式
-                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
-                    }
+                    const { pic: picv, buffer: bufferv } = await ctx.gimg.generateLiveImg(data, uData, liveType)
+                    // 赋值
+                    pic = picv
+                    buffer = bufferv
                     // 成功则跳出循环
                     break
                 } catch (e) {
-                    this.logger.error('liveDetect generateLiveImg() 推送卡片发送失败，原因：' + e.toString())
                     if (i === attempts - 1) { // 已尝试三次
+                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.toString())
                         return await this.sendPrivateMsgAndRebootService(
                             ctx,
                             bot,
@@ -923,6 +900,23 @@ class ComRegister {
                         )
                     }
                 }
+            }
+            // 推送直播信息
+            if (!liveStartMsg) {
+                // pic 存在，使用的是render模式
+                if (pic) return await this.sendMsg(ctx, guildId, bot, pic)
+                // pic不存在，说明使用的是page模式
+                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png'))
+            } else if (liveStartMsg && atAll) {
+                // pic 存在，使用的是render模式
+                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
+                // pic不存在，说明使用的是page模式
+                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
+            } else {
+                // pic 存在，使用的是render模式
+                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + liveStartMsg)
+                // pic不存在，说明使用的是page模式
+                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
             }
         }
 
@@ -1002,19 +996,10 @@ class ComRegister {
                             let liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
-                            // 获取图片二进制
-                            const resp = await axios({
-                                url: uData.info.face,
-                                method: 'GET',
-                                responseType: 'arraybuffer'
+                            // 获取头像并缩放
+                            const resizedImage = await Jimp.read(uData.info.face).then(async image => {
+                                return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
                             })
-                            // 使用sharp调整图片大小
-                            const resizedImage = await sharp(resp.data)
-                                .resize(100, 100, {
-                                    kernel: sharp.kernel.lanczos3
-                                })
-                                .png({ compressionLevel: 9 })
-                                .toBuffer()
                             // 发送下播通知
                             await this.sendMsg(
                                 ctx,
