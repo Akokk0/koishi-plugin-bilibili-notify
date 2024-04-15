@@ -160,13 +160,31 @@ class BiliAPI extends Service {
 
     disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
 
+    getRandomUserAgent() {
+        const userAgents = [
+            // Chrome
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
+            // Firefox
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0',
+            // Safari
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.3 Safari/605.1.15',
+            // Internet Explorer
+            'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; AS; rv:11.0) like Gecko',
+            // Edge
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 Edg/98.0.1108.62',
+        ];
+
+        const index = Math.floor(Math.random() * userAgents.length);
+        return userAgents[index];
+    }
+
     createNewClient() {
         this.jar = new CookieJar()
         this.client = wrapper(axios.create({
             jar: this.jar,
             headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': this.getRandomUserAgent(),
                 'Origin': 'https://www.bilibili.com',
                 'Referer': 'https://www.bilibili.com/'
             }
