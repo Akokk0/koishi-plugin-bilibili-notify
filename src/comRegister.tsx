@@ -101,15 +101,6 @@ class ComRegister {
             })
 
         testCom
-            .subcommand('.exist')
-            .usage('测试写法')
-            .example('test.exist')
-            .action(async () => {
-                let num = 1;
-                console.log(num && `Hello World`);
-            })
-
-        testCom
             .subcommand('.gimg <uid:string> <index:number>')
             .usage('测试图片生成')
             .example('test.gimg')
@@ -841,10 +832,10 @@ class ComRegister {
                     // 如果pic存在，则直接返回pic
                     if (pic) {
                         // pic存在，使用的是render模式
-                        await this.sendMsg(ctx, guildId, bot, pic + dUrl)
+                        await this.sendMsg(ctx, guildId, bot, pic + <>{dUrl}</>)
                     } else {
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + dUrl))
+                        await this.sendMsg(ctx, guildId, bot, <>{h.image(buffer, 'image/png')} {dUrl}</>)
                     }
                     // 更新时间点为最新发布动态的发布时间
                     switch (num) {
@@ -902,7 +893,19 @@ class ComRegister {
                 }
             }
             // 推送直播信息
-            if (!liveStartMsg) {
+            // pic 存在，使用的是render模式
+            if (pic) {
+                let msg = <>{atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                return await this.sendMsg(ctx, guildId, bot, pic + msg)
+            }
+            // pic不存在，说明使用的是page模式
+            await this.sendMsg(
+                ctx,
+                guildId,
+                bot,
+                <>{h.image(buffer, 'image/png')} {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+            )
+            /* if (!liveStartMsg) {
                 // pic 存在，使用的是render模式
                 if (pic) return await this.sendMsg(ctx, guildId, bot, pic)
                 // pic不存在，说明使用的是page模式
@@ -911,13 +914,13 @@ class ComRegister {
                 // pic 存在，使用的是render模式
                 if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
                 // pic不存在，说明使用的是page模式
-                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + <><at type="all" /> {liveStartMsg}</>))
+                await this.sendMsg(ctx, guildId, bot, <>{h.image(buffer, 'image/png')} <at type="all" /> {liveStartMsg}</>)
             } else {
                 // pic 存在，使用的是render模式
-                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + liveStartMsg)
+                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <>{liveStartMsg}</>)
                 // pic不存在，说明使用的是page模式
                 await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
-            }
+            } */
         }
 
         return async () => {

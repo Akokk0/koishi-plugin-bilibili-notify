@@ -189,12 +189,13 @@ class ServerManager extends Service {
     }
 
     protected start(): void | Promise<void> {
-        this.registerPlugin()
-
+        // 根据用户设置的渲染模式设置
         switch (globalConfig.renderType) {
             case 'render': this.renderType = 0; break;
             case 'page': this.renderType = 1; break;
         }
+        // 注册插件
+        this.registerPlugin()
     }
 
     registerPlugin = () => {
