@@ -837,11 +837,17 @@ class ComRegister {
                     const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
                     // 如果pic存在，则直接返回pic
                     if (pic) {
+                        console.log('render mode');
                         // pic存在，使用的是render模式
                         await this.sendMsg(ctx, guildId, bot, pic + <>{dUrl}</>)
                     } else {
+                        console.log('page mode');
                         // pic不存在，说明使用的是page模式
-                        await this.sendMsg(ctx, guildId, bot, <>{h.image(buffer, 'image/png')} {dUrl}</>)
+                        await this.sendMsg(
+                            ctx,
+                            guildId,
+                            bot,
+                            <><img src={'data:image/png;base64,' + buffer.toString('base64')}/> {dUrl}</>)
                     }
                     // 更新时间点为最新发布动态的发布时间
                     switch (num) {
@@ -909,7 +915,7 @@ class ComRegister {
                 ctx,
                 guildId,
                 bot,
-                <>{h.image(buffer, 'image/png')} {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                <><img src={'data:image/png;base64,' + buffer.toString('base64')}/> {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
             )
         }
 
