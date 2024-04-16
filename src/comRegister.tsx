@@ -149,13 +149,19 @@ class ComRegister {
                 // logger
                 this.logger.info('调用test gimg指令')
                 // 获取主播信息
-                const { data } = await ctx.biliAPI.getMasterInfo('194484313')
-                const resizedImage = await Jimp.read(data.info.face).then(async image => {
-                    return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
-                })
+                const { data } = await ctx.biliAPI.getMasterInfo('686127')
+                let resizedImage: Buffer
+                try {
+                    resizedImage = await Jimp.read(data.info.face).then(async image => {
+                        return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
+                    })
+                } catch (e) {
+                    if (e.message === 'Unsupported MIME type: image/webp') console.log('主播使用的是webp格式头像，无法进行渲染');
+                    else console.log(e);
+                }
                 // 发送下播提示语
                 await session.send(
-                    <>{h.image(resizedImage, 'image/png')} 主播{data.info.uname}已下播</>
+                    <>{resizedImage && h.image(resizedImage, 'image/png')} 主播{data.info.uname}已下播</>
                 )
             })
 
@@ -905,22 +911,6 @@ class ComRegister {
                 bot,
                 <>{h.image(buffer, 'image/png')} {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
             )
-            /* if (!liveStartMsg) {
-                // pic 存在，使用的是render模式
-                if (pic) return await this.sendMsg(ctx, guildId, bot, pic)
-                // pic不存在，说明使用的是page模式
-                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png'))
-            } else if (liveStartMsg && atAll) {
-                // pic 存在，使用的是render模式
-                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <><at type="all" /> {liveStartMsg} </>)
-                // pic不存在，说明使用的是page模式
-                await this.sendMsg(ctx, guildId, bot, <>{h.image(buffer, 'image/png')} <at type="all" /> {liveStartMsg}</>)
-            } else {
-                // pic 存在，使用的是render模式
-                if (pic) return await this.sendMsg(ctx, guildId, bot, pic + <>{liveStartMsg}</>)
-                // pic不存在，说明使用的是page模式
-                await this.sendMsg(ctx, guildId, bot, h.image(buffer, 'image/png' + liveStartMsg))
-            } */
         }
 
         return async () => {
@@ -1000,15 +990,24 @@ class ComRegister {
                                 .replace('-name', uData.info.uname)
                                 .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
                             // 获取头像并缩放
-                            const resizedImage = await Jimp.read(uData.info.face).then(async image => {
-                                return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
-                            })
+                            let resizedImage: Buffer
+                            // Jimp无法处理Webp格式，直接跳过
+                            try {
+                                resizedImage = await Jimp.read(uData.info.face).then(async image => {
+                                    return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
+                                })
+                            } catch (e) {
+                                if (e.message === 'Unsupported MIME type: image/webp')
+                                    console.log('主播使用的是webp格式头像，无法进行渲染')
+                                else
+                                    console.log(e)
+                            }
                             // 发送下播通知
                             await this.sendMsg(
                                 ctx,
                                 guildId,
                                 bot,
-                                <>{h.image(resizedImage, 'image/png')} {liveEndMsg}</>
+                                <>{resizedImage && h.image(resizedImage, 'image/png')} {liveEndMsg}</>
                             )
                         }
                         // 未进循环，还未开播，继续循环
