@@ -770,9 +770,10 @@ class ComRegister {
                     default: await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
                 }
                 // 取消订阅
-                this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
+                this.unsubAll(ctx, bot, uid)
+                // this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
                 // 发送取消订阅消息
-                await this.sendPrivateMsg(bot, `UID:${uid}，已取消订阅动态`)
+                // await this.sendPrivateMsg(bot, `UID:${uid}，已取消订阅动态`)
                 // 结束循环
                 return
             }
@@ -847,7 +848,8 @@ class ComRegister {
                             ctx,
                             guildId,
                             bot,
-                            <><img src={'data:image/png;base64,' + buffer.toString('base64')}/> {dUrl}</>)
+                            <><img src={'data:image/png;base64,' + buffer.toString('base64')} /> {dUrl}</>
+                        )
                     }
                     // 更新时间点为最新发布动态的发布时间
                     switch (num) {
@@ -915,7 +917,7 @@ class ComRegister {
                 ctx,
                 guildId,
                 bot,
-                <><img src={'data:image/png;base64,' + buffer.toString('base64')}/> {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                <><img src={'data:image/png;base64,' + buffer.toString('base64')} /> {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
             )
         }
 
@@ -1387,6 +1389,24 @@ class ComRegister {
             // 执行完该方法后，保证执行一次updateSubNotifier()
             this.updateSubNotifier(ctx)
         }
+    }
+
+    unsubAll(ctx: Context, bot: Bot<Context>, uid: string) {
+        this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
+            // 取消全部订阅 执行dispose方法，销毁定时器
+            if (sub.dynamic) this.subManager[i].dynamicDispose()
+            if (sub.live) this.subManager[i].liveDispose()
+            // 从数据库中删除订阅
+            await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
+            // 将该订阅对象从订阅管理对象中移除
+            this.subManager.splice(i, 1)
+            // id--
+            this.num--
+            // 发送成功通知
+            this.sendPrivateMsg(bot, `UID:${uid}，已取消订阅该用户`)
+            // 更新控制台提示
+            this.updateSubNotifier(ctx)
+        })
     }
 
     async checkIfIsLogin(ctx: Context) {

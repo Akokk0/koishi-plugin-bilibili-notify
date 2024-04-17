@@ -28,6 +28,7 @@ export interface Config {
     basicSettings: {},
     unlockSubLimits: boolean,
     renderType: 'render' | 'page',
+    userAgent: string,
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
@@ -87,6 +88,10 @@ export const Config: Schema<Config> = Schema.object({
         .role('')
         .default('render')
         .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
+
+    userAgent: Schema.string()
+        .default('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36')
+        .description('设置请求头User-Agen，请求出现-352时可以尝试修改'),
 
     dynamic: Schema.object({}).description('动态推送设置'),
 
@@ -199,7 +204,9 @@ class ServerManager extends Service {
     }
 
     registerPlugin = () => {
-        const biliApi = this.ctx.plugin(BiliAPI)
+        const biliApi = this.ctx.plugin(BiliAPI, {
+            userAgent: globalConfig.userAgent
+        })
         const generateImg = this.ctx.plugin(GenerateImg, {
             renderType: this.renderType,
             filter: globalConfig.filter,

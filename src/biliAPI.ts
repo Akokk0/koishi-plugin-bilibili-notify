@@ -1,4 +1,4 @@
-import { Context, Service } from "koishi"
+import { Context, Schema, Service } from "koishi"
 import axios from 'axios'
 import { CookieJar, Cookie } from 'tough-cookie'
 import { wrapper } from 'axios-cookiejar-support'
@@ -32,13 +32,15 @@ class BiliAPI extends Service {
 
     jar: CookieJar
     client: any
+    apiConfig: BiliAPI.Config
     loginData: any
     loginNotifier: Notifier
     refreshCookieTimer: Function
     loginInfoIsLoaded: boolean = false
 
-    constructor(ctx: Context) {
+    constructor(ctx: Context, config: BiliAPI.Config) {
         super(ctx, 'biliAPI')
+        this.apiConfig = config
     }
 
     protected start(): void | Promise<void> {
@@ -46,7 +48,6 @@ class BiliAPI extends Service {
         this.createNewClient()
         // 从数据库加载cookies
         this.loadCookiesFromDatabase()
-        // logger
         // this.logger.info('工作中')
     }
 
@@ -179,7 +180,9 @@ class BiliAPI extends Service {
             jar: this.jar,
             headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': this.getRandomUserAgent(),
+                'User-Agent':
+                    this.apiConfig.userAgent !== 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36' ?
+                    this.apiConfig.userAgent : this.getRandomUserAgent(),
                 'Origin': 'https://www.bilibili.com',
                 'Referer': 'https://www.bilibili.com/'
             }
@@ -411,6 +414,16 @@ class BiliAPI extends Service {
         }
         // 没有问题，cookies已更新完成
     }
+}
+
+namespace BiliAPI {
+    export interface Config {
+        userAgent: string
+    }
+
+    export const Config: Schema<Config> = Schema.object({
+        userAgent: Schema.string()
+    })
 }
 
 export default BiliAPI
