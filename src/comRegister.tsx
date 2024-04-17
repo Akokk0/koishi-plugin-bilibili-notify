@@ -767,7 +767,7 @@ class ComRegister {
                         await this.sendPrivateMsg(bot, '账号未登录，请登录后重新订阅动态')
                         break
                     }
-                    default: await this.sendPrivateMsg(bot, '获取动态信息错误，错误为：' + content.message) // 未知错误
+                    default: await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
                 }
                 // 取消订阅
                 this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
@@ -837,11 +837,11 @@ class ComRegister {
                     const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
                     // 如果pic存在，则直接返回pic
                     if (pic) {
-                        console.log('render mode');
+                        this.logger.info('推送动态中，使用render模式');
                         // pic存在，使用的是render模式
                         await this.sendMsg(ctx, guildId, bot, pic + <>{dUrl}</>)
                     } else {
-                        console.log('page mode');
+                        this.logger.info('推送动态中，使用page模式');
                         // pic不存在，说明使用的是page模式
                         await this.sendMsg(
                             ctx,
