@@ -687,7 +687,7 @@ class ComRegister {
     async sendPrivateMsgAndRebootService(ctx: Context, bot: Bot<Context>, content: string) {
         await this.sendPrivateMsg(bot, content)
         // 重启插件
-        const flag = ctx.sm.restartPlugin()
+        const flag = await ctx.sm.restartPlugin(true /* 非人为重启，需要计数 */)
         // 判断是否重启成功
         if (flag) {
             this.logger.info('重启插件成功')
@@ -697,7 +697,7 @@ class ComRegister {
             // 重启失败，发送消息
             await this.sendPrivateMsg(bot, '已重启插件三次，请检查机器人状态后手动重启')
             // 关闭插件
-            ctx.sm.disposePlugin()
+            await ctx.sm.disposePlugin()
         }
     }
 
@@ -767,15 +767,37 @@ class ComRegister {
                         await this.sendPrivateMsg(bot, '账号未登录，请登录后重新订阅动态')
                         break
                     }
-                    default: await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
+                    case -352: { // 风控
+                        // 发送私聊消息
+                        await this.sendPrivateMsg(bot, '账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
+                        // 停止服务
+                        await ctx.sm.disposePlugin()
+                        // 结束循环
+                        return
+                    }
+                    default: { // 未知错误
+                        await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
+                        // 取消订阅
+                        this.unsubAll(ctx, bot, uid)
+                        // 结束循环
+                        return
+                    }
                 }
-                // 取消订阅
-                this.unsubAll(ctx, bot, uid)
-                // 结束循环
-                return
             }
             // 获取数据内容
             const items = content.data.items
+            // 定义方法：更新时间点为最新发布动态的发布时间
+            const updatePoint = (num: number) => {
+                switch (num) {
+                    case 1: {
+                        if (items[0].modules.module_tag) { // 存在置顶动态
+                            timePoint = items[num].modules.module_author.pub_ts
+                        }
+                        break
+                    }
+                    case 0: timePoint = items[num].modules.module_author.pub_ts
+                }
+            }
             // 发送请求 默认只查看配置文件规定数量的数据
             for (let num = this.config.dynamicCheckNumber - 1; num >= 0; num--) {
                 // 没有动态内容则直接跳过
@@ -802,7 +824,7 @@ class ComRegister {
                             break
                         } catch (e) {
                             // 直播开播动态，不做处理
-                            if (e.message === '直播开播动态，不做处理') break
+                            if (e.message === '直播开播动态，不做处理') return updatePoint(num)
                             if (e.message === '出现关键词，屏蔽该动态') {
                                 // 如果需要发送才发送
                                 this.config.filter.notify && await this.sendMsg(
@@ -811,7 +833,7 @@ class ComRegister {
                                     bot,
                                     `${upName}发布了一条含有屏蔽关键字的动态`,
                                 )
-                                break
+                                return updatePoint(num)
                             }
                             if (e.message === '已屏蔽转发动态') {
                                 this.config.filter.notify && await this.sendMsg(
@@ -820,7 +842,7 @@ class ComRegister {
                                     bot,
                                     `${upName}发布了一条转发动态，已屏蔽`
                                 )
-                                break
+                                return updatePoint(num)
                             }
                             // 未知错误
                             if (i === attempts - 1) {
@@ -853,16 +875,8 @@ class ComRegister {
                     } else {
                         this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                     }
-                    // 更新时间点为最新发布动态的发布时间
-                    switch (num) {
-                        case 1: {
-                            if (items[0].modules.module_tag) { // 存在置顶动态
-                                timePoint = items[num].modules.module_author.pub_ts
-                            }
-                            break
-                        }
-                        case 0: timePoint = items[num].modules.module_author.pub_ts
-                    }
+                    // 更新时间点
+                    updatePoint(num)
                 }
             }
         }

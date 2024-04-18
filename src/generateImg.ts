@@ -53,11 +53,11 @@ class GenerateImg extends Service {
     }
 
     protected start(): void | Promise<void> {
-        // this.logger.info('工作中');
+        this.logger.info('工作中');
     }
 
     protected stop(): void | Promise<void> {
-        // this.logger.info('已停止工作')
+        this.logger.info('已停止工作')
     }
 
     async generateLiveImg(data: any, userData: any, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
