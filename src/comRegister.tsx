@@ -352,7 +352,7 @@ class ComRegister {
                 try {
                     content = await ctx.biliAPI.getUserInfo(mid)
                 } catch (e) {
-                    return 'bili sub getUserInfo() 发生了错误，错误为：' + e.toString()
+                    return 'bili sub getUserInfo() 发生了错误，错误为：' + e.message
                 }
                 // 判断是否有其他问题
                 if (content.code !== 0) {
@@ -476,7 +476,7 @@ class ComRegister {
                     const { data } = await ctx.biliAPI.getMasterInfo(sub.uid)
                     userData = data
                 } catch (e) {
-                    this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.toString())
+                    this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
                     return '订阅出错啦，请重试'
                 }
                 // 需要订阅直播
@@ -547,7 +547,7 @@ class ComRegister {
                 try {
                     content = await ctx.biliAPI.getLiveRoomInfo(roomId)
                 } catch (e) {
-                    return 'bili status指令 getLiveRoomInfo() 发生了错误，错误为：' + e.toString()
+                    return 'bili status指令 getLiveRoomInfo() 发生了错误，错误为：' + e.message
                 }
                 const { data } = content
                 let userData: any
@@ -555,7 +555,7 @@ class ComRegister {
                     const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
                     userData = userInfo
                 } catch (e) {
-                    return 'bili status指令 getMasterInfo() 发生了错误，错误为：' + e.toString()
+                    return 'bili status指令 getMasterInfo() 发生了错误，错误为：' + e.message
                 }
                 // B站出问题了
                 if (content.code !== 0) {
@@ -727,7 +727,7 @@ class ComRegister {
                     break
                 } catch (e) {
                     if (i === attempts - 1) { // 已尝试三次
-                        this.logger.error(`发送群组ID:${guildId}消息失败！原因: ` + e.toString())
+                        this.logger.error(`发送群组ID:${guildId}消息失败！原因: ` + e.message)
                         this.sendPrivateMsg(bot, `发送群组ID:${guildId}消息失败，请检查机器人状态`)
                     }
                 }
@@ -758,7 +758,7 @@ class ComRegister {
             try {
                 content = await ctx.biliAPI.getUserSpaceDynamic(uid)
             } catch (e) {
-                return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.toString())
+                return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
             }
             // 判断是否出现其他问题
             if (content.code !== 0) {
@@ -771,9 +771,6 @@ class ComRegister {
                 }
                 // 取消订阅
                 this.unsubAll(ctx, bot, uid)
-                // this.unsubSingle(ctx, uid, 1) /* 1为取消动态订阅 */
-                // 发送取消订阅消息
-                // await this.sendPrivateMsg(bot, `UID:${uid}，已取消订阅动态`)
                 // 结束循环
                 return
             }
@@ -798,8 +795,11 @@ class ComRegister {
                         try {
                             // 渲染图片
                             const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
+                            // 赋值
                             pic = gimgPic
                             buffer = gimgBuffer
+                            // 成功则跳出循环
+                            break
                         } catch (e) {
                             // 直播开播动态，不做处理
                             if (e.message === '直播开播动态，不做处理') break
@@ -824,7 +824,7 @@ class ComRegister {
                             }
                             // 未知错误
                             if (i === attempts - 1) {
-                                this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.toString())
+                                this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
                                 // 发送私聊消息并重启服务
                                 return await this.sendPrivateMsgAndRebootService(
                                     ctx,
@@ -841,15 +841,17 @@ class ComRegister {
                         this.logger.info('推送动态中，使用render模式');
                         // pic存在，使用的是render模式
                         await this.sendMsg(ctx, guildId, bot, pic + <>{dUrl}</>)
-                    } else {
+                    } else if (buffer) {
                         this.logger.info('推送动态中，使用page模式');
                         // pic不存在，说明使用的是page模式
                         await this.sendMsg(
                             ctx,
                             guildId,
                             bot,
-                            <><img src={'data:image/png;base64,' + buffer.toString('base64')} /> {dUrl}</>
+                            <>{h.image(buffer, 'image/png')} {dUrl}</>
                         )
+                    } else {
+                        this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                     }
                     // 更新时间点为最新发布动态的发布时间
                     switch (num) {
@@ -897,7 +899,7 @@ class ComRegister {
                     break
                 } catch (e) {
                     if (i === attempts - 1) { // 已尝试三次
-                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.toString())
+                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
                         return await this.sendPrivateMsgAndRebootService(
                             ctx,
                             bot,
@@ -917,7 +919,7 @@ class ComRegister {
                 ctx,
                 guildId,
                 bot,
-                <><img src={'data:image/png;base64,' + buffer.toString('base64')} /> {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                <>{h.image(buffer, 'image/png')} {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
             )
         }
 
@@ -936,7 +938,7 @@ class ComRegister {
                         // 成功则跳出循环
                         break
                     } catch (e) {
-                        this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.toString())
+                        this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
                         if (i === attempts - 1) { // 已尝试三次
                             return await this.sendPrivateMsgAndRebootService(
                                 ctx,
@@ -961,7 +963,7 @@ class ComRegister {
                             // 成功则跳出循环
                             break
                         } catch (e) {
-                            this.logger.error('liveDetect getMasterInfo() 发生了错误，错误为：' + e.toString())
+                            this.logger.error('liveDetect getMasterInfo() 发生了错误，错误为：' + e.message)
                             if (i === attempts - 1) { // 已尝试三次
                                 return await this.sendPrivateMsgAndRebootService(
                                     ctx,
@@ -1038,7 +1040,7 @@ class ComRegister {
                                     // 成功则跳出循环
                                     break
                                 } catch (e) {
-                                    this.logger.error('liveDetect open getMasterInfo() 发生了错误，错误为：' + e.toString())
+                                    this.logger.error('liveDetect open getMasterInfo() 发生了错误，错误为：' + e.message)
                                     if (i === attempts - 1) { // 已尝试三次
                                         return await this.sendPrivateMsgAndRebootService(
                                             ctx,
@@ -1242,7 +1244,7 @@ class ComRegister {
                     // 成功则跳出循环
                     break
                 } catch (e) {
-                    this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.toString())
+                    this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
                     if (i === attempts - 1) { // 已尝试三次
                         return await this.sendPrivateMsgAndRebootService(
                             ctx,

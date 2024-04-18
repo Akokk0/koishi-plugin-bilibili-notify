@@ -145,6 +145,7 @@
 - ver 1.2.9-alpha.0 bug测试版本，请跳过
 - ver 1.2.10 修复插件启动一段时间后一直报错的问题，更新了UA列表，新增了更多日志输出
 - ver 1.2.11-alpha.0 新增自定义UA的设置。动态推送出错时，现在会直接取消订阅该UP主而不是取消订阅动态
+- ver 1.2.11-alpha.1 修复报错 `app TypeError: Cannot read properties of undefined (reading 'toString')`，添加更多日志输出
 
 ## 交流群
 
