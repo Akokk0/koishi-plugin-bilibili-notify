@@ -870,7 +870,7 @@ class ComRegister {
                             ctx,
                             guildId,
                             bot,
-                            <>{h.image(buffer, 'image/png')} {dUrl}</>
+                            <>{h.image(buffer, 'image/png')}{dUrl}</>
                         )
                     } else {
                         this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
@@ -925,7 +925,7 @@ class ComRegister {
             // 推送直播信息
             // pic 存在，使用的是render模式
             if (pic) {
-                let msg = <>{atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
                 return await this.sendMsg(ctx, guildId, bot, pic + msg)
             }
             // pic不存在，说明使用的是page模式
@@ -933,7 +933,7 @@ class ComRegister {
                 ctx,
                 guildId,
                 bot,
-                <>{h.image(buffer, 'image/png')} {atAll && <at type="all" />} {liveStartMsg && liveStartMsg}</>
+                <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
             )
         }
 
