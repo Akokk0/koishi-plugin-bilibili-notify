@@ -23,7 +23,11 @@ class Wbi extends Service {
     }
 
     protected start(): void | Promise<void> {
-        // this.logger.info('wbi已被注册到Context中')
+        this.logger.info('工作中')
+    }
+
+    protected stop(): void | Promise<void> {
+        this.logger.info('已停止工作')
     }
 
     // 对 imgKey 和 subKey 进行字符顺序打乱编码

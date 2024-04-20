@@ -12,7 +12,7 @@ enum LiveType {
 }
 
 class ComRegister {
-    static inject = ['biliAPI', 'gimg', 'wbi', 'database', 'sm'];
+    static inject = ['ba', 'gi', 'wbi', 'database', 'sm'];
     logger: Logger;
     config: ComRegister.Config
     loginTimer: Function
@@ -46,7 +46,13 @@ class ComRegister {
     chronocatBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
-        this.logger = ctx.logger('commandRegister')
+        this.logger = ctx.logger('cr')
+        ctx.on('ready', () => {
+            this.logger.info('工作中');
+        })
+        ctx.on('dispose', () => {
+            this.logger.info('已停止工作');
+        })
         this.config = config
         // 拿到各类机器人
         ctx.bots.forEach(bot => {
@@ -70,8 +76,8 @@ class ComRegister {
             .usage('测试指令，用于测试从数据库读取cookies')
             .action(async () => {
                 this.logger.info('调用test cookies指令')
-                // await ctx.biliAPI.loadCookiesFromDatabase()
-                console.log(JSON.parse(ctx.biliAPI.getCookies()));
+                // await ctx.ba.loadCookiesFromDatabase()
+                console.log(JSON.parse(ctx.ba.getCookies()));
             })
 
         testCom
@@ -79,7 +85,7 @@ class ComRegister {
             .usage('测试指令，用于测试获取自己信息')
             .example('test.my')
             .action(async () => {
-                const content = await ctx.biliAPI.getMyselfInfo()
+                const content = await ctx.ba.getMyselfInfo()
                 console.log(content);
             })
 
@@ -88,7 +94,7 @@ class ComRegister {
             .usage('测试指令，用于测试获取用户信息')
             .example('test.user 用户UID')
             .action(async (_, mid) => {
-                const content = await ctx.biliAPI.getUserInfo(mid)
+                const content = await ctx.ba.getUserInfo(mid)
                 console.log(content);
             })
 
@@ -97,7 +103,7 @@ class ComRegister {
             .usage('测试时间接口')
             .example('test.time')
             .action(async ({ session }) => {
-                session.send(await ctx.biliAPI.getTimeNow())
+                session.send(await ctx.ba.getTimeNow())
             })
 
         testCom
@@ -108,9 +114,9 @@ class ComRegister {
                 // logger
                 this.logger.info('调用test gimg指令')
                 // 获取用户空间动态数据
-                const { data } = await ctx.biliAPI.getUserSpaceDynamic(uid)
+                const { data } = await ctx.ba.getUserSpaceDynamic(uid)
                 // 获取动态推送图片
-                const { pic, buffer } = await ctx.gimg.generateDynamicImg(data.items[index])
+                const { pic, buffer } = await ctx.gi.generateDynamicImg(data.items[index])
                 // 如果pic存在，则直接返回pic
                 if (pic) return pic
                 // pic不存在，说明使用的是page模式
@@ -138,7 +144,7 @@ class ComRegister {
             .usage('获取当前UTC+8 Unix时间戳')
             .example('test utc')
             .action(async ({ session }) => {
-                session.send((await ctx.biliAPI.getServerUTCTime()).toString())
+                session.send((await ctx.ba.getServerUTCTime()).toString())
             })
 
         testCom
@@ -149,7 +155,7 @@ class ComRegister {
                 // logger
                 this.logger.info('调用test gimg指令')
                 // 获取主播信息
-                const { data } = await ctx.biliAPI.getMasterInfo('686127')
+                const { data } = await ctx.ba.getMasterInfo('686127')
                 let resizedImage: Buffer
                 try {
                     resizedImage = await Jimp.read(data.info.face).then(async image => {
@@ -185,7 +191,7 @@ class ComRegister {
                 // 获取二维码
                 let content: any
                 try {
-                    content = await ctx.biliAPI.getLoginQRCode()
+                    content = await ctx.ba.getLoginQRCode()
                 } catch (e) {
                     return 'bili login getLoginQRCode() 本次网络请求失败'
                 }
@@ -218,7 +224,7 @@ class ComRegister {
                         // 获取登录信息
                         let loginContent: any
                         try {
-                            loginContent = await ctx.biliAPI.getLoginStatus(content.data.qrcode_key)
+                            loginContent = await ctx.ba.getLoginStatus(content.data.qrcode_key)
                         } catch (e) {
                             this.logger.error(e)
                             return
@@ -232,7 +238,7 @@ class ComRegister {
                             return await session.send('二维码已失效，请重新登录')
                         }
                         if (loginContent.data.code === 0) { // 登录成功
-                            const encryptedCookies = ctx.wbi.encrypt(ctx.biliAPI.getCookies())
+                            const encryptedCookies = ctx.wbi.encrypt(ctx.ba.getCookies())
                             const encryptedRefreshToken = ctx.wbi.encrypt(loginContent.data.refresh_token)
                             await ctx.database.upsert('loginBili', [{
                                 id: 1,
@@ -244,13 +250,13 @@ class ComRegister {
                             // 订阅之前的订阅
                             await this.getSubFromDatabase(ctx)
                             // 清除控制台通知
-                            ctx.biliAPI.disposeNotifier()
+                            ctx.ba.disposeNotifier()
                             // 发送成功登录推送
                             await session.send('登录成功')
                             // bili show
                             await session.execute('bili show')
                             // 开启cookies刷新检测
-                            ctx.biliAPI.enableRefreshCookiesDetect()
+                            ctx.ba.enableRefreshCookiesDetect()
                             return
                         }
                     } finally {
@@ -350,7 +356,7 @@ class ComRegister {
                 // 获取用户信息
                 let content: any
                 try {
-                    content = await ctx.biliAPI.getUserInfo(mid)
+                    content = await ctx.ba.getUserInfo(mid)
                 } catch (e) {
                     return 'bili sub getUserInfo() 发生了错误，错误为：' + e.message
                 }
@@ -473,7 +479,7 @@ class ComRegister {
                 // 获取用户信息
                 let userData: any
                 try {
-                    const { data } = await ctx.biliAPI.getMasterInfo(sub.uid)
+                    const { data } = await ctx.ba.getMasterInfo(sub.uid)
                     userData = data
                 } catch (e) {
                     this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
@@ -545,14 +551,14 @@ class ComRegister {
                 if (!roomId) return session.send('请输入房间号!')
                 let content: any
                 try {
-                    content = await ctx.biliAPI.getLiveRoomInfo(roomId)
+                    content = await ctx.ba.getLiveRoomInfo(roomId)
                 } catch (e) {
                     return 'bili status指令 getLiveRoomInfo() 发生了错误，错误为：' + e.message
                 }
                 const { data } = content
                 let userData: any
                 try {
-                    const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
+                    const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid)
                     userData = userInfo
                 } catch (e) {
                     return 'bili status指令 getMasterInfo() 发生了错误，错误为：' + e.message
@@ -567,7 +573,7 @@ class ComRegister {
                     return
                 }
 
-                const { pic, buffer } = await ctx.gimg.generateLiveImg(
+                const { pic, buffer } = await ctx.gi.generateLiveImg(
                     data,
                     userData,
                     data.live_status !== 1 ?
@@ -748,7 +754,7 @@ class ComRegister {
             // 第一次订阅判断
             if (firstSubscription) {
                 // 设置第一次的时间点
-                timePoint = ctx.biliAPI.getTimeOfUTC8()
+                timePoint = ctx.ba.getTimeOfUTC8()
                 // 设置第一次为false
                 firstSubscription = false
                 return
@@ -756,7 +762,7 @@ class ComRegister {
             // 获取用户空间动态数据
             let content: any
             try {
-                content = await ctx.biliAPI.getUserSpaceDynamic(uid)
+                content = await ctx.ba.getUserSpaceDynamic(uid)
             } catch (e) {
                 return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
             }
@@ -764,23 +770,32 @@ class ComRegister {
             if (content.code !== 0) {
                 switch (content.code) {
                     case -101: { // 账号未登录
-                        await this.sendPrivateMsg(bot, '账号未登录，请登录后重新订阅动态')
+                        // 输出日志
+                        this.logger.error('账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
+                        // 发送私聊消息
+                        await this.sendPrivateMsg(bot, '账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
+                        // 停止服务
+                        await ctx.sm.disposePlugin()
+                        // 结束循环
                         break
                     }
                     case -352: { // 风控
+                        // 输出日志
+                        this.logger.error('账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
                         // 发送私聊消息
                         await this.sendPrivateMsg(bot, '账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
                         // 停止服务
                         await ctx.sm.disposePlugin()
                         // 结束循环
-                        return
+                        break
                     }
                     default: { // 未知错误
+                        // 发送私聊消息
                         await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
                         // 取消订阅
                         this.unsubAll(ctx, bot, uid)
                         // 结束循环
-                        return
+                        break
                     }
                 }
             }
@@ -816,7 +831,7 @@ class ComRegister {
                         // 获取动态推送图片
                         try {
                             // 渲染图片
-                            const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gimg.generateDynamicImg(items[num])
+                            const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gi.generateDynamicImg(items[num])
                             // 赋值
                             pic = gimgPic
                             buffer = gimgBuffer
@@ -905,7 +920,7 @@ class ComRegister {
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 获取直播通知卡片
-                    const { pic: picv, buffer: bufferv } = await ctx.gimg.generateLiveImg(data, uData, liveType)
+                    const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, uData, liveType)
                     // 赋值
                     pic = picv
                     buffer = bufferv
@@ -948,7 +963,7 @@ class ComRegister {
                 for (let i = 0; i < attempts; i++) {
                     try {
                         // 发送请求获取room信息
-                        content = await ctx.biliAPI.getLiveRoomInfo(roomId)
+                        content = await ctx.ba.getLiveRoomInfo(roomId)
                         // 成功则跳出循环
                         break
                     } catch (e) {
@@ -972,7 +987,7 @@ class ComRegister {
                     for (let i = 0; i < attempts; i++) {
                         try {
                             // 发送请求获取主播信息
-                            const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
+                            const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid)
                             userData = userInfo
                             // 成功则跳出循环
                             break
@@ -1012,7 +1027,7 @@ class ComRegister {
                             // 定义下播通知消息
                             let liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', uData.info.uname)
-                                .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
+                                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                             // 获取头像并缩放
                             let resizedImage: Buffer
                             // Jimp无法处理Webp格式，直接跳过
@@ -1049,7 +1064,7 @@ class ComRegister {
                             for (let i = 0; i < attempts; i++) {
                                 try {
                                     // 获取主播信息
-                                    const { data: userInfo } = await ctx.biliAPI.getMasterInfo(data.uid)
+                                    const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid)
                                     userData = userInfo
                                     // 成功则跳出循环
                                     break
@@ -1069,7 +1084,7 @@ class ComRegister {
                             // 定义开播通知语
                             let liveStartMsg = this.config.customLiveStart
                                 .replace('-name', uData.info.uname)
-                                .replace('-time', await ctx.gimg.getTimeDifference(liveTime))
+                                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                                 .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
                             // 判断是否需要@全体成员
                             if (this.config.liveStartAtAll) {
@@ -1178,7 +1193,7 @@ class ComRegister {
     async checkIfLoginInfoIsLoaded(ctx: Context) {
         return new Promise(resolve => {
             const check = () => {
-                if (!ctx.biliAPI.getLoginInfoIsLoaded()) {
+                if (!ctx.ba.getLoginInfoIsLoaded()) {
                     ctx.setTimeout(check, 500)
                 } else {
                     resolve('success')
@@ -1254,7 +1269,7 @@ class ComRegister {
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 获取用户信息
-                    content = await ctx.biliAPI.getUserInfo(sub.uid)
+                    content = await ctx.ba.getUserInfo(sub.uid)
                     // 成功则跳出循环
                     break
                 } catch (e) {
@@ -1428,7 +1443,7 @@ class ComRegister {
     async checkIfIsLogin(ctx: Context) {
         if ((await ctx.database.get('loginBili', 1)).length !== 0) { // 数据库中有数据
             // 检查cookie中是否有值
-            if (ctx.biliAPI.getCookies() !== '[]') { // 有值说明已登录
+            if (ctx.ba.getCookies() !== '[]') { // 有值说明已登录
                 return true
             }
         }

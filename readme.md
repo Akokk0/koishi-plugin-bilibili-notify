@@ -153,6 +153,7 @@
 - ver 1.2.11-alpha.1 修复报错 `app TypeError: Cannot read properties of undefined (reading 'toString')`，添加更多日志输出
 - ver 1.2.12-alpha.0 新增 `sys` 类指令，包括子命令：`start`、`stop`、`restart` 分别为插件的启动、停止和重启，需要权限等级5才能使用。现在，账号出现某些问题后，不会再清除订阅信息，而是停止插件，在排除问题后需要使用指令 `sys start` 手动启动插件。修复一个动态推送的bug
 - ver 1.2.12-alpha.1 删除直播推送时的多余空格
+- ver 1.2.12-alpha.2 尝试修复版本 `1.2.12-alpha.0 账号出现某些问题后，不会再清除订阅信息` 仍然会清除订阅信息的bug
 
 ## 交流群
 

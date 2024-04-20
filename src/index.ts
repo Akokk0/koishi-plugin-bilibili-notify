@@ -186,6 +186,8 @@ class ServerManager extends Service {
     servers: ForkScope[] = []
     // 渲染模式
     renderType: number
+    // 动态循环时间
+    dynamicLoopTime: number
     // 重启次数
     restartCount = 0
 
@@ -233,10 +235,18 @@ class ServerManager extends Service {
     }
 
     protected start(): void | Promise<void> {
+        // 加载配置
         // 根据用户设置的渲染模式设置
         switch (globalConfig.renderType) {
             case 'render': this.renderType = 0; break;
             case 'page': this.renderType = 1; break;
+        }
+        // 转换为具体时间
+        switch (globalConfig.dynamicLoopTime) {
+            case '1分钟': this.dynamicLoopTime = 60; break;
+            case '2分钟': this.dynamicLoopTime = 120; break;
+            case '3分钟': this.dynamicLoopTime = 180; break;
+            case '5分钟': this.dynamicLoopTime = 300; break;
         }
         // 注册插件
         this.registerPlugin()
@@ -247,10 +257,10 @@ class ServerManager extends Service {
         if (this.servers.length !== 0) return false
         await new Promise(resolve => {
             // 注册插件
-            const biliApi = this.ctx.plugin(BiliAPI, {
+            const ba = this.ctx.plugin(BiliAPI, {
                 userAgent: globalConfig.userAgent
             })
-            const generateImg = this.ctx.plugin(GenerateImg, {
+            const gi = this.ctx.plugin(GenerateImg, {
                 renderType: this.renderType,
                 filter: globalConfig.filter,
                 removeBorder: globalConfig.removeBorder,
@@ -259,9 +269,24 @@ class ServerManager extends Service {
                 enableLargeFont: globalConfig.enableLargeFont,
                 font: globalConfig.font
             })
+            const wbi = this.ctx.plugin(Wbi, { key: globalConfig.key })
+            const cr = this.ctx.plugin(ComRegister, {
+                master: globalConfig.master,
+                unlockSubLimits: globalConfig.unlockSubLimits,
+                liveStartAtAll: globalConfig.liveStartAtAll,
+                pushTime: globalConfig.pushTime,
+                customLiveStart: globalConfig.customLiveStart,
+                customLiveEnd: globalConfig.customLiveEnd,
+                dynamicCheckNumber: globalConfig.dynamicCheckNumber,
+                dynamicLoopTime: this.dynamicLoopTime,
+                dynamicUrl: globalConfig.dynamicUrl,
+                filter: globalConfig.filter
+            })
             // 添加服务
-            this.servers.push(biliApi)
-            this.servers.push(generateImg)
+            this.servers.push(ba)
+            this.servers.push(gi)
+            this.servers.push(wbi)
+            this.servers.push(cr)
             // 成功
             resolve('ok')
         })
@@ -323,32 +348,10 @@ export function apply(ctx: Context, config: Config) {
             content: '过多的订阅可能会导致IP暂时被封禁！'
         })
     }
-    // load config
-    // 转换为具体时间
-    let dynamicLoopTime: number
-    switch (config.dynamicLoopTime) {
-        case '1分钟': dynamicLoopTime = 60; break;
-        case '2分钟': dynamicLoopTime = 120; break;
-        case '3分钟': dynamicLoopTime = 180; break;
-        case '5分钟': dynamicLoopTime = 300; break;
-    }
     // load database
     ctx.plugin(Database)
-    // Regist server
-    ctx.plugin(Wbi, { key: config.key })
+    // Register ServerManager
     ctx.plugin(ServerManager)
-    ctx.plugin(ComRegister, {
-        master: config.master,
-        unlockSubLimits: config.unlockSubLimits,
-        liveStartAtAll: config.liveStartAtAll,
-        pushTime: config.pushTime,
-        customLiveStart: config.customLiveStart,
-        customLiveEnd: config.customLiveEnd,
-        dynamicCheckNumber: config.dynamicCheckNumber,
-        dynamicLoopTime,
-        dynamicUrl: config.dynamicUrl,
-        filter: config.filter
-    })
     // 当用户输入“恶魔兔，启动！”时，执行 help 指令
     ctx.middleware((session, next) => {
         if (session.content === '恶魔兔，启动！') {

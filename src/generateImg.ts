@@ -5,7 +5,7 @@ import { pathToFileURL } from "url";
 
 declare module 'koishi' {
     interface Context {
-        gimg: GenerateImg
+        gi: GenerateImg
     }
 }
 
@@ -44,11 +44,11 @@ const ADDITIONAL_TYPE_UGC = 'ADDITIONAL_TYPE_UGC' */
 const ADDITIONAL_TYPE_RESERVE = 'ADDITIONAL_TYPE_RESERVE'
 
 class GenerateImg extends Service {
-    static inject = ['puppeteer', 'biliAPI']
+    static inject = ['puppeteer', 'ba']
     giConfig: GenerateImg.Config
 
     constructor(ctx: Context, config: GenerateImg.Config) {
-        super(ctx, 'gimg')
+        super(ctx, 'gi')
         this.giConfig = config
     }
 
@@ -1358,7 +1358,7 @@ class GenerateImg extends Service {
         // 获取Unix时间戳（以毫秒为单位）
         const unixTime = date.getTime() / 1000
         // 获取当前Unix时间戳
-        const now = this.ctx.biliAPI.getTimeOfUTC8()
+        const now = this.ctx.ba.getTimeOfUTC8()
         // 计算时间差（以秒为单位）
         const differenceInSeconds = Math.floor(now - unixTime);
         // 获取yyyy:MM:dd HH:mm:ss

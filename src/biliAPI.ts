@@ -8,7 +8,7 @@ import { DateTime } from "luxon"
 
 declare module 'koishi' {
     interface Context {
-        biliAPI: BiliAPI
+        ba: BiliAPI
     }
 }
 
@@ -39,7 +39,7 @@ class BiliAPI extends Service {
     loginInfoIsLoaded: boolean = false
 
     constructor(ctx: Context, config: BiliAPI.Config) {
-        super(ctx, 'biliAPI')
+        super(ctx, 'ba')
         this.apiConfig = config
     }
 
