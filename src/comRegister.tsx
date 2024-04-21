@@ -397,10 +397,18 @@ class ComRegister {
                         return targetArr
                     }
                     // 定义可用的群组数组
-                    let okGuild: Array<string>
+                    let okGuild: string[] = []
                     // 判断是否需要加入的群全部推送
                     if (guildId[0] === 'all') {
-                        okGuild.push('all')
+                        // 判断是否有群机器人相关Bot
+                        if (['qq', 'onebot', 'red', 'satori', 'chronocat'].includes(session.event.platform)) {
+                            okGuild.push('all')
+                        } else {
+                            // 发送错误提示并返回
+                            session.send('您尚未配置任何QQ群相关机器人，不能对QQ群进行操作')
+                            // 直接返回
+                            return
+                        }
                     } else {
                         // 判断是否有群机器人相关Bot
                         switch (session.event.platform) {
@@ -432,7 +440,7 @@ class ComRegister {
                             }
                         }
                     }
-                    // 将群号用,进行分割
+                    // 将群号用空格进行分割
                     targetId = okGuild.join(' ')
                 } else { // 没有输入QQ群号
                     // 为当前群聊环境进行推送
