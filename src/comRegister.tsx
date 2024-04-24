@@ -797,6 +797,14 @@ class ComRegister {
                         // 结束循环
                         break
                     }
+                    case 4101128: { // 获取动态信息错误
+                        // 输出日志
+                        this.logger.error('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message);
+                        // 发送私聊消息
+                        await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message); // 未知错误
+                        // 结束循环
+                        break;
+                    }
                     default: { // 未知错误
                         // 发送私聊消息
                         await this.sendPrivateMsg(bot, '获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
