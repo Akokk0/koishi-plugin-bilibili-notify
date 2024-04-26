@@ -22,13 +22,13 @@ class Wbi extends Service {
         this.wbiConfig = config
     }
 
-    protected start(): void | Promise<void> {
+    /* protected start(): void | Promise<void> {
         this.logger.info('工作中')
     }
 
     protected stop(): void | Promise<void> {
         this.logger.info('已停止工作')
-    }
+    } */
 
     // 对 imgKey 和 subKey 进行字符顺序打乱编码
     getMixinKey = (orig) => this.mixinKeyEncTab.map(n => orig[n]).join('').slice(0, 32)

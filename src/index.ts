@@ -45,6 +45,8 @@ export interface Config {
     enableLargeFont: boolean,
     font: string,
     filter: {},
+    debug: {},
+    dynamicDebugMode: boolean,
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -179,6 +181,13 @@ export const Config: Schema<Config> = Schema.object({
             Schema.object({})
         ])
     ]),
+
+    debug: Schema.object({}).description('调试设置'),
+
+    dynamicDebugMode: Schema.boolean()
+        .default(false)
+        .description('动态调试模式，开启后会在控制台输出动态推送的详细信息，用于调试')
+        .experimental()
 })
 
 class ServerManager extends Service {
@@ -280,7 +289,8 @@ class ServerManager extends Service {
                 dynamicCheckNumber: globalConfig.dynamicCheckNumber,
                 dynamicLoopTime: this.dynamicLoopTime,
                 dynamicUrl: globalConfig.dynamicUrl,
-                filter: globalConfig.filter
+                filter: globalConfig.filter,
+                dynamicDebugMode: globalConfig.dynamicDebugMode
             })
             // 添加服务
             this.servers.push(ba)

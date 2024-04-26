@@ -49,12 +49,12 @@ class BiliAPI extends Service {
         // 从数据库加载cookies
         this.loadCookiesFromDatabase()
         // 输出日志
-        this.logger.info('工作中')
+        // this.logger.info('工作中')
     }
 
-    protected stop(): void | Promise<void> {
+    /* protected stop(): void | Promise<void> {
         this.logger.info('已停止工作')
-    }
+    } */
 
     async getServerUTCTime() {
         try {
