@@ -165,6 +165,8 @@ class GenerateImg extends Service {
                     }
 
                     .card-link {
+                        display: flex;
+                        justify-content: space-between;
                         text-decoration: none;
                         font-size: 20px;
                         margin-top: 10px;
@@ -189,7 +191,10 @@ class GenerateImg extends Service {
                                     </div>
                                 </div>
                                 <p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>
-                                <p class="card-link">${liveTime}</p>
+                                <p class="card-link">
+                                    <span>${liveTime}</span>
+                                    <span>分区名称：${data.area_name}</span>
+                                </p>
                             </div>
                         </div>
                     </div>

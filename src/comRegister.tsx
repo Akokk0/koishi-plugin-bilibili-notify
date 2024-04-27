@@ -928,25 +928,24 @@ class ComRegister {
         let timePoint: number
 
         return async () => {
-            this.logger.info('动态监测开始')
             // 第一次订阅判断
             if (firstSubscription) {
-                this.logger.info('第一次订阅')
+                this.logger.info(`UID：${uid}-动态监测开始`)
                 // 设置第一次的时间点
                 timePoint = ctx.ba.getTimeOfUTC8()
                 // 设置第一次为false
                 firstSubscription = false
                 return
             }
-            this.logger.info('获取动态信息中')
+            this.logger.info(`UID：${uid}-获取动态信息中`)
             // 获取用户空间动态数据
             let content: any
             try {
                 content = await ctx.ba.getUserSpaceDynamic(uid)
             } catch (e) {
-                return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
+                return this.logger.error(`UID：${uid}-dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`)
             }
-            this.logger.info('判断动态信息是否正确')
+            this.logger.info(`UID：${uid}-判断动态信息是否正确`)
             // 判断是否出现其他问题
             if (content.code !== 0) {
                 switch (content.code) {
@@ -990,10 +989,7 @@ class ComRegister {
             }
             // 获取数据内容
             const items = content.data.items
-            this.logger.info('获取到的动态信息：')
-            items.forEach(element => {
-                this.logger.info(element.basic.rid_str)
-            });
+            this.logger.info(`UID：${uid}-获取到的动态信息：${items.map(v => v.basic.rid_str).join('、')}`)
             // 定义方法：更新时间点为最新发布动态的发布时间
             const updatePoint = (num: number) => {
                 switch (num) {
@@ -1012,7 +1008,7 @@ class ComRegister {
                 if (!items[num]) continue
                 // 寻找发布时间比时间点更晚的动态
                 if (items[num].modules.module_author.pub_ts > timePoint) {
-                    this.logger.info('即将推送的动态信息：' + items[num].basic.rid_str)
+                    this.logger.info(`UID：${uid}-即将推送的动态：${items[num].basic.rid_str}`)
                     // 定义变量
                     let pic: string
                     let buffer: Buffer
@@ -1021,7 +1017,7 @@ class ComRegister {
                     const dynamicId = content.data.items[num].id_str
                     // 推送该条动态
                     let attempts = 3;
-                    this.logger.info('尝试渲染推送图片')
+                    this.logger.info(`UID：${uid}-尝试渲染推送图片`)
                     for (let i = 0; i < attempts; i++) {
                         // 获取动态推送图片
                         try {
@@ -1066,16 +1062,16 @@ class ComRegister {
                             }
                         }
                     }
-                    this.logger.info('尝试推送动态卡片')
+                    this.logger.info(`UID：${uid}-尝试推送动态卡片`)
                     // 判断是否需要发送URL
                     const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
                     // 如果pic存在，则直接返回pic
                     if (pic) {
-                        this.logger.info('推送动态中，使用render模式');
+                        this.logger.info(`UID：${uid}-推送动态中，使用render模式`);
                         // pic存在，使用的是render模式
                         await this.sendMsg(ctx, guildId, bot, pic + <>{dUrl}</>)
                     } else if (buffer) {
-                        this.logger.info('推送动态中，使用page模式');
+                        this.logger.info(`UID：${uid}-推送动态中，使用page模式`);
                         // pic不存在，说明使用的是page模式
                         await this.sendMsg(
                             ctx,
@@ -1088,7 +1084,7 @@ class ComRegister {
                     }
                     // 更新时间点
                     updatePoint(num)
-                    this.logger.info('推送动态完成')
+                    this.logger.info(`UID：${uid}-推送动态完成`)
                 }
             }
         }
