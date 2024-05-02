@@ -38,6 +38,7 @@ export interface Config {
     liveStartAtAll: boolean,
     customLiveStart: string,
     customLiveEnd: string,
+    hideDesc: boolean,
     style: {},
     removeBorder: boolean,
     cardColorStart: string,
@@ -63,7 +64,6 @@ export const Config: Schema<Config> = Schema.object({
             enable: Schema.boolean()
                 .default(false)
                 .description('是否开启主人账号功能，如果您的机器人没有私聊权限请不要开启此功能。开启后如果机器人运行错误会向您进行报告')
-                .experimental()
         }).description('主人账号'),
         Schema.union([
             Schema.object({
@@ -134,6 +134,11 @@ export const Config: Schema<Config> = Schema.object({
     customLiveEnd: Schema.string()
         .default('-name下播啦，本次直播了-time')
         .description('自定义下播提示语，-name代表UP昵称，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒'),
+
+    hideDesc: Schema.boolean()
+        .default(false)
+        .description('是否隐藏UP主直播间简介，开启后推送的直播卡片将不再展示简介')
+        .experimental(),
 
     style: Schema.object({}).description('美化设置'),
 
@@ -275,6 +280,7 @@ class ServerManager extends Service {
                 removeBorder: globalConfig.removeBorder,
                 cardColorStart: globalConfig.cardColorStart,
                 cardColorEnd: globalConfig.cardColorEnd,
+                hideDesc: globalConfig.hideDesc,
                 enableLargeFont: globalConfig.enableLargeFont,
                 font: globalConfig.font
             })

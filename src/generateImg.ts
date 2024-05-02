@@ -190,7 +190,7 @@ class GenerateImg extends Service {
                                         <span class="broadcast-message">${userData.info.uname}${titleStatus}</span>
                                     </div>
                                 </div>
-                                <p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>
+                                ${this.giConfig.hideDesc ? '' : `<p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>`}
                                 <p class="card-link">
                                     <span>${liveTime}</span>
                                     <span>分区名称：${data.area_name}</span>
@@ -1403,7 +1403,8 @@ namespace GenerateImg {
         cardColorStart: string,
         cardColorEnd: string,
         enableLargeFont: boolean,
-        font: string
+        font: string,
+        hideDesc: boolean
     }
 
     export const Config: Schema<Config> = Schema.object({
@@ -1419,7 +1420,8 @@ namespace GenerateImg {
         cardColorStart: Schema.string(),
         cardColorEnd: Schema.string(),
         enableLargeFont: Schema.boolean(),
-        font: Schema.string()
+        font: Schema.string(),
+        hideDesc: Schema.boolean()
     })
 }
 
