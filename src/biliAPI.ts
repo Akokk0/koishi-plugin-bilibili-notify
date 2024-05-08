@@ -183,7 +183,7 @@ class BiliAPI extends Service {
                 'Content-Type': 'application/json',
                 'User-Agent':
                     this.apiConfig.userAgent !== 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36' ?
-                    this.apiConfig.userAgent : this.getRandomUserAgent(),
+                        this.apiConfig.userAgent : this.getRandomUserAgent(),
                 'Origin': 'https://www.bilibili.com',
                 'Referer': 'https://www.bilibili.com/'
             }
@@ -220,26 +220,32 @@ class BiliAPI extends Service {
                 refresh_token: null
             }
         }
-        // 定义解密信息
-        let decryptedCookies: string
-        let decryptedRefreshToken: string
+        // 尝试解密
         try {
             // 解密数据
-            decryptedCookies = this.ctx.wbi.decrypt(data.bili_cookies)
+            const decryptedCookies = this.ctx.wbi.decrypt(data.bili_cookies)
             // 解密refresh_token
-            decryptedRefreshToken = this.ctx.wbi.decrypt(data.bili_refresh_token)
+            const decryptedRefreshToken = this.ctx.wbi.decrypt(data.bili_refresh_token)
+            // 解析从数据库读到的cookies
+            const cookies = JSON.parse(decryptedCookies)
+            // 返回值
+            return {
+                cookies,
+                refresh_token: decryptedRefreshToken
+            }
         } catch (e) {
-            // 解密失败，删除数据库登录信息
+            // 数据库被篡改，在控制台提示
+            this.loginNotifier = this.ctx.notifier.create({
+                type: 'warning',
+                content: '数据库被篡改，请重新登录'
+            })
+            // 解密或解析失败，删除数据库登录信息
             await this.ctx.database.remove('loginBili', [1])
-            // 直接返回
-            return
-        }
-        // 解析从数据库读到的cookies
-        const cookies = JSON.parse(decryptedCookies)
-        // 返回值
-        return {
-            cookies,
-            refresh_token: decryptedRefreshToken
+            // 返回空值
+            return {
+                cookies: null,
+                refresh_token: null
+            }
         }
     }
 
