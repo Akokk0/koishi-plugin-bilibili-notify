@@ -60,7 +60,7 @@ class GenerateImg extends Service {
         this.logger.info('已停止工作')
     } */
 
-    async generateLiveImg(data: any, userData: any, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
+    async generateLiveImg(data: any, username: string, userface: string, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
         const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
         // 加载字体
         const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
@@ -186,8 +186,8 @@ class GenerateImg extends Service {
                                     <div class="live-broadcast-info">
                                         <!-- 主播头像 -->
                                         <img style="border-radius: 10px; margin-left: 10px" class="anchor-avatar"
-                                            src="${userData.info.face}" alt="主播头像">
-                                        <span class="broadcast-message">${userData.info.uname}${titleStatus}</span>
+                                            src="${userface}" alt="主播头像">
+                                        <span class="broadcast-message">${username}${titleStatus}</span>
                                     </div>
                                 </div>
                                 ${this.giConfig.hideDesc ? '' : `<p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>`}

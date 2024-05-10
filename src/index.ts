@@ -34,8 +34,10 @@ export interface Config {
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
     live: {},
-    pushTime: number,
+    changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
+    pushUrl: boolean,
+    pushTime: number,
     customLiveStart: string,
     customLiveEnd: string,
     hideDesc: boolean,
@@ -116,9 +118,19 @@ export const Config: Schema<Config> = Schema.object({
 
     live: Schema.object({}).description('直播推送设置'),
 
+    changeMasterInfoApi: Schema.boolean()
+        .default(false)
+        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换')
+        .experimental(),
+
     liveStartAtAll: Schema.boolean()
         .default(false)
         .description('直播开始时艾特全体成员，默认关闭'),
+
+    pushUrl: Schema.boolean()
+        .default(false)
+        .description('推送直播状态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！')
+        .experimental(),
 
     pushTime: Schema.number()
         .min(0)
@@ -288,7 +300,9 @@ class ServerManager extends Service {
             const cr = this.ctx.plugin(ComRegister, {
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
+                changeMasterInfoApi: globalConfig.changeMasterInfoApi,
                 liveStartAtAll: globalConfig.liveStartAtAll,
+                pushUrl: globalConfig.pushUrl,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
                 customLiveEnd: globalConfig.customLiveEnd,

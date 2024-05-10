@@ -588,7 +588,8 @@ class ComRegister {
 
                 const { pic, buffer } = await ctx.gi.generateLiveImg(
                     data,
-                    userData,
+                    userData.info.uname,
+                    userData.info.face,
                     data.live_status !== 1 ?
                         LiveType.NotLiveBroadcast :
                         LiveType.LiveBroadcast
@@ -1100,56 +1101,118 @@ class ComRegister {
         let timer: number = 0;
         let open: boolean = false;
         let liveTime: string;
-        let uData: any;
+        let username: string
+        let userface: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
 
-        const sendLiveNotifyCard = async (data: any, uData: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
-            // 定义变量
-            let pic: string
-            let buffer: Buffer
-            // 多次尝试生成图片
-            let attempts = 3
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    // 获取直播通知卡片
-                    const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, uData, liveType)
-                    // 赋值
-                    pic = picv
-                    buffer = bufferv
-                    // 成功则跳出循环
-                    break
-                } catch (e) {
-                    if (i === attempts - 1) { // 已尝试三次
-                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
-                        return await this.sendPrivateMsgAndRebootService(
-                            ctx,
-                            bot,
-                            '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
-                        )
+        // 定义发送直播通知卡片方法
+        let sendLiveNotifyCard: (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => Promise<void>
+        // 判断直播是否需要@全体成员
+        if (this.config.pushUrl) {
+            sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
+                // 定义变量
+                let pic: string
+                let buffer: Buffer
+                // 多次尝试生成图片
+                let attempts = 3
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        // 获取直播通知卡片
+                        const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
+                        // 赋值
+                        pic = picv
+                        buffer = bufferv
+                        // 成功则跳出循环
+                        break
+                    } catch (e) {
+                        if (i === attempts - 1) { // 已尝试三次
+                            this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
+                            return await this.sendPrivateMsgAndRebootService(
+                                ctx,
+                                bot,
+                                '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
+                            )
+                        }
                     }
                 }
+                // 推送直播信息
+                // pic 存在，使用的是render模式
+                if (pic) {
+                    let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{`https://live.bilibili.com/${roomId}`}</>
+                    return await this.sendMsg(ctx, guildId, bot, pic + msg)
+                }
+                // pic不存在，说明使用的是page模式
+                await this.sendMsg(
+                    ctx,
+                    guildId,
+                    bot,
+                    <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{`https://live.bilibili.com/${roomId}`}</>
+                )
             }
-            // 推送直播信息
-            // pic 存在，使用的是render模式
-            if (pic) {
-                let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
-                return await this.sendMsg(ctx, guildId, bot, pic + msg)
+        } else {
+            sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
+                // 定义变量
+                let pic: string
+                let buffer: Buffer
+                // 多次尝试生成图片
+                let attempts = 3
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        // 获取直播通知卡片
+                        const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
+                        // 赋值
+                        pic = picv
+                        buffer = bufferv
+                        // 成功则跳出循环
+                        break
+                    } catch (e) {
+                        if (i === attempts - 1) { // 已尝试三次
+                            this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
+                            return await this.sendPrivateMsgAndRebootService(
+                                ctx,
+                                bot,
+                                '插件可能出现某些未知错误，请尝试重启插件，如果仍然发生该错误，请带着日志向作者反馈',
+                            )
+                        }
+                    }
+                }
+                // 推送直播信息
+                // pic 存在，使用的是render模式
+                if (pic) {
+                    let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+                    return await this.sendMsg(ctx, guildId, bot, pic + msg)
+                }
+                // pic不存在，说明使用的是page模式
+                await this.sendMsg(
+                    ctx,
+                    guildId,
+                    bot,
+                    <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+                )
             }
-            // pic不存在，说明使用的是page模式
-            await this.sendMsg(
-                ctx,
-                guildId,
-                bot,
-                <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
-            )
+        }
+        // 定义获取主播信息方法
+        let useMasterInfo: (uid: string) => Promise<void>
+        if (this.config.changeMasterInfoApi) {
+            useMasterInfo = async (uid: string) => {
+                const { data } = await ctx.ba.getUserInfo(uid)
+                username = data.name
+                userface = data.face
+            }
+        } else {
+            useMasterInfo = async (uid: string) => {
+                const { data: { info } } = await ctx.ba.getMasterInfo(uid)
+                username = info.uname
+                userface = info.face
+            }
         }
 
         return async () => {
             try {
                 // 如果flag为false则说明前面的代码还未执行完，则直接返回
                 if (!flag) return
-                flag && (flag = false)
+                flag = false
                 // 发送请求检测直播状态
                 let content: any
                 let attempts = 3
@@ -1175,13 +1238,11 @@ class ComRegister {
                 if (firstSubscription) {
                     firstSubscription = false
                     // 获取主播信息
-                    let userData: any
                     let attempts = 3
                     for (let i = 0; i < attempts; i++) {
                         try {
                             // 发送请求获取主播信息
-                            const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid)
-                            userData = userInfo
+                            await useMasterInfo(data.uid)
                             // 成功则跳出循环
                             break
                         } catch (e) {
@@ -1195,14 +1256,12 @@ class ComRegister {
                             }
                         }
                     }
-                    // 主播信息不会变，请求一次即可
-                    uData = userData
                     // 判断直播状态
                     if (data.live_status === 1) { // 当前正在直播
                         // 设置开播时间
                         liveTime = data.live_time
                         // 发送直播通知卡片
-                        sendLiveNotifyCard(data, uData, LiveType.LiveBroadcast)
+                        sendLiveNotifyCard(data, LiveType.LiveBroadcast)
                         // 改变开播状态
                         open = true
                     } // 未开播，直接返回
@@ -1219,13 +1278,13 @@ class ComRegister {
                             timer = 0
                             // 定义下播通知消息
                             let liveEndMsg = this.config.customLiveEnd
-                                .replace('-name', uData.info.uname)
+                                .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                             // 获取头像并缩放
                             let resizedImage: Buffer
                             // Jimp无法处理Webp格式，直接跳过
                             try {
-                                resizedImage = await Jimp.read(uData.info.face).then(async image => {
+                                resizedImage = await Jimp.read(userface).then(async image => {
                                     return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
                                 })
                             } catch (e) {
@@ -1252,13 +1311,12 @@ class ComRegister {
                             // 设置开播时间
                             liveTime = data.live_time
                             // 获取主播信息
-                            let userData: any
                             let attempts = 3
                             for (let i = 0; i < attempts; i++) {
                                 try {
-                                    // 获取主播信息
-                                    const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid)
-                                    userData = userInfo
+                                    // 主播信息不会变，开播时刷新一次即可
+                                    // 发送请求获取主播信息
+                                    await useMasterInfo(data.uid)
                                     // 成功则跳出循环
                                     break
                                 } catch (e) {
@@ -1272,20 +1330,18 @@ class ComRegister {
                                     }
                                 }
                             }
-                            // 主播信息不会变，开播时刷新一次即可
-                            uData = userData
                             // 定义开播通知语
                             let liveStartMsg = this.config.customLiveStart
-                                .replace('-name', uData.info.uname)
+                                .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                                 .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
                             // 判断是否需要@全体成员
                             if (this.config.liveStartAtAll) {
                                 // 发送@全体成员通知
-                                await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting, liveStartMsg, true)
+                                await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg, true)
                             } else {
                                 // 发送直播通知卡片
-                                await sendLiveNotifyCard(data, uData, LiveType.StartBroadcasting, liveStartMsg)
+                                await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg)
                             }
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
@@ -1295,7 +1351,7 @@ class ComRegister {
                                     // 到时间重新计时
                                     timer = 0
                                     // 发送直播通知卡片
-                                    sendLiveNotifyCard(data, uData, LiveType.LiveBroadcast)
+                                    sendLiveNotifyCard(data, LiveType.LiveBroadcast)
                                 }
                             }
                             // 否则继续循环
@@ -1660,7 +1716,9 @@ namespace ComRegister {
             masterAccountGuildId: string
         },
         unlockSubLimits: boolean,
+        changeMasterInfoApi: boolean,
         liveStartAtAll: boolean,
+        pushUrl: boolean,
         pushTime: number,
         liveLoopTime: number,
         customLiveStart: string,
@@ -1684,7 +1742,9 @@ namespace ComRegister {
             masterAccountGuildId: Schema.string()
         }),
         unlockSubLimits: Schema.boolean().required(),
+        changeMasterInfoApi: Schema.boolean().required(),
         liveStartAtAll: Schema.boolean().required(),
+        pushUrl: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
         customLiveStart: Schema.string().required(),
