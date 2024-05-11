@@ -1139,16 +1139,12 @@ class ComRegister {
                 // 推送直播信息
                 // pic 存在，使用的是render模式
                 if (pic) {
-                    let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{`https://live.bilibili.com/${roomId}`}</>
+                    let msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting && `https://live.bilibili.com/${roomId}`}</>
                     return await this.sendMsg(ctx, guildId, bot, pic + msg)
                 }
                 // pic不存在，说明使用的是page模式
-                await this.sendMsg(
-                    ctx,
-                    guildId,
-                    bot,
-                    <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{`https://live.bilibili.com/${roomId}`}</>
-                )
+                let msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting && `https://live.bilibili.com/${roomId}`}</>
+                await this.sendMsg(ctx, guildId, bot, msg)
             }
         } else {
             sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
