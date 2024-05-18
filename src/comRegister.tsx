@@ -70,7 +70,7 @@ class ComRegister {
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
 
-        /* const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
+        const testCom = ctx.command('test', { hidden: true, permissions: ['authority:5'] })
 
         testCom.subcommand('.cookies')
             .usage('测试指令，用于测试从数据库读取cookies')
@@ -179,7 +179,7 @@ class ComRegister {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // this.sendMsg(['all'], bot, 'Hello World')
-            }) */
+            })
 
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
 

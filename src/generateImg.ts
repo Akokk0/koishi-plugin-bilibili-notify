@@ -696,6 +696,7 @@ class GenerateImg extends Service {
 
             .card .card-major .single-photo-item {
                 max-width: 500px;
+                max-height: 1000px;
                 border-radius: 10px;
                 overflow: hidden;
             }
@@ -1024,6 +1025,7 @@ class GenerateImg extends Service {
 
             .card .card-major .single-photo-item {
                 max-width: 500px;
+                max-height: 1000px;
                 border-radius: 10px;
                 overflow: hidden;
             }
