@@ -305,10 +305,29 @@ class GenerateImg extends Service {
 
                 // 图片
                 let major: string = ''
+                const arrowImg = pathToFileURL(resolve(__dirname, 'img/arrow.png'))
 
                 if (module_dynamic.major && module_dynamic.major.draw) {
                     if (module_dynamic.major.draw.items.length === 1) {
-                        major += `<img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>`
+                        let height = module_dynamic.major.draw.items[0].height
+                        console.log(height);
+                        if (height > 3000) {
+                            major += `
+                                <div class="single-photo-container">
+                                    <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
+                                    <div class="single-photo-mask">
+                                        <span class="single-photo-mask-text">点击链接浏览全部</span>
+                                    </div>
+                                    <img class="single-photo-mask-arrow" src="${arrowImg}"/>
+                                </div>
+                            `
+                        } else {
+                            major += `
+                                <div class="single-photo-container">
+                                    <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
+                                </div>
+                            `
+                        }
                     } else if (module_dynamic.major.draw.items.length === 4) {
                         major += module_dynamic.major.draw.items.reduce((acc, cV) => {
                             return acc + `<img class="four-photo-item" src="${cV.src}"/>`
@@ -694,9 +713,45 @@ class GenerateImg extends Service {
                 object-fit: cover;
             }
 
-            .card .card-major .single-photo-item {
+            .card .card-major .single-photo-mask {
+                position: absolute;
+                text-align: center;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 30%);
+            }
+
+            .card .card-major .single-photo-mask-text {
+                position: absolute;
+                color: #fff;
+                font-size: 24px;
+                right: 0;
+                bottom: 66px;
+                left: 0;
+                text-align: center;
+            }
+
+            .card .card-major .single-photo-mask-arrow {
+                position: absolute;
+                width: 70px;
+                height: 70px;
+                bottom: 7px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .card .card-major .single-photo-container {
+                position: relative;
                 max-width: 500px;
                 max-height: 1000px;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .card .card-major .single-photo-item {
+                max-width: 500px;
                 border-radius: 10px;
                 overflow: hidden;
             }
@@ -1023,9 +1078,45 @@ class GenerateImg extends Service {
                 object-fit: cover;
             }
 
-            .card .card-major .single-photo-item {
+            .card .card-major .single-photo-mask {
+                position: absolute;
+                text-align: center;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 30%);
+            }
+
+            .card .card-major .single-photo-mask-text {
+                position: absolute;
+                color: #fff;
+                font-size: 24px;
+                right: 0;
+                bottom: 66px;
+                left: 0;
+                text-align: center;
+            }
+
+            .card .card-major .single-photo-mask-arrow {
+                position: absolute;
+                width: 70px;
+                height: 70px;
+                bottom: 7px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .card .card-major .single-photo-container {
+                position: relative;
                 max-width: 500px;
                 max-height: 1000px;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .card .card-major .single-photo-item {
+                max-width: 500px;
                 border-radius: 10px;
                 overflow: hidden;
             }
