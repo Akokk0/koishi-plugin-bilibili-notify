@@ -44,6 +44,8 @@ class ComRegister {
     satoriBot: Bot<Context>
     // Chronocat机器人
     chronocatBot: Bot<Context>
+    // Lark机器人
+    larkBot: Bot<Context>
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('cr')
@@ -64,6 +66,7 @@ class ComRegister {
                 case 'telegram': this.telegramBot = bot; break
                 case 'satori': this.satoriBot = bot; break
                 case 'chronocat': this.chronocatBot = bot; break
+                case 'lark': this.larkBot = bot; break
             }
         })
 
@@ -329,6 +332,7 @@ class ComRegister {
                 this.logger.info('调用bili.sub指令')
                 // 检查是否是不支持的平台
                 switch (session.event.platform) {
+                    case 'lark':
                     case 'red':
                     case 'onebot':
                     case 'telegram':
@@ -671,6 +675,7 @@ class ComRegister {
         // 获取对应Bot
         let bot: Bot<Context>
         switch (session.event.platform) {
+            case 'lark': bot = this.larkBot; break
             case 'qq': bot = this.qqBot; break
             case 'qqguild': bot = this.qqguildBot; break
             case 'onebot': bot = this.oneBot; break
@@ -1485,6 +1490,7 @@ class ComRegister {
             const targetArr = sub.targetId.split(' ')
             // 拿到对应bot
             switch (sub.platform) {
+                case 'lark': bot = this.larkBot; break
                 case 'qq': bot = this.qqBot; break
                 case 'qqguild': bot = this.qqguildBot; break
                 case 'onebot': bot = this.oneBot; break
