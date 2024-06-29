@@ -192,8 +192,11 @@ class GenerateImg extends Service {
                                 </div>
                                 ${this.giConfig.hideDesc ? '' : `<p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>`}
                                 <p class="card-link">
-                                    <span>${liveTime}</span>
+                                    <span>人气：${data.online}</span>
                                     <span>分区名称：${data.area_name}</span>
+                                </p>
+                                <p class="card-link">
+                                    <span>${liveTime}</span>
                                 </p>
                             </div>
                         </div>

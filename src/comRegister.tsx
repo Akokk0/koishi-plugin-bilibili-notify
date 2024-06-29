@@ -808,7 +808,8 @@ class ComRegister {
                         // 结束循环
                         break
                     }
-                    case 4101128: { // 获取动态信息错误
+                    case 4101128: 
+                    case 4101129: { // 获取动态信息错误
                         // 输出日志
                         this.logger.error('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message);
                         // 发送私聊消息
@@ -975,7 +976,8 @@ class ComRegister {
                         // 结束循环
                         break
                     }
-                    case 4101128: { // 获取动态信息错误
+                    case 4101128: 
+                    case 4101129: { // 获取动态信息错误
                         // 输出日志
                         this.logger.error('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message);
                         // 发送私聊消息
@@ -1680,8 +1682,8 @@ class ComRegister {
     unsubAll(ctx: Context, bot: Bot<Context>, uid: string) {
         this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
             // 取消全部订阅 执行dispose方法，销毁定时器
-            if (sub.dynamic) this.subManager[i].dynamicDispose()
-            if (sub.live) this.subManager[i].liveDispose()
+            if (sub.dynamic) await this.subManager[i].dynamicDispose()
+            if (sub.live) await this.subManager[i].liveDispose()
             // 从数据库中删除订阅
             await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
             // 将该订阅对象从订阅管理对象中移除
