@@ -1,4 +1,5 @@
-import { Context, ForkScope, Logger, Schema, Service } from 'koishi'
+/* eslint-disable @typescript-eslint/ban-types */
+import { Context, ForkScope, Schema, Service } from 'koishi'
 import { } from '@koishijs/plugin-notifier'
 // import plugins
 // import Authority from './authority'
@@ -27,6 +28,7 @@ export interface Config {
     master: {},
     basicSettings: {},
     unlockSubLimits: boolean,
+    automaticResend: boolean,
     renderType: 'render' | 'page',
     userAgent: string,
     dynamic: {},
@@ -87,6 +89,10 @@ export const Config: Schema<Config> = Schema.object({
     unlockSubLimits: Schema.boolean()
         .default(false)
         .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
+    
+    automaticResend: Schema.boolean()
+        .default(true)
+        .description('是否开启自动重发功能，默认开启。开启后，如果推送失败，将会自动重发，尝试三次。关闭后，推送失败将不会再重发，直到下一次推送'),
 
     renderType: Schema.union(['render', 'page'])
         .role('')
@@ -300,6 +306,7 @@ class ServerManager extends Service {
             const cr = this.ctx.plugin(ComRegister, {
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
+                automaticResend: globalConfig.automaticResend,
                 changeMasterInfoApi: globalConfig.changeMasterInfoApi,
                 liveStartAtAll: globalConfig.liveStartAtAll,
                 pushUrl: globalConfig.pushUrl,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-namespace */
 import { Context, Schema, Service } from "koishi";
 import md5 from 'md5'
 import crypto from 'crypto'
@@ -86,19 +87,19 @@ class Wbi extends Service {
         return query
     }
 
-    encrypt(text: string, secretKey?: string): string {
+    encrypt(text: string): string {
         const iv = crypto.randomBytes(16);
         const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.wbiConfig.key), iv);
         const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
         return iv.toString('hex') + ':' + encrypted.toString('hex');
     }
 
-    decrypt(text: string, secretKey?: string): string {
-        let textParts = text.split(':');
-        let iv = Buffer.from(textParts.shift(), 'hex');
-        let encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.wbiConfig.key), iv);
-        let decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]);
+    decrypt(text: string): string {
+        const textParts = text.split(':');
+        const iv = Buffer.from(textParts.shift(), 'hex');
+        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.wbiConfig.key), iv);
+        const decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]);
         return decrypted.toString();
     }
 }

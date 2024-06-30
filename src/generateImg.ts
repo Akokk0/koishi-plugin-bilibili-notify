@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Context, Schema, Service } from "koishi";
 import { } from 'koishi-plugin-puppeteer'
 import { resolve } from "path";
@@ -206,7 +207,7 @@ class GenerateImg extends Service {
             </html>
         `
         // 多次尝试生成图片
-        let attempts = 3
+        const attempts = 3
         for (let i = 0; i < attempts; i++) {
             try {
                 // 判断渲染方式
@@ -312,7 +313,7 @@ class GenerateImg extends Service {
 
                 if (module_dynamic.major && module_dynamic.major.draw) {
                     if (module_dynamic.major.draw.items.length === 1) {
-                        let height = module_dynamic.major.draw.items[0].height
+                        const height = module_dynamic.major.draw.items[0].height
                         console.log(height);
                         if (height > 3000) {
                             major += `
@@ -367,6 +368,7 @@ class GenerateImg extends Service {
                         const forwardUserAvatarUrl = forward_module_author.face
                         const forwardUserName = forward_module_author.name
                         // 获取转发的动态
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         const [forwardMain, _, forwardInfo] = await getDynamicMajor(dynamicMajorData.orig, true)
                         // 拼接main
                         main += `
@@ -1391,7 +1393,7 @@ class GenerateImg extends Service {
             </html>
         `
         // 多次尝试生成图片
-        let attempts = 3
+        const attempts = 3
         for (let i = 0; i < attempts; i++) {
             try {
                 // 判断渲染方式
@@ -1485,6 +1487,7 @@ class GenerateImg extends Service {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace GenerateImg {
     export interface Config {
         renderType: number,

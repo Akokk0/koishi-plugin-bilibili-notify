@@ -6,9 +6,9 @@
 
 - koishi-plugin-bilibili-notify [![npm](https://img.shields.io/npm/v/koishi-plugin-bilibili-notify?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-bilibili-notify)
   - [功能](#功能)
+  - [注意事项](#注意事项)
   - [安装](#安装)
   - [使用方法](#使用方法)
-  - [注意事项](#注意事项)
   - [更新日志](#更新日志)
   - [交流群](#交流群)
   - [感谢](#感谢)
@@ -19,6 +19,21 @@
 订阅B站UP主动态
 
 订阅B站UP主直播
+
+## 注意事项
+
+0. 动态监测，当您订阅之后，会在您设置的dynamicLoopTime(默认为2分钟)之后才会开启监测。如果您需要测试则需要等待您设置的dynamicLoopTime的时间之后再发送测试动态
+
+1. 此插件依赖于 `database` 和 `puppeteer` 服务，同时受权限控制，需要具备 `authority:3` 及以上的权限才能使用本插件提供的指令，你可以参考下方配置登录插件中的方法得到一个超级管理员账号（具有 `authority:5` 的最高权限） 
+
+   [配置登录插件](https://koishi.chat/zh-CN/manual/usage/platform.html#%E9%85%8D%E7%BD%AE%E7%99%BB%E5%BD%95%E6%8F%92%E4%BB%B6)
+
+2. 您还可以安装 `admin` 插件，给其他用户授予权限，操作方法请参考下方的权限管理
+
+   [权限管理](https://koishi.chat/zh-CN/manual/usage/customize.html)
+
+3. 指令使用方法请参考 `help bili`，子命令使用方法请加 `-h` ，例如 `bili login -h`
+4. 登录方式为二维码，输入命令 `bili login` 之后扫码登录，您的登录凭证将存储在您的本地数据库，并由您自己填写的密钥加密，所以请保管好你的密钥
 
 ## 安装
 
@@ -71,19 +86,6 @@
 
 - 使用指令 `sys`
 - 子命令：`start`、`stop`、`restart` 分别代表插件的启动，停止和重启
-
-## 注意事项
-
-1. 此插件依赖于 `database` 和 `puppeteer` 服务，同时受权限控制，需要具备 `authority:3` 及以上的权限才能使用本插件提供的指令，你可以参考下方配置登录插件中的方法得到一个超级管理员账号（具有 `authority:5` 的最高权限） 
-
-   [配置登录插件](https://koishi.chat/zh-CN/manual/usage/platform.html#%E9%85%8D%E7%BD%AE%E7%99%BB%E5%BD%95%E6%8F%92%E4%BB%B6)
-
-2. 您还可以安装 `admin` 插件，给其他用户授予权限，操作方法请参考下方的权限管理
-
-   [权限管理](https://koishi.chat/zh-CN/manual/usage/customize.html)
-
-3. 指令使用方法请参考 `help bili`，子命令使用方法请加 `-h` ，例如 `bili login -h`
-4. 登录方式为二维码，输入命令 `bili login` 之后扫码登录，您的登录凭证将存储在您的本地数据库，并由您自己填写的密钥加密，所以请保管好你的密钥
 
 ## 更新日志
 
@@ -167,6 +169,7 @@
 - ver 1.3.1 优化过长单图的显示样式
 - ver 1.3.2 增加对飞书平台的支持
 - ver 1.3.3 新增直播推送人气信息展示
+- ver 1.3.4 新增消息推送失败是否自动重发的选项，修复了一些潜在的bug
 
 ## 交流群
 

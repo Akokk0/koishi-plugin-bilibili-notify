@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-namespace */
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Context, Schema, Service } from "koishi"
 import axios from 'axios'
 import { CookieJar, Cookie } from 'tough-cookie'
@@ -195,8 +198,7 @@ class BiliAPI extends Service {
     }
 
     getCookies() {
-        let cookies: string
-        cookies = JSON.stringify(this.jar.serializeSync().cookies)
+        const cookies = JSON.stringify(this.jar.serializeSync().cookies)
         return cookies
     }
 
@@ -382,6 +384,7 @@ class BiliAPI extends Service {
             case -111: {
                 await this.ctx.database.remove('loginBili', [1])
                 notifyAndError('csrf 校验错误，请重新登录')
+                break
             }
             case 86095: {
                 await this.ctx.database.remove('loginBili', [1])
@@ -397,7 +400,7 @@ class BiliAPI extends Service {
             bili_refresh_token: encryptedRefreshToken
         }])
         // Get new csrf from cookies
-        let newCsrf: string = this.jar.serializeSync().cookies.find(cookie => {
+        const newCsrf: string = this.jar.serializeSync().cookies.find(cookie => {
             if (cookie.key === 'bili_jct') return true
         }).value
         // Accept update
@@ -416,6 +419,7 @@ class BiliAPI extends Service {
             case -111: {
                 await this.ctx.database.remove('loginBili', [1])
                 notifyAndError('csrf 校验失败，请重新登录')
+                break
             }
             case -400: throw new Error('请求错误')
         }
