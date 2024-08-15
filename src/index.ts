@@ -34,7 +34,7 @@ export interface Config {
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
-    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟',
+    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '20分钟',
     live: {},
     changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
@@ -117,7 +117,7 @@ export const Config: Schema<Config> = Schema.object({
         .default(5)
         .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应+1。默认值为5条'),
 
-    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟'])
+    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '20分钟'])
         .role('')
         .default('2分钟')
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
@@ -279,6 +279,7 @@ class ServerManager extends Service {
             case '2分钟': this.dynamicLoopTime = 120; break;
             case '3分钟': this.dynamicLoopTime = 180; break;
             case '5分钟': this.dynamicLoopTime = 300; break;
+            case '20分钟': this.dynamicLoopTime = 1200; break;
         }
         // 注册插件
         this.registerPlugin()
