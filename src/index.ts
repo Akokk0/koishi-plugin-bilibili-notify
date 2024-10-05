@@ -220,8 +220,6 @@ class ServerManager extends Service {
     renderType: number
     // 动态循环时间
     dynamicLoopTime: number
-    // 重启次数
-    restartCount = 0
 
     constructor(ctx: Context) {
         super(ctx, 'sm')
@@ -348,27 +346,23 @@ class ServerManager extends Service {
         return true
     }
 
-    restartPlugin = async (count?: boolean /* 是否需要计数 */) => {
+    restartPlugin = async (): Promise<boolean> => {
         // 如果没有服务则返回false
         if (this.servers.length === 0) return false
-        // 如果需要计数
-        if (count) {
-            // 重启次数大于等于3次
-            if (this.restartCount >= 3) return false
-            // 重启次数+1
-            this.restartCount++
-        }
         // 停用插件
         await this.disposePlugin()
         // 隔一秒启动插件
-        await new Promise(resolve => {
+        return new Promise(resolve => {
             this.ctx.setTimeout(async () => {
-                await this.registerPlugin()
-                resolve('ok')
+                try {
+                    await this.registerPlugin()
+                } catch (e) {
+                    this.logger.error('重启插件失败', e)
+                    resolve(false)
+                }
+                resolve(true)
             }, 1000)
         })
-        // 成功返回true
-        return true
     }
 }
 
