@@ -1,12 +1,13 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-types */
 import { Bot, Context, Logger, Schema, Session, h } from "koishi"
 import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
-import Jimp from 'jimp'
+import { Jimp, JimpMime } from 'jimp'
 
 enum LiveType {
     NotLiveBroadcast,
@@ -254,7 +255,7 @@ class ComRegister {
                         await session.send(h.image(buffer, 'image/png'))
                     })
                 // 检查之前是否存在登录定时器
-                this.loginTimer && this.loginTimer()
+                if (this.loginTimer) this.loginTimer()
                 // 设置flag
                 let flag = true
                 // 发起登录请求检查登录状态
@@ -349,7 +350,7 @@ class ComRegister {
                     }
                 }))
                 // 未订阅该用户，无需取消订阅
-                !exist && session.send('未订阅该用户，无需取消订阅')
+                if (!exist) session.send('未订阅该用户，无需取消订阅')
             })
 
         biliCom
@@ -678,7 +679,7 @@ class ComRegister {
                 // 获得对应bot
                 const bot = this.getTheCorrespondingBotBasedOnTheSession(session)
                 // 发送提示消息，重启服务
-                await this.sendPrivateMsgAndRebootService(ctx, bot, '测试biliAPI等服务自动重启功能')
+                await this.sendPrivateMsgAndStopService(ctx, bot, '测试biliAPI等服务自动重启功能')
             }) */
 
         /* biliCom
@@ -775,6 +776,17 @@ class ComRegister {
             // 关闭插件
             await ctx.sm.disposePlugin()
         }
+    }
+
+    async sendPrivateMsgAndStopService(ctx: Context, bot: Bot<Context>) {
+        // 发送消息
+        await this.sendPrivateMsg(bot, '插件发生未知错误，请检查机器人状态后使用指令 sys start 启动插件')
+        // logger
+        this.logger.error('插件发生未知错误，请检查机器人状态后使用指令 sys start 启动插件')
+        // 关闭插件
+        await ctx.sm.disposePlugin()
+        // 结束
+        return
     }
 
     async sendMsg(targets: Array<string>, bot: Bot<Context>, content: any) {
@@ -912,26 +924,30 @@ class ComRegister {
                                 if (e.message === '直播开播动态，不做处理') return updatePoint(num)
                                 if (e.message === '出现关键词，屏蔽该动态') {
                                     // 如果需要发送才发送
-                                    this.config.filter.notify && await this.sendMsg(
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条含有屏蔽关键字的动态`,
-                                    )
+                                    if (this.config.filter.notify) {
+                                        await this.sendMsg(
+                                            guildId,
+                                            bot,
+                                            `${upName}发布了一条含有屏蔽关键字的动态`,
+                                        )
+                                    }
                                     return updatePoint(num)
                                 }
                                 if (e.message === '已屏蔽转发动态') {
-                                    this.config.filter.notify && await this.sendMsg(
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条转发动态，已屏蔽`
-                                    )
+                                    if (this.config.filter.notify) {
+                                        await this.sendMsg(
+                                            guildId,
+                                            bot,
+                                            `${upName}发布了一条转发动态，已屏蔽`
+                                        )
+                                    }
                                     return updatePoint(num)
                                 }
                                 // 未知错误
                                 if (i === attempts - 1) {
                                     this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
                                     // 发送私聊消息并重启服务
-                                    return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                                    return await this.sendPrivateMsgAndStopService(ctx, bot)
                                 }
                             }
                         }
@@ -1087,26 +1103,30 @@ class ComRegister {
                                 if (e.message === '直播开播动态，不做处理') return updatePoint(num)
                                 if (e.message === '出现关键词，屏蔽该动态') {
                                     // 如果需要发送才发送
-                                    this.config.filter.notify && await this.sendMsg(
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条含有屏蔽关键字的动态`,
-                                    )
+                                    if (this.config.filter.notify) {
+                                        await this.sendMsg(
+                                            guildId,
+                                            bot,
+                                            `${upName}发布了一条含有屏蔽关键字的动态`,
+                                        )
+                                    }
                                     return updatePoint(num)
                                 }
                                 if (e.message === '已屏蔽转发动态') {
-                                    this.config.filter.notify && await this.sendMsg(
-                                        guildId,
-                                        bot,
-                                        `${upName}发布了一条转发动态，已屏蔽`
-                                    )
+                                    if (this.config.filter.notify) {
+                                        await this.sendMsg(
+                                            guildId,
+                                            bot,
+                                            `${upName}发布了一条转发动态，已屏蔽`
+                                        )
+                                    }
                                     return updatePoint(num)
                                 }
                                 // 未知错误
                                 if (i === attempts - 1) {
                                     this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
                                     // 发送私聊消息并重启服务
-                                    return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                                    return await this.sendPrivateMsgAndStopService(ctx, bot)
                                 }
                             }
                         }
@@ -1179,7 +1199,7 @@ class ComRegister {
                         if (i === attempts - 1) { // 已尝试三次
                             this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
                             // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                            return await this.sendPrivateMsgAndStopService(ctx, bot)
                         }
                     }
                 }
@@ -1213,7 +1233,7 @@ class ComRegister {
                         if (i === attempts - 1) { // 已尝试三次
                             this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
                             // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                            return await this.sendPrivateMsgAndStopService(ctx, bot)
                         }
                     }
                 }
@@ -1263,7 +1283,7 @@ class ComRegister {
                         this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
                         if (i === attempts - 1) { // 已尝试三次
                             // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                            return await this.sendPrivateMsgAndStopService(ctx, bot)
                         }
                     }
                 }
@@ -1283,7 +1303,7 @@ class ComRegister {
                             this.logger.error('liveDetect getMasterInfo() 发生了错误，错误为：' + e.message)
                             if (i === attempts - 1) { // 已尝试三次
                                 // 发送私聊消息并重启服务
-                                return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                                return await this.sendPrivateMsgAndStopService(ctx, bot)
                             }
                         }
                     }
@@ -1316,7 +1336,7 @@ class ComRegister {
                             // Jimp无法处理Webp格式，直接跳过
                             try {
                                 resizedImage = await Jimp.read(userface).then(async image => {
-                                    return await image.resize(100, 100).getBufferAsync(Jimp.MIME_PNG)
+                                    return await image.resize({ w: 100, h: 100 }).getBuffer(JimpMime.png)
                                 })
                             } catch (e) {
                                 if (e.message === 'Unsupported MIME type: image/webp')
@@ -1353,7 +1373,7 @@ class ComRegister {
                                     this.logger.error('liveDetect open getMasterInfo() 发生了错误，错误为：' + e.message)
                                     if (i === attempts - 1) { // 已尝试三次
                                         // 发送私聊消息并重启服务
-                                        return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                                        return await this.sendPrivateMsgAndStopService(ctx, bot)
                                     }
                                 }
                             }
@@ -1440,7 +1460,7 @@ class ComRegister {
 
     updateSubNotifier(ctx: Context) {
         // 更新控制台提示
-        this.subNotifier && this.subNotifier.dispose()
+        if (this.subNotifier) this.subNotifier.dispose()
         // 获取订阅信息
         const subInfo = this.subShow()
         // 定义table
@@ -1554,7 +1574,7 @@ class ComRegister {
                     this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
                     if (i === attempts - 1) { // 已尝试三次
                         // 发送私聊消息并重启服务
-                        return await this.sendPrivateMsgAndRebootService(ctx, bot)
+                        return await this.sendPrivateMsgAndStopService(ctx, bot)
                     }
                 }
             }
@@ -1668,7 +1688,7 @@ class ComRegister {
                     index = this.subManager.findIndex(sub => sub.roomId === id)
                     if (index === -1) return '未订阅该用户，无需取消订阅'
                     // 取消订阅
-                    this.subManager[index].live && this.subManager[index].liveDispose()
+                    if (this.subManager[index].live) this.subManager[index].liveDispose()
                     this.subManager[index].liveDispose = null
                     this.subManager[index].live = false
                     // 如果没有对这个UP的任何订阅，则移除
@@ -1685,7 +1705,7 @@ class ComRegister {
                     index = this.subManager.findIndex(sub => sub.uid === id)
                     if (index === -1) return '未订阅该用户，无需取消订阅'
                     // 取消订阅
-                    this.subManager[index].dynamic && this.subManager[index].dynamicDispose()
+                    if (this.subManager[index].dynamic) this.subManager[index].dynamicDispose()
                     this.subManager[index].dynamicDispose = null
                     this.subManager[index].dynamic = false
                     // 如果没有对这个UP的任何订阅，则移除

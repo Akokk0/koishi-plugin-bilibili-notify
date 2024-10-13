@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 /* eslint-disable @typescript-eslint/no-namespace */
-/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Context, Schema, Service } from "koishi"
 import axios from 'axios'
@@ -163,7 +164,7 @@ class BiliAPI extends Service {
         }
     }
 
-    disposeNotifier() { this.loginNotifier && this.loginNotifier.dispose() }
+    disposeNotifier() { if (this.loginNotifier) this.loginNotifier.dispose() }
 
     getRandomUserAgent() {
         const userAgents = [
@@ -288,7 +289,7 @@ class BiliAPI extends Service {
 
     enableRefreshCookiesDetect() {
         // 判断之前是否启动检测
-        this.refreshCookieTimer && this.refreshCookieTimer()
+        if (this.refreshCookieTimer) this.refreshCookieTimer()
         // Open scheduled tasks and check if token need refresh
         this.refreshCookieTimer = this.ctx.setInterval(async () => { // 每12小时检测一次
             // 从数据库获取登录信息
