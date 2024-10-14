@@ -1,8 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Context, Schema, Service } from "koishi"
+import md5 from 'md5'
+import crypto from 'crypto'
 import axios from 'axios'
 import { CookieJar, Cookie } from 'tough-cookie'
 import { wrapper } from 'axios-cookiejar-support'
@@ -16,10 +17,16 @@ declare module 'koishi' {
     }
 }
 
+const mixinKeyEncTab = [
+    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
+    33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
+    61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
+    36, 20, 34, 44, 52
+]
+
 // 在getUserInfo中检测到番剧出差的UID时，要传回的数据：
 const bangumiTripData = { "code": 0, "data": { "live_room": { "roomid": 931774 } } }
 
-// const GET_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
 const GET_USER_SPACE_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
 const GET_COOKIES_INFO = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
 const GET_USER_INFO = 'https://api.bilibili.com/x/space/wbi/acc/info'
@@ -32,7 +39,7 @@ const GET_TIME_NOW = 'https://api.bilibili.com/x/report/click/now'
 const GET_SERVER_UTC_TIME = 'https://interface.bilibili.com/serverdate.js'
 
 class BiliAPI extends Service {
-    static inject = ['database', 'wbi', 'notifier']
+    static inject = ['database', 'notifier']
 
     jar: CookieJar
     client: any
@@ -52,13 +59,69 @@ class BiliAPI extends Service {
         this.createNewClient()
         // 从数据库加载cookies
         this.loadCookiesFromDatabase()
-        // 输出日志
-        // this.logger.info('工作中')
     }
 
-    /* protected stop(): void | Promise<void> {
-        this.logger.info('已停止工作')
-    } */
+    // WBI签名
+    // 对 imgKey 和 subKey 进行字符顺序打乱编码
+    getMixinKey = (orig: string) =>
+        mixinKeyEncTab
+            .map((n) => orig[n])
+            .join("")
+            .slice(0, 32);
+
+    // 为请求参数进行 wbi 签名
+    encWbi(
+        params: { [key: string]: string | number | object },
+        img_key: string,
+        sub_key: string
+    ) {
+        const mixin_key = this.getMixinKey(img_key + sub_key),
+            curr_time = Math.round(Date.now() / 1000),
+            chr_filter = /[!'()*]/g;
+
+        Object.assign(params, { wts: curr_time }); // 添加 wts 字段
+        // 按照 key 重排参数
+        const query = Object.keys(params)
+            .sort()
+            .map((key) => {
+                // 过滤 value 中的 "!'()*" 字符
+                const value = params[key].toString().replace(chr_filter, "");
+                return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+            })
+            .join("&");
+
+        const wbi_sign = md5(query + mixin_key); // 计算 w_rid
+
+        return query + "&w_rid=" + wbi_sign;
+    }
+
+    async getWbi(
+        params: { [key: string]: string | number | object },
+    ) {
+        const web_keys = await this.getWbiKeys()
+        const img_key = web_keys.img_key,
+            sub_key = web_keys.sub_key
+        const query = this.encWbi(params, img_key, sub_key)
+        return query
+    }
+
+    encrypt(text: string): string {
+        const iv = crypto.randomBytes(16);
+        const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.apiConfig.key), iv);
+        const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
+        return iv.toString('hex') + ':' + encrypted.toString('hex');
+    }
+
+    decrypt(text: string): string {
+        const textParts = text.split(':');
+        const iv = Buffer.from(textParts.shift(), 'hex');
+        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.apiConfig.key), iv);
+        const decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]);
+        return decrypted.toString();
+    }
+
+    // BA API
 
     async getServerUTCTime() {
         try {
@@ -111,11 +174,32 @@ class BiliAPI extends Service {
             return bangumiTripData
         }
         try {
-            const wbi = await this.ctx.wbi.getWbi({ mid })
+            const wbi = await this.getWbi({ mid })
             const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
             return data
         } catch (e) {
             throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    // 获取最新的 img_key 和 sub_key
+    async getWbiKeys() {
+        const { data } = await this.client.get('https://api.bilibili.com/x/web-interface/nav')
+        const {
+            data: {
+                wbi_img: { img_url, sub_url },
+            },
+        } = data
+
+        return {
+            img_key: img_url.slice(
+                img_url.lastIndexOf('/') + 1,
+                img_url.lastIndexOf('.')
+            ),
+            sub_key: sub_url.slice(
+                sub_url.lastIndexOf('/') + 1,
+                sub_url.lastIndexOf('.')
+            )
         }
     }
 
@@ -226,9 +310,9 @@ class BiliAPI extends Service {
         // 尝试解密
         try {
             // 解密数据
-            const decryptedCookies = this.ctx.wbi.decrypt(data.bili_cookies)
+            const decryptedCookies = this.decrypt(data.bili_cookies)
             // 解密refresh_token
-            const decryptedRefreshToken = this.ctx.wbi.decrypt(data.bili_refresh_token)
+            const decryptedRefreshToken = this.decrypt(data.bili_refresh_token)
             // 解析从数据库读到的cookies
             const cookies = JSON.parse(decryptedCookies)
             // 返回值
@@ -262,10 +346,25 @@ class BiliAPI extends Service {
             return
         }
         // 定义CSRF Token
-        let csrf: string
+        let csrf: string,
+            expires: Date,
+            domain: string,
+            path: string,
+            secure: boolean,
+            httpOnly: boolean,
+            sameSite: string
+        
         cookies.forEach(cookieData => {
             // 获取key为bili_jct的值
-            if (cookieData.key === 'bili_jct') csrf = cookieData.value
+            if (cookieData.key === 'bili_jct') {
+                csrf = cookieData.value
+                expires = new Date(cookieData.expires)
+                domain = cookieData.domain
+                path = cookieData.path
+                secure = cookieData.secure
+                httpOnly = cookieData.httpOnly
+                sameSite = cookieData.sameSite
+            }
             // 创建一个完整的 Cookie 实例
             const cookie = new Cookie({
                 key: cookieData.key,
@@ -279,6 +378,18 @@ class BiliAPI extends Service {
             });
             this.jar.setCookieSync(cookie, `http${cookie.secure ? 's' : ''}://${cookie.domain}${cookie.path}`, {});
         })
+        // 对于某些 IP 地址，需要在 Cookie 中提供任意非空的 buvid3 字段
+        const buvid3Cookie = new Cookie({
+            key: 'buvid3',
+            value: 'some_non_empty_value', // 设置任意非空值
+            expires, // 设置过期时间
+            domain, // 设置域名
+            path, // 设置路径
+            secure, // 设置是否为安全 cookie
+            httpOnly, // 设置是否为 HttpOnly cookie
+            sameSite // 设置 SameSite 属性
+        });
+        this.jar.setCookieSync(buvid3Cookie, `http${buvid3Cookie.secure ? 's' : ''}://${buvid3Cookie.domain}${buvid3Cookie.path}`, {});
         // Login info is loaded
         this.loginInfoIsLoaded = true
         // restart plugin check
@@ -393,8 +504,8 @@ class BiliAPI extends Service {
             }
         }
         // 更新 新的cookies和refresh_token
-        const encryptedCookies = this.ctx.wbi.encrypt(this.getCookies())
-        const encryptedRefreshToken = this.ctx.wbi.encrypt(refreshData.data.refresh_token)
+        const encryptedCookies = this.encrypt(this.getCookies())
+        const encryptedRefreshToken = this.encrypt(refreshData.data.refresh_token)
         await this.ctx.database.upsert('loginBili', [{
             id: 1,
             bili_cookies: encryptedCookies,
@@ -431,10 +542,14 @@ class BiliAPI extends Service {
 namespace BiliAPI {
     export interface Config {
         userAgent: string
+        key: string
     }
 
     export const Config: Schema<Config> = Schema.object({
-        userAgent: Schema.string()
+        userAgent: Schema.string(),
+        key: Schema.string()
+            .pattern(/^[0-9a-f]{32}$/)
+            .required()
     })
 }
 

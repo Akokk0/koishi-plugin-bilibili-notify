@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+/* eslint-disable @typescript-eslint/ban-types */
 import { Context, ForkScope, Schema, Service } from 'koishi'
 import { } from '@koishijs/plugin-notifier'
 // import plugins
@@ -6,7 +6,6 @@ import { } from '@koishijs/plugin-notifier'
 import ComRegister from './comRegister'
 import * as Database from './database'
 // import Service
-import Wbi from './wbi'
 import GenerateImg from './generateImg'
 import BiliAPI from './biliAPI'
 
@@ -280,17 +279,25 @@ class ServerManager extends Service {
             case '20分钟': this.dynamicLoopTime = 1200; break;
         }
         // 注册插件
-        this.registerPlugin()
+        if (this.registerPlugin()) {
+            this.logger.info('插件启动成功')
+        } else {
+            this.logger.error('插件启动失败')
+        }
     }
 
-    registerPlugin = async () => {
+    registerPlugin = () => {
         // 如果已经有服务则返回false
         if (this.servers.length !== 0) return false
-        await new Promise(resolve => {
-            // 注册插件
+        // 注册插件
+        try {
+            // BA = BiliAPI
             const ba = this.ctx.plugin(BiliAPI, {
-                userAgent: globalConfig.userAgent
+                userAgent: globalConfig.userAgent,
+                key: globalConfig.key
             })
+
+            // GI = GenerateImg
             const gi = this.ctx.plugin(GenerateImg, {
                 renderType: this.renderType,
                 filter: globalConfig.filter,
@@ -301,7 +308,8 @@ class ServerManager extends Service {
                 enableLargeFont: globalConfig.enableLargeFont,
                 font: globalConfig.font
             })
-            const wbi = this.ctx.plugin(Wbi, { key: globalConfig.key })
+
+            // CR = ComRegister
             const cr = this.ctx.plugin(ComRegister, {
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
@@ -318,14 +326,15 @@ class ServerManager extends Service {
                 filter: globalConfig.filter,
                 dynamicDebugMode: globalConfig.dynamicDebugMode
             })
+            
             // 添加服务
             this.servers.push(ba)
             this.servers.push(gi)
-            this.servers.push(wbi)
             this.servers.push(cr)
-            // 成功
-            resolve('ok')
-        })
+        } catch (e) {
+            this.logger.error('插件注册失败', e)
+            return false
+        }
         // 成功返回true 
         return true
     }

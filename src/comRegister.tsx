@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Bot, Context, Logger, Schema, Session, h } from "koishi"
@@ -16,7 +15,7 @@ enum LiveType {
 }
 
 class ComRegister {
-    static inject = ['ba', 'gi', 'wbi', 'database', 'sm'];
+    static inject = ['ba', 'gi', 'database', 'sm'];
     logger: Logger;
     config: ComRegister.Config
     loginTimer: Function
@@ -56,12 +55,6 @@ class ComRegister {
 
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('cr')
-        /* ctx.on('ready', () => {
-            this.logger.info('工作中');
-        })
-        ctx.on('dispose', () => {
-            this.logger.info('已停止工作');
-        }) */
         this.config = config
         // 拿到各类机器人
         ctx.bots.forEach(bot => {
@@ -281,8 +274,8 @@ class ComRegister {
                             return await session.send('二维码已失效，请重新登录')
                         }
                         if (loginContent.data.code === 0) { // 登录成功
-                            const encryptedCookies = ctx.wbi.encrypt(ctx.ba.getCookies())
-                            const encryptedRefreshToken = ctx.wbi.encrypt(loginContent.data.refresh_token)
+                            const encryptedCookies = ctx.ba.encrypt(ctx.ba.getCookies())
+                            const encryptedRefreshToken = ctx.ba.encrypt(loginContent.data.refresh_token)
                             await ctx.database.upsert('loginBili', [{
                                 id: 1,
                                 bili_cookies: encryptedCookies,
@@ -409,7 +402,7 @@ class ComRegister {
                         case -400: msg = '请求错误'; break;
                         case -403: msg = '访问权限不足，请尝试重新登录'; break;
                         case -404: msg = '用户不存在'; break;
-                        case -352: msg = '请登录后再尝试订阅'; break;
+                        case -352: msg = '风控校验失败'; break;
                         default: msg = '未知错误，错误信息：' + content.message; break;
                     }
                     return msg
