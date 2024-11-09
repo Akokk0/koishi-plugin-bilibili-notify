@@ -402,7 +402,7 @@ class ComRegister {
                         case -400: msg = '请求错误'; break;
                         case -403: msg = '访问权限不足，请尝试重新登录'; break;
                         case -404: msg = '用户不存在'; break;
-                        case -352: msg = '风控校验失败'; break;
+                        case -352: msg = '风控校验失败，请尝试更换UA'; break;
                         default: msg = '未知错误，错误信息：' + content.message; break;
                     }
                     return msg

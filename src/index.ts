@@ -99,8 +99,8 @@ export const Config: Schema<Config> = Schema.object({
         .description('渲染类型，默认为render模式，渲染速度更快，但会出现乱码问题，若出现乱码问题，请切换到page模式。若使用自定义字体，建议选择render模式'),
 
     userAgent: Schema.string()
-        .default('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36')
-        .description('设置请求头User-Agen，请求出现-352时可以尝试修改'),
+        .required()
+        .description('设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111'),
 
     dynamic: Schema.object({}).description('动态推送设置'),
 
