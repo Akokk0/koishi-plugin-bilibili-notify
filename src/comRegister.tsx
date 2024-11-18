@@ -1305,7 +1305,7 @@ class ComRegister {
                         // 设置开播时间
                         liveTime = data.live_time
                         // 发送直播通知卡片
-                        sendLiveNotifyCard(data, LiveType.LiveBroadcast)
+                        if (this.config.restartPush) sendLiveNotifyCard(data, LiveType.LiveBroadcast)
                         // 改变开播状态
                         open = true
                     } // 未开播，直接返回
@@ -1758,6 +1758,7 @@ namespace ComRegister {
         automaticResend: boolean,
         changeMasterInfoApi: boolean,
         liveStartAtAll: boolean,
+        restartPush: boolean,
         pushUrl: boolean,
         pushTime: number,
         liveLoopTime: number,
@@ -1785,6 +1786,7 @@ namespace ComRegister {
         automaticResend: Schema.boolean().required(),
         changeMasterInfoApi: Schema.boolean().required(),
         liveStartAtAll: Schema.boolean().required(),
+        restartPush: Schema.boolean().required(),
         pushUrl: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),

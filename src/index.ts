@@ -37,6 +37,7 @@ export interface Config {
     live: {},
     changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
+    restartPush: boolean,
     pushUrl: boolean,
     pushTime: number,
     customLiveStart: string,
@@ -131,6 +132,10 @@ export const Config: Schema<Config> = Schema.object({
     liveStartAtAll: Schema.boolean()
         .default(false)
         .description('直播开始时艾特全体成员，默认关闭'),
+
+    restartPush: Schema.boolean()
+        .default(true)
+        .description('插件重启后，如果订阅的主播正在直播，是否进行一次推送，默认开启'),
 
     pushUrl: Schema.boolean()
         .default(false)
@@ -316,6 +321,7 @@ class ServerManager extends Service {
                 automaticResend: globalConfig.automaticResend,
                 changeMasterInfoApi: globalConfig.changeMasterInfoApi,
                 liveStartAtAll: globalConfig.liveStartAtAll,
+                restartPush: globalConfig.restartPush,
                 pushUrl: globalConfig.pushUrl,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
