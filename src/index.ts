@@ -24,6 +24,7 @@ declare module 'koishi' {
 export interface Config {
     require: {},
     key: string,
+    platform: 'qq' | 'qqguild' | 'onebot' | 'red' | 'telegram' | 'satori' | 'chronocat' | 'lark',
     master: {},
     basicSettings: {},
     unlockSubLimits: boolean,
@@ -63,6 +64,11 @@ export const Config: Schema<Config> = Schema.object({
         .required()
         .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/'),
 
+    platform: Schema.union(['qq', 'qqguild', 'onebot', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
+        .role('')
+        .default('qq')
+        .description('请选择你的机器人平台，目前支持QQ、QQ群、OneBot、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
+
     master: Schema.intersect([
         Schema.object({
             enable: Schema.boolean()
@@ -89,7 +95,7 @@ export const Config: Schema<Config> = Schema.object({
     unlockSubLimits: Schema.boolean()
         .default(false)
         .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
-    
+
     automaticResend: Schema.boolean()
         .default(true)
         .description('是否开启自动重发功能，默认开启。开启后，如果推送失败，将会自动重发，尝试三次。关闭后，推送失败将不会再重发，直到下一次推送'),
@@ -316,6 +322,7 @@ class ServerManager extends Service {
 
             // CR = ComRegister
             const cr = this.ctx.plugin(ComRegister, {
+                platform: globalConfig.platform,
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,
@@ -332,7 +339,7 @@ class ServerManager extends Service {
                 filter: globalConfig.filter,
                 dynamicDebugMode: globalConfig.dynamicDebugMode
             })
-            
+
             // 添加服务
             this.servers.push(ba)
             this.servers.push(gi)
