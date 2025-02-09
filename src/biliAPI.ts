@@ -43,7 +43,8 @@ const GET_SERVER_UTC_TIME = 'https://interface.bilibili.com/serverdate.js'
 // 操作
 const MODIFY_RELATION = 'https://api.bilibili.com/x/relation/modify'
 const CREATE_GROUP = 'https://api.bilibili.com/x/relation/tag/create'
-// const MODIFY_GROUP_MEMBER = 'https://api.bilibili.com/x/relation/tags/addUsers'
+const MODIFY_GROUP_MEMBER = 'https://api.bilibili.com/x/relation/tags/addUsers'
+const GET_ALL_GROUP = 'https://api.bilibili.com/x/relation/tags'
 
 class BiliAPI extends Service {
     static inject = ['database', 'notifier']
@@ -155,6 +156,31 @@ class BiliAPI extends Service {
         }
     }
 
+    async getAllGroup() {
+        try {
+            const { data } = await this.client.get(GET_ALL_GROUP)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async addUserTogroup(mid: string, groupId: string) {
+        // 获取csrf
+        const csrf = this.getCSRF()
+        try {
+            // 将用户mid添加到groupId
+            const { data } = await this.client.get(MODIFY_GROUP_MEMBER, {
+                fids: mid,
+                tagids: groupId,
+                csrf
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
     async getUserSpaceDynamic(mid: string) {
         try {
             const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
@@ -169,6 +195,10 @@ class BiliAPI extends Service {
             const { data } = await this.client.post(CREATE_GROUP, {
                 tag,
                 csrf: await this.getCSRF()
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
             })
             return data
         } catch (e) {
