@@ -87,6 +87,27 @@ class ComRegister {
             }
         }
 
+        const statusCom = ctx.command('status', '插件状态相关指令', { permissions: ['authority:5'] })
+
+        statusCom.subcommand('.dyn', '查看动态监测运行状态')
+            .usage('查看动态监测运行状态')
+            .example('status dyn')
+            .action(() => {
+                if (this.dynamicDispose) {
+                    return '动态监测正在运行'
+                } else {
+                    return '动态监测未运行'
+                }
+            })
+
+        statusCom.subcommand('.sm', '查看订阅管理对象')
+            .usage('查看订阅管理对象')
+            .example('status sm')
+            .action(async () => {
+                console.log(this.subManager);
+                return '查看控制台'
+            })
+
         const biliCom = ctx.command('bili', 'bili-notify插件相关指令', { permissions: ['authority:3'] })
 
         biliCom.subcommand('.login', '登录B站之后才可以进行之后的操作')
@@ -201,10 +222,18 @@ class ComRegister {
                         await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
                         // 将该订阅对象从订阅管理对象中移除
                         this.subManager.splice(i, 1)
+                        // 将订阅对象移出订阅关注组
+                        const removeUserFromGroupData = await ctx.ba.removeUserFromGroup(sub.uid)
+                        // 判断是否移出成功
+                        if (removeUserFromGroupData.code !== 0) {
+                            // 移出失败
+                            session.send('取消订阅对象失败，请稍后重试')
+                            return
+                        }
                         // id--
                         this.num--
                         // 判断是否还有动态订阅
-                        if (!this.subManager.find((sub) => sub.dynamic === true)) { // 没有动态订阅
+                        if (this.dynamicDispose && !this.subManager.find((sub) => sub.dynamic === true)) { // 没有动态订阅
                             // 将动态检测关闭
                             this.dynamicDispose()
                             // 将动态监测置为空
@@ -283,6 +312,7 @@ class ComRegister {
                 }
                 // 订阅对象
                 const subUserData = await ctx.ba.follow(mid)
+                // 判断是否订阅成功
                 switch (subUserData.code) {
                     case -101: return '账号未登录，请使用指令bili login登录后再进行订阅操作'
                     case -102: return '账号被封停，无法进行订阅操作'
@@ -291,11 +321,12 @@ class ComRegister {
                     case 22013: return '账号已注销，无法进行订阅操作'
                     case 40061: return '账号不存在，请检查uid输入是否正确或用户是否存在'
                     case 22001: break // 订阅对象为自己 无需添加到分组
-                    case 22014: break // 已关注订阅对象 无需再次关注
+                    case 22014: // 已关注订阅对象 无需再次关注
                     case 0: { // 执行订阅成功
                         // 把订阅对象添加到分组中
-                        const addGroupData = await ctx.ba.addUserTogroup(mid, loginDBData.dynamic_group_id)
-                        if (addGroupData.data !== 0) {
+                        const copyUserToGroupData = await ctx.ba.copyUserToGroup(mid, loginDBData.dynamic_group_id)
+                        // 判断是否添加成功
+                        if (copyUserToGroupData.code !== 0) {
                             // 添加失败
                             return '添加订阅对象到分组失败，请稍后重试'
                         }
@@ -446,29 +477,27 @@ class ComRegister {
                     this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
                     return '订阅出错啦，请重试'
                 }
-                // 需要订阅直播
+                // 订阅直播
                 if (liveMsg) {
                     await session.execute(`bili live ${roomId} ${targetId.split(',').join(' ')}`)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
-
-                // 动态
-                if (dynamicMsg && !this.dynamicDispose) {
-                    // 开启动态监测
-
-                }
-                /* // 需要订阅动态
+                // 订阅动态
                 if (dynamicMsg) {
-                    await session.execute(`bili dynamic ${mid} ${targetId.split(',').join(' ')}`)
+                    // 判断是否开启动态监测
+                    if (!this.dynamicDispose) {
+                        // 开启动态监测
+                        this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), config.dynamicLoopTime * 1000)
+                    }
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}动态通知`)
-                } */
+                }
                 // 新增订阅展示到控制台
                 this.updateSubNotifier(ctx)
             })
 
-        biliCom
+        /* biliCom
             .subcommand('.dynamic <uid:string> <...guildId:string>', '订阅用户动态推送', { hidden: true })
             .usage('订阅用户动态推送')
             .example('bili dynamic 1194210119 订阅UID为1194210119的动态')
@@ -477,7 +506,7 @@ class ComRegister {
                 this.logger.info('调用bili.dynamic指令')
                 // 开始循环检测
                 this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), config.dynamicLoopTime * 1000)
-            })
+            }) */
 
         biliCom
             .subcommand('.live <roomId:string> <...guildId:string>', '订阅主播开播通知', { hidden: true })

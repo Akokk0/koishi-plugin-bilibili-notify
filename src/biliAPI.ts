@@ -45,6 +45,7 @@ const MODIFY_RELATION = 'https://api.bilibili.com/x/relation/modify'
 const CREATE_GROUP = 'https://api.bilibili.com/x/relation/tag/create'
 const MODIFY_GROUP_MEMBER = 'https://api.bilibili.com/x/relation/tags/addUsers'
 const GET_ALL_GROUP = 'https://api.bilibili.com/x/relation/tags'
+const COPY_USER_TO_GROUP = 'https://api.bilibili.com/x/relation/tags/copyUsers'
 
 class BiliAPI extends Service {
     static inject = ['database', 'notifier']
@@ -165,15 +166,39 @@ class BiliAPI extends Service {
         }
     }
 
-    async addUserTogroup(mid: string, groupId: string) {
+    async removeUserFromGroup(mid: string) {
         // 获取csrf
         const csrf = this.getCSRF()
         try {
             // 将用户mid添加到groupId
-            const { data } = await this.client.get(MODIFY_GROUP_MEMBER, {
+            const { data } = await this.client.post(MODIFY_GROUP_MEMBER, {
+                fids: mid,
+                tagids: 0,
+                csrf
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async copyUserToGroup(mid: string, groupId: string) {
+        // 获取csrf
+        const csrf = this.getCSRF()
+        try {
+            // 将用户mid添加到groupId
+            const { data } = await this.client.post(COPY_USER_TO_GROUP, {
                 fids: mid,
                 tagids: groupId,
                 csrf
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
             })
             return data
         } catch (e) {
@@ -194,7 +219,7 @@ class BiliAPI extends Service {
         try {
             const { data } = await this.client.post(CREATE_GROUP, {
                 tag,
-                csrf: await this.getCSRF()
+                csrf: this.getCSRF()
             }, {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -232,7 +257,11 @@ class BiliAPI extends Service {
                 fid,
                 act: 1,
                 re_src: 11,
-                csrf: await this.getCSRF()
+                csrf: this.getCSRF()
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
             })
             return data
         } catch (e) {
@@ -419,12 +448,9 @@ class BiliAPI extends Service {
         }
     }
 
-    async getCSRF() {
+    getCSRF() {
         // 获取csrf
-        const csrf = this.jar.serializeSync().cookies.find(cookie => {
-            if (cookie.key === 'bili_jct') return true
-        }).value
-        return csrf
+        return this.jar.serializeSync().cookies.find(cookie => cookie.key === 'bili_jct').value
     }
 
     async loadCookiesFromDatabase() {
