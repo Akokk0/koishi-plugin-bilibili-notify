@@ -14,6 +14,19 @@ enum LiveType {
     LiveBroadcast
 }
 
+type SubItem = {
+    id: number,
+    uid: string,
+    roomId: string,
+    targetIdArr: Array<string>,
+    platform: string,
+    live: boolean,
+    dynamic: boolean,
+    liveDispose: Function
+}
+
+type SubManager = Array<SubItem>
+
 class ComRegister {
     static inject = ['ba', 'gi', 'database', 'sm'];
     logger: Logger;
@@ -22,16 +35,7 @@ class ComRegister {
     num: number = 0
     rebootCount: number = 0
     subNotifier: Notifier
-    subManager: {
-        id: number,
-        uid: string,
-        roomId: string,
-        targetIdArr: Array<string>,
-        platform: string,
-        live: boolean,
-        dynamic: boolean,
-        liveDispose: Function
-    }[] = []
+    subManager: SubManager = []
     // 机器人实例
     bot: Bot<Context>
     // 动态销毁函数
@@ -297,7 +301,9 @@ class ComRegister {
                     if (createGroupData.code === 22106) {
                         // 分组已存在，拿到之前的分组id
                         const allGroupData = await ctx.ba.getAllGroup()
+                        // 遍历所有分组
                         for (const group of allGroupData.data) {
+                            // 找到订阅分组
                             if (group.name === '订阅') {
                                 // 拿到分组id
                                 loginDBData.dynamic_group_id = group.tagid
@@ -308,6 +314,7 @@ class ComRegister {
                         // 创建分组失败
                         return '创建关注分组出错'
                     }
+                    // 创建成功，保存到数据库
                     ctx.database.set('loginBili', 1, { dynamic_group_id: loginDBData.dynamic_group_id })
                 }
                 // 订阅对象
@@ -332,17 +339,20 @@ class ComRegister {
                         }
                     }
                 }
-                // 用户添加成功
-                // 获取用户信息
+                // 定义外围变量                
                 let content: any
                 try {
+                    // 获取用户信息
                     content = await ctx.ba.getUserInfo(mid)
                 } catch (e) {
+                    // 返回错误信息
                     return 'bili sub getUserInfo() 发生了错误，错误为：' + e.message
                 }
                 // 判断是否成功获取用户信息
                 if (content.code !== 0) {
+                    // 定义错误消息
                     let msg: string
+                    // 判断错误代码
                     switch (content.code) {
                         case -400: msg = '请求错误'; break;
                         case -403: msg = '访问权限不足，请尝试重新登录'; break;
@@ -350,10 +360,12 @@ class ComRegister {
                         case -352: msg = '风控校验失败，请尝试更换UA'; break;
                         default: msg = '未知错误，错误信息：' + content.message; break;
                     }
+                    // 返回错误信息
                     return msg
                 }
-                // 设置目标ID
+                // 定义目标群组id
                 let targetId: string
+                // 定义目标群组id数组
                 let targetIdArr: Array<string>
                 // 判断是否输入了QQ群号
                 if (guildId.length > 0) { // 输入了QQ群号
@@ -365,6 +377,7 @@ class ComRegister {
                         const targetArr = []
                         // 判断群号是否符合条件
                         for (const guild of guildId) {
+                            // 判断是否机器人加入了该群
                             if (guildList.data.some(cv => cv.id === guild)) { // 机器人加入了该群
                                 // 保存到数组
                                 targetArr.push(guild)
@@ -383,6 +396,7 @@ class ComRegister {
                     if (guildId[0] === 'all') {
                         // 判断是否有群机器人相关Bot
                         if (['qq', 'onebot', 'red', 'satori', 'chronocat'].includes(session.event.platform)) {
+                            // 推送所有群组
                             okGuild.push('all')
                         } else {
                             // 发送错误提示并返回
@@ -398,6 +412,7 @@ class ComRegister {
                             case 'red':
                             case 'satori':
                             case 'chronocat': {
+                                // 检查机器人是否加入该群
                                 okGuild = await checkIfGuildHasJoined(this.bot)
                                 break
                             }
@@ -421,10 +436,11 @@ class ComRegister {
                 }
                 // 获取data
                 const { data } = content
-                // 判断是否需要订阅直播
-                const liveMsg = await this.checkIfNeedSub(options.live, '直播', session, data)
-                // 判断是否需要订阅动态
-                const dynamicMsg = await this.checkIfNeedSub(options.dynamic, '动态', session)
+                // 判断是否需要订阅直播和动态
+                const [liveMsg, dynamicMsg] = await this.checkIfNeedSub(options.live, options.dynamic, session, data)
+                console.log('Live MSG:', liveMsg);
+                console.log('Dynamic MSG:', dynamicMsg);
+
                 // 判断是否未订阅任何消息
                 if (!liveMsg && !dynamicMsg) {
                     return '您未订阅该UP的任何消息'
@@ -456,7 +472,6 @@ class ComRegister {
                 })
                 // 订阅数+1
                 this.num++
-                // 开始订阅
                 // 保存新订阅对象
                 this.subManager.push({
                     id: sub.id,
@@ -688,12 +703,14 @@ class ComRegister {
             flag = false
             // 无论是否执行成功都要释放锁
             try {
+                console.log(`初始化状态：${detectSetup}`);
                 // 检测启动初始化
                 if (detectSetup) {
                     // 获取动态信息
                     const data = await ctx.ba.getAllDynamic() as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
                     // 判断获取动态信息是否成功
                     if (data.code !== 0) return
+                    console.log(`更新基线：${data.data.update_baseline}`);
                     // 设置更新基线
                     updateBaseline = data.data.update_baseline
                     // 设置初始化为false
@@ -706,10 +723,12 @@ class ComRegister {
                 try {
                     // 查询是否有新动态
                     const data = await ctx.ba.hasNewDynamic(updateBaseline)
+                    console.log(`获取是否有新动态：${data}`);
                     // 没有新动态或获取动态信息失败直接返回
                     if (data.data.update_num <= 0 || data.code !== 0) return
                     // 获取动态内容
                     content = await ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
+                    console.log(`获取动态内容：Code:${content.code},Message:${content.message}`);
                 } catch (e) {
                     return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
                 }
@@ -757,6 +776,7 @@ class ComRegister {
                 const data = content.data
                 // 更新基线
                 updateBaseline = data.update_baseline
+                console.log(`更新基线：${updateBaseline}`);
                 // 有新动态内容
                 const items = data.items
                 // 检查更新的动态
@@ -774,6 +794,7 @@ class ComRegister {
                             // 从动态数据中取出UP主名称和动态ID
                             const upName = content.data.items[num].modules.module_author.name
                             const dynamicId = content.data.items[num].id_str
+                            console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
                             // 推送该条动态
                             const attempts = 3;
                             for (let i = 0; i < attempts; i++) {
@@ -1259,40 +1280,27 @@ class ComRegister {
         return table ? table : '没有订阅任何UP'
     }
 
-    async checkIfNeedSub(comNeed: boolean, subType: string, session: Session, data?: any): Promise<boolean> {
-        if (comNeed) {
-            if (subType === '直播' && !data.live_room) {
+    async checkIfNeedSub(liveSub: boolean, dynamicSub: boolean, session: Session, data?: any): Promise<Array<boolean>> {
+        // 定义方法：用户直播间是否存在
+        const liveRoom = async () => {
+            if (!data.live_room) {
+                // 未开通直播间
                 await session.send('该用户未开通直播间，无法订阅直播')
+                // 返回false
                 return false
             }
-            return true
         }
-        let input: string // 用户输入
-        // 询问用户是否需要订阅直播
-        while (true) {
-            session.send(`是否需要订阅${subType}？需要输入 y 不需要输入 n `)
-            input = await session.prompt()
-            if (!input) {
-                await session.send('输入超时请重新订阅')
-                continue
-            }
-            switch (input) {
-                case 'y': { // 需要订阅直播
-                    // 如果用户没有开通直播间则无法订阅
-                    if (subType === '直播' && !data.live_room) {
-                        await session.send('该用户未开通直播间，无法订阅直播')
-                        return false
-                    }
-                    // 开启直播订阅
-                    return true
-                }
-                // 不需要
-                case 'n': return false
-                default: { // 输入了其他的内容
-                    session.send('输入有误，请输入 y 或 n')
-                }
-            }
+        // 如果两者都为true或者都为false则直接返回
+        if ((liveSub && dynamicSub) || (!liveSub && !dynamicSub)) return [true, true]
+        // 如果只订阅直播
+        if (liveSub) {
+            // 判断是否存在直播间
+            if (await liveRoom()) return [false, false]
+            // 返回
+            return [true, false]
         }
+        // 只订阅动态
+        return [false, true]
     }
 
     updateSubNotifier(ctx: Context) {
@@ -1363,7 +1371,7 @@ class ComRegister {
             }
             // 获取推送目标数组
             const targetIdArr = sub.targetId.split(' ')
-            // 判断数据库是否被篡改
+            /* 判断数据库是否被篡改 */
             // 获取用户信息
             let content: any
             const attempts = 3
@@ -1443,58 +1451,84 @@ class ComRegister {
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
         }
+        // 检查是否有订阅对象需要动态监测
+        if (this.subManager.some(sub => sub.dynamic)) {
+            // 开始动态监测
+            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
+        }
         // 在控制台中显示订阅对象
         this.updateSubNotifier(ctx)
     }
 
     unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
-        let index: number
+        // 定义返回消息
+        let msg: string
         // 定义方法：检查是否没有任何订阅
-        const checkIfNoSubExist = (index: number) => {
-            if (!this.subManager[index].dynamic && !this.subManager[index].live) {
-                // 获取要删除行的id
-                const id = this.subManager[index].id
-                // 从管理对象中移除
-                this.subManager.splice(index, 1)
-                // 从数据库中删除
-                ctx.database.remove('bilibili', [id])
-                // num--
-                this.num--
-                return '已取消订阅该用户'
-            }
-            return null
+        const checkIfNoSubExist = (sub: SubItem) => !sub.dynamic && !sub.live
+        // 定义方法：将订阅对象从订阅管理对象中移除
+        const removeSub = (index: number) => {
+            // 从管理对象中移除
+            this.subManager.splice(index, 1)
+            // 从数据库中删除
+            ctx.database.remove('bilibili', [this.subManager[index].id])
+            // num--
+            this.num--
+            // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
+            this.checkIfUserThatIsSubDynAndUnsub()
         }
 
         try {
             switch (type) {
                 case 0: { // 取消Live订阅
-                    index = this.subManager.findIndex(sub => sub.roomId === id)
-                    if (index === -1) return '未订阅该用户，无需取消订阅'
+                    // 获取订阅对象所在的索引
+                    const index = this.subManager.findIndex(sub => sub.roomId === id)
+                    // 获取订阅对象
+                    const sub = this.subManager.find(sub => sub.roomId === id)
+                    // 判断是否存在订阅对象
+                    if (!sub) {
+                        msg = '未订阅该用户，无需取消订阅'
+                        return msg
+                    }
                     // 取消订阅
-                    if (this.subManager[index].live) this.subManager[index].liveDispose()
-                    this.subManager[index].liveDispose = null
-                    this.subManager[index].live = false
+                    if (sub.live) sub.liveDispose()
+                    sub.liveDispose = null
+                    sub.live = false
                     // 如果没有对这个UP的任何订阅，则移除
-                    const info = checkIfNoSubExist(index)
-                    if (info) return info
+                    if (checkIfNoSubExist(sub)) {
+                        // 从管理对象中移除
+                        removeSub(index)
+                        return '已取消订阅该用户'
+                    }
                     // 更新数据库
                     ctx.database.upsert('bilibili', [{
-                        id: +`${this.subManager[index].id}`,
+                        id: +`${sub.id}`,
                         live: 0
                     }])
                     return '已取消订阅Live'
                 }
                 case 1: { // 取消Dynamic订阅
-                    index = this.subManager.findIndex(sub => sub.uid === id)
-                    if (index === -1) return '未订阅该用户，无需取消订阅'
+                    // 获取订阅对象所在的索引
+                    const index = this.subManager.findIndex(sub => sub.uid === id)
+                    // 获取订阅对象
+                    const sub = this.subManager.find(sub => sub.uid === id)
+                    // 判断是否存在订阅对象
+                    if (!sub) {
+                        msg = '未订阅该用户，无需取消订阅'
+                        return msg
+                    }
                     // 取消订阅
                     this.subManager[index].dynamic = false
+                    // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
+                    this.checkIfUserThatIsSubDynAndUnsub()
                     // 如果没有对这个UP的任何订阅，则移除
-                    const info = checkIfNoSubExist(index)
-                    if (info) return
+                    if (checkIfNoSubExist(sub)) {
+                        // 从管理对象中移除
+                        removeSub(index)
+                        return '已取消订阅该用户'
+                    }
                     // 更新数据库
                     ctx.database.upsert('bilibili', [{
-                        id: this.subManager[index].id,
+                        id: sub.id,
                         dynamic: 0
                     }])
                     return '已取消订阅Dynamic'
@@ -1506,10 +1540,20 @@ class ComRegister {
         }
     }
 
+    checkIfUserThatIsSubDynAndUnsub() {
+        if (this.subManager.some(sub => sub.dynamic)) {
+            // 停止动态监测
+            this.dynamicDispose()
+            this.dynamicDispose = null
+        }
+    }
+
     unsubAll(ctx: Context, uid: string) {
         this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
             // 取消全部订阅 执行dispose方法，销毁定时器
             if (sub.live) await this.subManager[i].liveDispose()
+            // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
+            this.checkIfUserThatIsSubDynAndUnsub()
             // 从数据库中删除订阅
             await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
             // 将该订阅对象从订阅管理对象中移除
