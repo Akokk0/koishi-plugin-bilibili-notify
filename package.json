@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "1.3.7",
+  "version": "2.0.0-alpha.0",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],

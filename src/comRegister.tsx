@@ -47,9 +47,8 @@ class ComRegister {
         this.logger = ctx.logger('cr')
         this.config = config
         // 拿到机器人实例
-        if (ctx.bots[0] && ctx.bots[0].platform === config.platform) {
-            this.bot = ctx.bots[0]
-        } else {
+        this.bot = ctx.bots.find(bot => bot.platform === config.platform)
+        if (!this.bot) {
             ctx.notifier.create({
                 type: 'danger',
                 content: '未找到对应机器人实例，请检查配置是否正确或重新配置适配器！'
@@ -74,6 +73,7 @@ class ComRegister {
                     } catch (e) {
                         if (i === attempts - 1) { // 已尝试三次
                             this.logger.error(`发送群组ID:${guild}消息失败！原因: ` + e.message)
+                            console.log(e);
                             this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`)
                         }
                     }
@@ -719,16 +719,20 @@ class ComRegister {
                     return
                 }
                 // 获取用户所有动态数据
+                let updateNum: number
                 let content: any
                 try {
                     // 查询是否有新动态
                     const data = await ctx.ba.hasNewDynamic(updateBaseline)
-                    console.log(`获取是否有新动态：${data}`);
+                    updateNum = data.data.update_num
+                    console.log(`获取是否有新动态：`);
+                    console.log(data);
                     // 没有新动态或获取动态信息失败直接返回
-                    if (data.data.update_num <= 0 || data.code !== 0) return
+                    if (updateNum <= 0 || data.code !== 0) return
                     // 获取动态内容
                     content = await ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
-                    console.log(`获取动态内容：Code:${content.code},Message:${content.message}`);
+                    console.log('获取动态内容：');
+                    console.log(content.data.items[0]);
                 } catch (e) {
                     return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
                 }
@@ -780,13 +784,21 @@ class ComRegister {
                 // 有新动态内容
                 const items = data.items
                 // 检查更新的动态
-                for (let num = data.update_num - 1; num >= 0; num--) {
+                for (let num = updateNum - 1; num >= 0; num--) {
+                    // 有更新动态
+                    console.log('有更新动态');
                     // 没有动态内容则直接跳过
                     if (!items[num]) continue
+                    // 从动态数据中取出UP主名称、UID和动态ID
+                    const upName = content.data.items[num].modules.module_author.name
+                    const upUID = items[num].modules.module_author.mid
+                    const dynamicId = content.data.items[num].id_str
+                    console.log(`寻找关注的UP主，当前动态UP主：${upName}，UID：${upUID}，动态ID：${dynamicId}`);
                     // 寻找关注的UP主的动态
                     this.subManager.forEach(async (sub) => {
+                        console.log(`当前订阅UP主：${sub.uid}`);
                         // 判断是否是订阅的UP主
-                        if (sub.uid === items[num].modules.module_author.mid) {
+                        if (sub.uid == upUID) {
                             // 订阅该UP主，推送该动态
                             // 定义变量
                             let pic: string
@@ -847,175 +859,6 @@ class ComRegister {
                             }
                         }
                     })
-                }
-            }
-            finally {
-                flag = true
-            }
-        }
-    }
-
-    debug_dynamicDetect(
-        ctx: Context,
-        bot: Bot<Context>,
-        uid: string,
-        guildId: Array<string>
-    ) {
-        let firstSubscription: boolean = true
-        let timePoint: number
-        // 相当于锁的作用，防止上一个循环没处理完
-        let flag: boolean = true
-
-        return async () => {
-            // 判断上一个循环是否完成
-            if (!flag) return
-            flag = false
-            // 无论是否执行成功都要释放锁
-            try {
-                // 第一次订阅判断
-                if (firstSubscription) {
-                    this.logger.info(`UID：${uid}-动态监测开始`)
-                    // 设置第一次的时间点
-                    timePoint = ctx.ba.getTimeOfUTC8()
-                    // 设置第一次为false
-                    firstSubscription = false
-                    return
-                }
-                this.logger.info(`UID：${uid}-获取动态信息中`)
-                // 获取用户空间动态数据
-                let content: any
-                try {
-                    content = await ctx.ba.getUserSpaceDynamic(uid)
-                } catch (e) {
-                    return this.logger.error(`UID：${uid}-dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`)
-                }
-                this.logger.info(`UID：${uid}-判断动态信息是否正确`)
-                // 判断是否出现其他问题
-                if (content.code !== 0) {
-                    switch (content.code) {
-                        case -101: { // 账号未登录
-                            // 输出日志
-                            this.logger.error('账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
-                            // 发送私聊消息
-                            await this.sendPrivateMsg('账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
-                            // 停止服务
-                            await ctx.sm.disposePlugin()
-                            // 结束循环
-                            break
-                        }
-                        case -352: { // 风控
-                            // 输出日志
-                            this.logger.error('账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
-                            // 发送私聊消息
-                            await this.sendPrivateMsg('账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
-                            // 停止服务
-                            await ctx.sm.disposePlugin()
-                            // 结束循环
-                            break
-                        }
-                        case 4101128:
-                        case 4101129: { // 获取动态信息错误
-                            // 输出日志
-                            this.logger.error('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message);
-                            // 发送私聊消息
-                            await this.sendPrivateMsg('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message); // 未知错误
-                            // 结束循环
-                            break
-                        }
-                        default: { // 未知错误
-                            // 发送私聊消息
-                            await this.sendPrivateMsg('获取动态信息错误，错误码为：' + content.code + '，错误为：' + content.message) // 未知错误
-                            // 取消订阅
-                            this.unsubAll(ctx, uid)
-                            // 结束循环
-                            break
-                        }
-                    }
-                }
-                // 获取数据内容
-                const items = content.data.items
-                this.logger.info(`UID：${uid}-获取到的动态信息：${items.map(v => v.basic.rid_str).join('、')}`)
-                // 定义方法：更新时间点为最新发布动态的发布时间
-                const updatePoint = (num: number) => {
-                    switch (num) {
-                        case 1: {
-                            if (items[0].modules.module_tag) { // 存在置顶动态
-                                timePoint = items[num].modules.module_author.pub_ts
-                            }
-                            break
-                        }
-                        case 0: timePoint = items[num].modules.module_author.pub_ts
-                    }
-                }
-                // 发送请求 默认只查看配置文件规定数量的数据
-                for (let num = this.config.dynamicCheckNumber - 1; num >= 0; num--) {
-                    // 没有动态内容则直接跳过
-                    if (!items[num]) continue
-                    // 寻找发布时间比时间点更晚的动态
-                    if (items[num].modules.module_author.pub_ts > timePoint) {
-                        this.logger.info(`UID：${uid}-即将推送的动态：${items[num].basic.rid_str}`)
-                        // 定义变量
-                        let pic: string
-                        let buffer: Buffer
-                        // 从动态数据中取出UP主名称和动态ID
-                        const upName = content.data.items[num].modules.module_author.name
-                        const dynamicId = content.data.items[num].id_str
-                        // 推送该条动态
-                        const attempts = 3;
-                        this.logger.info(`UID：${uid}-尝试渲染推送图片`)
-                        for (let i = 0; i < attempts; i++) {
-                            // 获取动态推送图片
-                            try {
-                                // 渲染图片
-                                const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gi.generateDynamicImg(items[num])
-                                // 赋值
-                                pic = gimgPic
-                                buffer = gimgBuffer
-                                // 成功则跳出循环
-                                break
-                            } catch (e) {
-                                // 直播开播动态，不做处理
-                                if (e.message === '直播开播动态，不做处理') return updatePoint(num)
-                                if (e.message === '出现关键词，屏蔽该动态') {
-                                    // 如果需要发送才发送
-                                    if (this.config.filter.notify) {
-                                        await this.sendMsg(guildId, `${upName}发布了一条含有屏蔽关键字的动态`)
-                                    }
-                                    return updatePoint(num)
-                                }
-                                if (e.message === '已屏蔽转发动态') {
-                                    if (this.config.filter.notify) {
-                                        await this.sendMsg(guildId, `${upName}发布了一条转发动态，已屏蔽`)
-                                    }
-                                    return updatePoint(num)
-                                }
-                                // 未知错误
-                                if (i === attempts - 1) {
-                                    this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
-                                    // 发送私聊消息并重启服务
-                                    return await this.sendPrivateMsgAndStopService(ctx)
-                                }
-                            }
-                        }
-                        this.logger.info(`UID：${uid}-尝试推送动态卡片`)
-                        // 判断是否需要发送URL
-                        const dUrl = this.config.dynamicUrl ? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}` : ''
-                        // 如果pic存在，则直接返回pic
-                        if (pic) {
-                            this.logger.info(`UID：${uid}-推送动态中，使用render模式`);
-                            // pic存在，使用的是render模式
-                            await this.sendMsg(guildId, pic + <>{dUrl}</>)
-                        } else if (buffer) {
-                            this.logger.info(`UID：${uid}-推送动态中，使用page模式`);
-                            // pic不存在，说明使用的是page模式
-                            await this.sendMsg(guildId, <>{h.image(buffer, 'image/png')}{dUrl}</>)
-                        } else {
-                            this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
-                        }
-                        // 更新时间点
-                        updatePoint(num)
-                        this.logger.info(`UID：${uid}-推送动态完成`)
-                    }
                 }
             }
             finally {
@@ -1454,7 +1297,7 @@ class ComRegister {
         // 检查是否有订阅对象需要动态监测
         if (this.subManager.some(sub => sub.dynamic)) {
             // 开始动态监测
-            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
+            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), 10000 /* this.config.dynamicLoopTime * 1000 */)
         }
         // 在控制台中显示订阅对象
         this.updateSubNotifier(ctx)
