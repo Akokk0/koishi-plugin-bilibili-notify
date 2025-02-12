@@ -34,7 +34,7 @@ export interface Config {
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
-    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '20分钟',
+    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '10分钟' | '20分钟'
     live: {},
     changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
@@ -66,7 +66,7 @@ export const Config: Schema<Config> = Schema.object({
 
     platform: Schema.union(['qq', 'qqguild', 'onebot', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
         .role('')
-        .default('qq')
+        .required()
         .description('请选择你的机器人平台，目前支持QQ、QQ群、OneBot、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
 
     master: Schema.intersect([
@@ -94,7 +94,7 @@ export const Config: Schema<Config> = Schema.object({
 
     unlockSubLimits: Schema.boolean()
         .default(false)
-        .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
+        .description('解锁3个直播订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
 
     automaticResend: Schema.boolean()
         .default(true)
@@ -123,7 +123,7 @@ export const Config: Schema<Config> = Schema.object({
         .default(5)
         .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应+1。默认值为5条'),
 
-    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '20分钟'])
+    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '10分钟', '20分钟'])
         .role('')
         .default('2分钟')
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
@@ -132,8 +132,7 @@ export const Config: Schema<Config> = Schema.object({
 
     changeMasterInfoApi: Schema.boolean()
         .default(false)
-        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换')
-        .experimental(),
+        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换'),
 
     liveStartAtAll: Schema.boolean()
         .default(false)
@@ -145,8 +144,7 @@ export const Config: Schema<Config> = Schema.object({
 
     pushUrl: Schema.boolean()
         .default(false)
-        .description('推送直播状态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！')
-        .experimental(),
+        .description('推送直播状态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！'),
 
     pushTime: Schema.number()
         .min(0)
@@ -165,8 +163,7 @@ export const Config: Schema<Config> = Schema.object({
 
     hideDesc: Schema.boolean()
         .default(false)
-        .description('是否隐藏UP主直播间简介，开启后推送的直播卡片将不再展示简介')
-        .experimental(),
+        .description('是否隐藏UP主直播间简介，开启后推送的直播卡片将不再展示简介'),
 
     style: Schema.object({}).description('美化设置'),
 
@@ -287,6 +284,7 @@ class ServerManager extends Service {
             case '2分钟': this.dynamicLoopTime = 120; break;
             case '3分钟': this.dynamicLoopTime = 180; break;
             case '5分钟': this.dynamicLoopTime = 300; break;
+            case '10分钟': this.dynamicLoopTime = 600; break;
             case '20分钟': this.dynamicLoopTime = 1200; break;
         }
         // 注册插件
