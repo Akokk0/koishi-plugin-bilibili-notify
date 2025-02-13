@@ -24,7 +24,7 @@ declare module 'koishi' {
 export interface Config {
     require: {},
     key: string,
-    platform: 'qq' | 'qqguild' | 'onebot' | 'red' | 'telegram' | 'satori' | 'chronocat' | 'lark',
+    platform: 'qq' | 'qqguild' | 'onebot' | 'discord' | 'red' | 'telegram' | 'satori' | 'chronocat' | 'lark',
     master: {},
     basicSettings: {},
     unlockSubLimits: boolean,
@@ -64,10 +64,10 @@ export const Config: Schema<Config> = Schema.object({
         .required()
         .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/'),
 
-    platform: Schema.union(['qq', 'qqguild', 'onebot', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
+    platform: Schema.union(['qq', 'qqguild', 'onebot', 'discord', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
         .role('')
         .required()
-        .description('请选择你的机器人平台，目前支持QQ、QQ群、OneBot、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
+        .description('请选择你的机器人平台，目前支持QQ、QQ群、OneBot、Discord、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
 
     master: Schema.intersect([
         Schema.object({

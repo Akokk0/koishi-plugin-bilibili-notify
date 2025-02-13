@@ -6,12 +6,12 @@ import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
-import { Jimp, JimpMime } from 'jimp'
 
 enum LiveType {
     NotLiveBroadcast,
     StartBroadcasting,
-    LiveBroadcast
+    LiveBroadcast,
+    StopBroadcast
 }
 
 type SubItem = {
@@ -278,7 +278,7 @@ class ComRegister {
                 }
                 // 检查是否是不支持的平台
                 switch (session.event.platform) {
-                    case 'lark': case 'red': case 'onebot': case 'telegram': case 'satori': case 'chronocat': case 'qq': case 'qqguild': break
+                    case 'lark': case 'red': case 'onebot': case 'telegram': case 'satori': case 'chronocat': case 'qq': case 'qqguild': case 'discord': break
                     default: return '暂不支持该平台'
                 }
                 // 检查是否登录
@@ -1187,21 +1187,8 @@ class ComRegister {
                             const liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                            // 获取头像并缩放
-                            let resizedImage: Buffer
-                            // Jimp无法处理Webp格式，直接跳过
-                            try {
-                                resizedImage = await Jimp.read(userface).then(async image => {
-                                    return await image.resize({ w: 100, h: 100 }).getBuffer(JimpMime.png)
-                                })
-                            } catch (e) {
-                                if (e.message === 'Unsupported MIME type: image/webp')
-                                    console.log('主播使用的是webp格式头像，无法进行渲染')
-                                else
-                                    console.log(e)
-                            }
-                            // 发送下播通知
-                            await this.sendMsg(guildId, <>{resizedImage && h.image(resizedImage, 'image/png')} {liveEndMsg}</>)
+                            // 发送@全体成员通知
+                            await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveEndMsg)
                         }
                         // 未进循环，还未开播，继续循环
                         break
