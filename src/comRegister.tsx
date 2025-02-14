@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-namespace */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Bot, Context, Logger, Schema, Session, h } from "koishi"
+import { Bot, Context, FlatPick, Logger, Schema, Session, h } from "koishi"
 import { Notifier } from "@koishijs/plugin-notifier";
 import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
+import { LoginBili } from "./database";
 
 enum LiveType {
     NotLiveBroadcast,
@@ -36,6 +37,8 @@ class ComRegister {
     rebootCount: number = 0
     subNotifier: Notifier
     subManager: SubManager = []
+    // 检查登录数据库是否有数据
+    loginDBData: FlatPick<LoginBili, "dynamic_group_id">
     // 机器人实例
     bot: Bot<Context>
     // 动态销毁函数
@@ -55,6 +58,8 @@ class ComRegister {
             })
             this.logger.error('未找到对应机器人实例，请检查配置是否正确或重新配置适配器！')
         }
+        // 检查登录数据库是否有数据
+        ctx.database.get('loginBili', 1, ['dynamic_group_id']).then(data => this.loginDBData = data[0])
         // 从数据库获取订阅
         this.getSubFromDatabase(ctx)
         // 判断消息发送方式
@@ -288,55 +293,8 @@ class ComRegister {
                 }
                 // 检查必选参数是否已填
                 if (!mid) return '请输入用户uid'
-                // 检查数据库是否有数据
-                const loginDBData = (await ctx.database.get('loginBili', 1, ['dynamic_group_id']))[0]
-                // 判断是否有数据
-                if (loginDBData.dynamic_group_id === '' || loginDBData.dynamic_group_id === null) {
-                    // 没有数据，没有创建分组，尝试创建分组
-                    const createGroupData = await ctx.ba.createGroup("订阅")
-                    // 如果分组已创建，则获取分组id
-                    if (createGroupData.code === 22106) {
-                        // 分组已存在，拿到之前的分组id
-                        const allGroupData = await ctx.ba.getAllGroup()
-                        // 遍历所有分组
-                        for (const group of allGroupData.data) {
-                            // 找到订阅分组
-                            if (group.name === '订阅') {
-                                // 拿到分组id
-                                loginDBData.dynamic_group_id = group.tagid
-                                // 结束循环
-                                break
-                            }
-                        }
-                    } else if (createGroupData.code !== 0) {
-                        // 创建分组失败
-                        return '创建关注分组出错'
-                    }
-                    // 创建成功，保存到数据库
-                    ctx.database.set('loginBili', 1, { dynamic_group_id: loginDBData.dynamic_group_id })
-                }
                 // 订阅对象
-                const subUserData = await ctx.ba.follow(mid)
-                // 判断是否订阅成功
-                switch (subUserData.code) {
-                    case -101: return '账号未登录，请使用指令bili login登录后再进行订阅操作'
-                    case -102: return '账号被封停，无法进行订阅操作'
-                    case 22002: return '因对方隐私设置，无法进行订阅操作'
-                    case 22003: return '你已将对方拉黑，无法进行订阅操作'
-                    case 22013: return '账号已注销，无法进行订阅操作'
-                    case 40061: return '账号不存在，请检查uid输入是否正确或用户是否存在'
-                    case 22001: break // 订阅对象为自己 无需添加到分组
-                    case 22014: // 已关注订阅对象 无需再次关注
-                    case 0: { // 执行订阅成功
-                        // 把订阅对象添加到分组中
-                        const copyUserToGroupData = await ctx.ba.copyUserToGroup(mid, loginDBData.dynamic_group_id)
-                        // 判断是否添加成功
-                        if (copyUserToGroupData.code !== 0) {
-                            // 添加失败
-                            return '添加订阅对象到分组失败，请稍后重试'
-                        }
-                    }
-                }
+
                 // 定义外围变量                
                 let content: any
                 try {
@@ -1330,6 +1288,58 @@ class ComRegister {
             }
             check()
         })
+    }
+
+    async subUserInBili(ctx: Context, mid: string): Promise<{ flag: boolean, msg: string }> {
+        // 判断是否有数据
+        if (this.loginDBData.dynamic_group_id === '' || this.loginDBData.dynamic_group_id === null) {
+            // 没有数据，没有创建分组，尝试创建分组
+            const createGroupData = await ctx.ba.createGroup("订阅")
+            // 如果分组已创建，则获取分组id
+            if (createGroupData.code === 22106) {
+                // 分组已存在，拿到之前的分组id
+                const allGroupData = await ctx.ba.getAllGroup()
+                // 遍历所有分组
+                for (const group of allGroupData.data) {
+                    // 找到订阅分组
+                    if (group.name === '订阅') {
+                        // 拿到分组id
+                        this.loginDBData.dynamic_group_id = group.tagid
+                        // 结束循环
+                        break
+                    }
+                }
+            } else if (createGroupData.code !== 0) {
+                // 创建分组失败
+                return { flag: false, msg: '创建关注分组出错' }
+            }
+            // 创建成功，保存到数据库
+            ctx.database.set('loginBili', 1, { dynamic_group_id: this.loginDBData.dynamic_group_id })
+        }
+        // 订阅对象
+        const subUserData = await ctx.ba.follow(mid)
+        // 判断是否订阅成功
+        switch (subUserData.code) {
+            case -101: return { flag: false, msg: '账号未登录，请使用指令bili login登录后再进行订阅操作' }
+            case -102: return { flag: false, msg: '账号被封停，无法进行订阅操作' }
+            case 22002: return { flag: false, msg: '因对方隐私设置，无法进行订阅操作' }
+            case 22003: return { flag: false, msg: '你已将对方拉黑，无法进行订阅操作' }
+            case 22013: return { flag: false, msg: '账号已注销，无法进行订阅操作' }
+            case 40061: return { flag: false, msg: '账号不存在，请检查uid输入是否正确或用户是否存在' }
+            case 22001: break // 订阅对象为自己 无需添加到分组
+            case 22014: // 已关注订阅对象 无需再次关注
+            case 0: { // 执行订阅成功
+                // 把订阅对象添加到分组中
+                const copyUserToGroupData = await ctx.ba.copyUserToGroup(mid, this.loginDBData.dynamic_group_id)
+                // 判断是否添加成功
+                if (copyUserToGroupData.code !== 0) {
+                    // 添加失败
+                    return { flag: false, msg: '添加订阅对象到分组失败，请稍后重试' }
+                }
+            }
+        }
+        // 订阅成功
+        return { flag: true, msg: '用户订阅成功' }
     }
 
     async getSubFromDatabase(ctx: Context) {
