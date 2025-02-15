@@ -223,6 +223,7 @@ class ComRegister {
                             if (options.dynamic) await session.send(this.unsubSingle(ctx, sub.uid, 1)) /* 1为取消订阅Dynamic */
                             // 将存在flag设置为true
                             exist = true
+                            // 结束循环
                             return
                         }
                         // 取消全部订阅 执行dispose方法，销毁定时器
@@ -234,9 +235,12 @@ class ComRegister {
                         // 将订阅对象移出订阅关注组
                         const removeUserFromGroupData = await ctx.ba.removeUserFromGroup(sub.uid)
                         // 判断是否移出成功 22105关注对象为自己
-                        if (removeUserFromGroupData.code !== 0 || removeUserFromGroupData.data !== 22105) {
+                        if (removeUserFromGroupData.code !== 0 && removeUserFromGroupData.code !== 22105) {
                             // 移出失败
                             await session.send('取消订阅对象失败，请稍后重试')
+                            // 将存在flag设置为true
+                            exist = true
+                            // 结束循环
                             return
                         }
                         // id--
@@ -293,7 +297,7 @@ class ComRegister {
                 }
                 // 检查必选参数是否已填
                 if (!mid) return '请输入用户uid'
-                // 订阅对象
+                // 订阅对象 TODO
 
                 // 定义外围变量                
                 let content: any
@@ -445,7 +449,6 @@ class ComRegister {
                     this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
                     return '订阅出错啦，请重试'
                 }
-                console.log(liveMsg, dynamicMsg);
                 // 订阅直播
                 if (liveMsg) {
                     await session.execute(`bili live ${roomId} ${targetId.split(',').join(' ')}`)
@@ -989,7 +992,6 @@ class ComRegister {
         let userface: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
-
         // 定义发送直播通知卡片方法
         let sendLiveNotifyCard: (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => Promise<void>
         // 判断直播是否需要@全体成员
@@ -1145,8 +1147,10 @@ class ComRegister {
                             const liveEndMsg = this.config.customLiveEnd
                                 .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                            // 更改直播时长
+                            data.live_time = liveTime
                             // 发送@全体成员通知
-                            await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveEndMsg)
+                            await sendLiveNotifyCard(data, LiveType.StopBroadcast, liveEndMsg)
                         }
                         // 未进循环，还未开播，继续循环
                         break
@@ -1291,31 +1295,70 @@ class ComRegister {
     }
 
     async subUserInBili(ctx: Context, mid: string): Promise<{ flag: boolean, msg: string }> {
-        // 判断是否有数据
-        if (this.loginDBData.dynamic_group_id === '' || this.loginDBData.dynamic_group_id === null) {
-            // 没有数据，没有创建分组，尝试创建分组
-            const createGroupData = await ctx.ba.createGroup("订阅")
-            // 如果分组已创建，则获取分组id
-            if (createGroupData.code === 22106) {
-                // 分组已存在，拿到之前的分组id
-                const allGroupData = await ctx.ba.getAllGroup()
-                // 遍历所有分组
-                for (const group of allGroupData.data) {
-                    // 找到订阅分组
-                    if (group.name === '订阅') {
-                        // 拿到分组id
-                        this.loginDBData.dynamic_group_id = group.tagid
-                        // 结束循环
-                        break
+        // 获取关注分组信息
+        const checkGroupIsReady = async (): Promise<boolean> => {
+            // 判断是否有数据
+            if (this.loginDBData.dynamic_group_id === '' || this.loginDBData.dynamic_group_id === null) {
+                // 没有数据，没有创建分组，尝试创建分组
+                const createGroupData = await ctx.ba.createGroup("订阅")
+                // 如果分组已创建，则获取分组id
+                if (createGroupData.code === 22106) {
+                    // 分组已存在，拿到之前的分组id
+                    const allGroupData = await ctx.ba.getAllGroup()
+                    // 遍历所有分组
+                    for (const group of allGroupData.data) {
+                        // 找到订阅分组
+                        if (group.name === '订阅') {
+                            // 拿到分组id
+                            this.loginDBData.dynamic_group_id = group.tagid
+                            // 结束循环
+                            break
+                        }
                     }
+                } else if (createGroupData.code !== 0) {
+                    console.log(createGroupData);
+                    // 创建分组失败
+                    return false
                 }
-            } else if (createGroupData.code !== 0) {
-                // 创建分组失败
-                return { flag: false, msg: '创建关注分组出错' }
+                // 创建成功，保存到数据库
+                ctx.database.set('loginBili', 1, { dynamic_group_id: this.loginDBData.dynamic_group_id })
+                // 创建成功
+                return true
             }
-            // 创建成功，保存到数据库
-            ctx.database.set('loginBili', 1, { dynamic_group_id: this.loginDBData.dynamic_group_id })
+            return true
         }
+        // 判断分组是否准备好
+        const flag = await checkGroupIsReady()
+        // 判断是否创建成功
+        if (!flag) {
+            // 创建分组失败
+            return { flag: false, msg: '创建分组失败，请尝试重启插件' }
+        }
+        // 获取分组明细
+        const relationGroupDetailData = await ctx.ba.getRelationGroupDetail(this.loginDBData.dynamic_group_id)
+        // 判断分组信息是否获取成功
+        if (relationGroupDetailData.code !== 0) {
+            if (relationGroupDetailData.code === 22104) {
+                // 将原先的分组id置空
+                this.loginDBData.dynamic_group_id = null
+                // 分组不存在
+                const flag = await checkGroupIsReady()
+                // 判断是否创建成功
+                if (!flag) {
+                    // 创建分组失败
+                    return { flag: false, msg: '创建分组失败，请尝试重启插件' }
+                }
+                return { flag: true, msg: '分组不存在，已重新创建分组' }
+            }
+            // 获取分组明细失败
+            return { flag: false, msg: '获取分组明细失败' }
+        }
+        relationGroupDetailData.data.forEach(user => {
+            if (user.mid === mid) {
+                // 已关注订阅对象
+                return { flag: true, msg: '订阅对象已存在于分组中' }
+            }
+        })
         // 订阅对象
         const subUserData = await ctx.ba.follow(mid)
         // 判断是否订阅成功
@@ -1365,6 +1408,19 @@ class ComRegister {
                 ctx.database.remove('bilibili', { id: sub.id })
                 // log
                 this.logger.warn(`UID:${sub.uid} 该条数据没有任何订阅数据，自动取消订阅`)
+                // 跳过下面的步骤
+                continue
+            }
+            // 判断用户是否在B站中订阅了
+            const subUserData = await this.subUserInBili(ctx, sub.uid)
+            // 判断是否订阅
+            if (!subUserData.flag) {
+                // log
+                this.logger.warn(`UID:${sub.uid} ${subUserData.msg}，自动取消订阅`)
+                // 发送私聊消息
+                await this.sendPrivateMsg(`UID:${sub.uid} ${subUserData.msg}，自动取消订阅`)
+                // 删除该条数据
+                await ctx.database.remove('bilibili', { id: sub.id })
                 // 跳过下面的步骤
                 continue
             }
@@ -1418,7 +1474,7 @@ class ComRegister {
                 }
             }
             // 检测房间号是否被篡改
-            if (sub.live && (!data.live_room || data.live_room.roomid.toString() !== sub.room_id)) {
+            if (sub.live && (!data.live_room || data.live_room.roomid != sub.room_id)) {
                 // 房间号被篡改，删除该订阅
                 await deleteSub()
                 // log

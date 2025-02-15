@@ -46,6 +46,7 @@ const CREATE_GROUP = 'https://api.bilibili.com/x/relation/tag/create'
 const MODIFY_GROUP_MEMBER = 'https://api.bilibili.com/x/relation/tags/addUsers'
 const GET_ALL_GROUP = 'https://api.bilibili.com/x/relation/tags'
 const COPY_USER_TO_GROUP = 'https://api.bilibili.com/x/relation/tags/copyUsers'
+const GET_RELATION_GROUP_DETAIL = 'https://api.bilibili.com/x/relation/tag'
 
 class BiliAPI extends Service {
     static inject = ['database', 'notifier']
@@ -263,6 +264,15 @@ class BiliAPI extends Service {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 }
             })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async getRelationGroupDetail(tagid: string) {
+        try {
+            const { data } = await this.client.get(`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`)
             return data
         } catch (e) {
             throw new Error('网络异常，本次请求失败！')
