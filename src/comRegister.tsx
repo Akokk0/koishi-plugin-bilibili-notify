@@ -40,23 +40,22 @@ class ComRegister {
     // 检查登录数据库是否有数据
     loginDBData: FlatPick<LoginBili, "dynamic_group_id">
     // 机器人实例
-    bot: Bot<Context>
+    privateBot: Bot<Context>
     // 动态销毁函数
     dynamicDispose: Function
     // 发送消息方式
-    sendMsgFunc: (guild: string, content: any) => Promise<void>
+    sendMsgFunc: (bot: Bot<Context, any>, guild: string, content: any) => Promise<void>
     // 构造函数
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('cr')
         this.config = config
-        // 拿到机器人实例
-        this.bot = ctx.bots.find(bot => bot.platform === config.platform)
-        if (!this.bot) {
+        // 拿到私人机器人实例
+        this.privateBot = ctx.bots.find(bot => bot.platform === config.master.platform)
+        if (!this.privateBot) {
             ctx.notifier.create({
-                type: 'danger',
-                content: '未找到对应机器人实例，请检查配置是否正确或重新配置适配器！'
+                content: '您未配置私人机器人，将无法向您推送机器人状态！'
             })
-            this.logger.error('未找到对应机器人实例，请检查配置是否正确或重新配置适配器！')
+            this.logger.error('您未配置私人机器人，将无法向您推送机器人状态！')
         }
         // 检查登录数据库是否有数据
         ctx.database.get('loginBili', 1, ['dynamic_group_id']).then(data => this.loginDBData = data[0])
@@ -64,13 +63,13 @@ class ComRegister {
         this.getSubFromDatabase(ctx)
         // 判断消息发送方式
         if (config.automaticResend) {
-            this.sendMsgFunc = async (guild: string, content: any) => {
+            this.sendMsgFunc = async (bot: Bot<Context, any>, guild: string, content: any) => {
                 // 多次尝试发送消息
                 const attempts = 3
                 for (let i = 0; i < attempts; i++) {
                     try {
                         // 发送消息
-                        await this.bot.sendMessage(guild, content)
+                        await bot.sendMessage(guild, content)
                         // 防止消息发送速度过快被忽略
                         await ctx.sleep(500)
                         // 成功发送消息，跳出循环
@@ -85,10 +84,10 @@ class ComRegister {
                 }
             }
         } else {
-            this.sendMsgFunc = async (guild: string, content: any) => {
+            this.sendMsgFunc = async (bot: Bot<Context, any>, guild: string, content: any) => {
                 try {
                     // 发送消息
-                    await this.bot.sendMessage(guild, content)
+                    await bot.sendMessage(guild, content)
                 } catch (e) {
                     this.logger.error(`发送群组ID:${guild}消息失败！原因: ` + e.message)
                     await this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`)
@@ -285,11 +284,6 @@ class ComRegister {
                 if (options.live && !this.config.unlockSubLimits && (this.subManager.reduce((acc, cur) => acc + (cur.live ? 1 : 0), 0) >= 3)) {
                     return '直播订阅已达上限，请取消部分直播订阅后再进行订阅'
                 }
-                // 检查是否是不支持的平台
-                switch (session.event.platform) {
-                    case 'lark': case 'red': case 'onebot': case 'telegram': case 'satori': case 'chronocat': case 'qq': case 'qqguild': case 'discord': break
-                    default: return '暂不支持该平台'
-                }
                 // 检查是否登录
                 if (!(await this.checkIfIsLogin(ctx))) {
                     // 未登录直接返回
@@ -374,8 +368,10 @@ class ComRegister {
                             case 'red':
                             case 'satori':
                             case 'chronocat': {
+                                // 获取该会话机器人
+                                const bot = this.getBot(ctx, session.event.platform)
                                 // 检查机器人是否加入该群
-                                okGuild = await checkIfGuildHasJoined(this.bot)
+                                okGuild = await checkIfGuildHasJoined(bot)
                                 break
                             }
                             default: {
@@ -488,7 +484,7 @@ class ComRegister {
                 const index = this.subManager.findIndex(sub => sub.roomId === roomId)
                 if (index === -1) return '请勿直接调用该指令'
                 // 开始循环检测
-                const dispose = ctx.setInterval(this.liveDetect(ctx, roomId, guildId), config.liveLoopTime * 1000)
+                const dispose = ctx.setInterval(this.liveDetect(ctx, roomId, guildId, this.subManager[index].platform), config.liveLoopTime * 1000)
                 // 保存销毁函数
                 this.subManager[index].liveDispose = dispose
             })
@@ -564,18 +560,22 @@ class ComRegister {
             })
     }
 
+    getBot(ctx: Context, pf: string): Bot<Context, any> {
+        return ctx.bots.find(bot => bot.platform === pf)
+    }
+
     async sendPrivateMsg(content: string) {
         if (this.config.master.enable) {
             if (this.config.master.masterAccountGuildId) {
                 // 向机器人主人发送消息
-                await this.bot.sendPrivateMessage(
+                await this.privateBot.sendPrivateMessage(
                     this.config.master.masterAccount,
                     content,
                     this.config.master.masterAccountGuildId
                 )
             } else {
                 // 向机器人主人发送消息
-                await this.bot.sendPrivateMessage(
+                await this.privateBot.sendPrivateMessage(
                     this.config.master.masterAccount,
                     content
                 )
@@ -625,13 +625,15 @@ class ComRegister {
         return
     }
 
-    async sendMsg(targets: Array<string>, content: any) {
+    async sendMsg(ctx: Context, targets: Array<string>, content: any, platform: string) {
+        // 获取机器人实例
+        const bot = this.getBot(ctx, platform)
         // 定义需要发送的数组
         let sendArr = []
         // 判断是否需要推送所有机器人加入的群
         if (targets[0] === 'all') {
             // 获取所有guild
-            for (const guild of (await this.bot.getGuildList()).data) {
+            for (const guild of (await bot.getGuildList()).data) {
                 sendArr.push(guild.id)
             }
         } else {
@@ -639,7 +641,7 @@ class ComRegister {
         }
         // 循环给每个群组发送
         for (const guild of sendArr) {
-            await this.sendMsgFunc(guild, content)
+            await this.sendMsgFunc(bot, guild, content)
         }
     }
 
@@ -763,13 +765,13 @@ class ComRegister {
                                     if (e.message === '出现关键词，屏蔽该动态') {
                                         // 如果需要发送才发送
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(sub.targetIdArr, `${upName}发布了一条含有屏蔽关键字的动态`)
+                                            await this.sendMsg(ctx, sub.targetIdArr, `${upName}发布了一条含有屏蔽关键字的动态`, sub.platform)
                                         }
                                         return
                                     }
                                     if (e.message === '已屏蔽转发动态') {
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(sub.targetIdArr, `${upName}发布了一条转发动态，已屏蔽`)
+                                            await this.sendMsg(ctx, sub.targetIdArr, `${upName}发布了一条转发动态，已屏蔽`, sub.platform)
                                         }
                                         return
                                     }
@@ -787,11 +789,11 @@ class ComRegister {
                             if (pic) {
                                 this.logger.info('推送动态中，使用render模式');
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(sub.targetIdArr, pic + <>{dUrl}</>)
+                                await this.sendMsg(ctx, sub.targetIdArr, pic + <>{dUrl}</>, sub.platform)
                             } else if (buffer) {
                                 this.logger.info('推送动态中，使用page模式');
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(sub.targetIdArr, <>{h.image(buffer, 'image/png')}{dUrl}</>)
+                                await this.sendMsg(ctx, sub.targetIdArr, <>{h.image(buffer, 'image/png')}{dUrl}</>, sub.platform)
                             } else {
                                 this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                             }
@@ -939,13 +941,13 @@ class ComRegister {
                                     if (e.message === '出现关键词，屏蔽该动态') {
                                         // 如果需要发送才发送
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(sub.targetIdArr, `${upName}发布了一条含有屏蔽关键字的动态`)
+                                            await this.sendMsg(ctx, sub.targetIdArr, `${upName}发布了一条含有屏蔽关键字的动态`, sub.platform)
                                         }
                                         return
                                     }
                                     if (e.message === '已屏蔽转发动态') {
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(sub.targetIdArr, `${upName}发布了一条转发动态，已屏蔽`)
+                                            await this.sendMsg(ctx, sub.targetIdArr, `${upName}发布了一条转发动态，已屏蔽`, sub.platform)
                                         }
                                         return
                                     }
@@ -963,11 +965,11 @@ class ComRegister {
                             if (pic) {
                                 this.logger.info('推送动态中，使用render模式');
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(sub.targetIdArr, pic + <>{dUrl}</>)
+                                await this.sendMsg(ctx, sub.targetIdArr, pic + <>{dUrl}</>, sub.platform)
                             } else if (buffer) {
                                 this.logger.info('推送动态中，使用page模式');
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(sub.targetIdArr, <>{h.image(buffer, 'image/png')}{dUrl}</>)
+                                await this.sendMsg(ctx, sub.targetIdArr, <>{h.image(buffer, 'image/png')}{dUrl}</>, sub.platform)
                             } else {
                                 this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                             }
@@ -984,7 +986,8 @@ class ComRegister {
     liveDetect(
         ctx: Context,
         roomId: string,
-        guildId: Array<string>
+        guildId: Array<string>,
+        platform: string
     ) {
         let firstSubscription: boolean = true;
         let timer: number = 0;
@@ -994,78 +997,42 @@ class ComRegister {
         let userface: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
+
         // 定义发送直播通知卡片方法
-        let sendLiveNotifyCard: (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => Promise<void>
-        // 判断直播是否需要@全体成员
-        if (this.config.pushUrl) {
-            sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
-                // 定义变量
-                let pic: string
-                let buffer: Buffer
-                // 多次尝试生成图片
-                const attempts = 3
-                for (let i = 0; i < attempts; i++) {
-                    try {
-                        // 获取直播通知卡片
-                        const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
-                        // 赋值
-                        pic = picv
-                        buffer = bufferv
-                        // 成功则跳出循环
-                        break
-                    } catch (e) {
-                        if (i === attempts - 1) { // 已尝试三次
-                            this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
-                            // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndStopService(ctx)
-                        }
+        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
+            // 定义变量
+            let pic: string
+            let buffer: Buffer
+            // 多次尝试生成图片
+            const attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    // 获取直播通知卡片
+                    const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
+                    // 赋值
+                    pic = picv
+                    buffer = bufferv
+                    // 成功则跳出循环
+                    break
+                } catch (e) {
+                    if (i === attempts - 1) { // 已尝试三次
+                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
+                        // 发送私聊消息并重启服务
+                        return await this.sendPrivateMsgAndStopService(ctx)
                     }
                 }
-                // 推送直播信息
-                // pic 存在，使用的是render模式
-                if (pic) {
-                    const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting && liveType !== LiveType.StopBroadcast ? `https://live.bilibili.com/${roomId}` : ''}</>
-                    return await this.sendMsg(guildId, pic + msg)
-                }
-                // pic不存在，说明使用的是page模式
-                const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting ? `https://live.bilibili.com/${roomId}` : ''}</>
-                await this.sendMsg(guildId, msg)
             }
-        } else {
-            sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
-                // 定义变量
-                let pic: string
-                let buffer: Buffer
-                // 多次尝试生成图片
-                const attempts = 3
-                for (let i = 0; i < attempts; i++) {
-                    try {
-                        // 获取直播通知卡片
-                        const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
-                        // 赋值
-                        pic = picv
-                        buffer = bufferv
-                        // 成功则跳出循环
-                        break
-                    } catch (e) {
-                        if (i === attempts - 1) { // 已尝试三次
-                            this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
-                            // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndStopService(ctx)
-                        }
-                    }
-                }
-                // 推送直播信息
-                // pic 存在，使用的是render模式
-                if (pic) {
-                    const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
-                    return await this.sendMsg(guildId, pic + msg)
-                }
-                // pic不存在，说明使用的是page模式
-                const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
-                await this.sendMsg(guildId, msg)
+            // 推送直播信息
+            // pic 存在，使用的是render模式
+            if (pic) {
+                const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+                return await this.sendMsg(ctx, guildId, pic + msg, platform)
             }
+            // pic不存在，说明使用的是page模式
+            const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+            await this.sendMsg(ctx, guildId, msg, platform)
         }
+
         // 定义获取主播信息方法
         let useMasterInfo: (uid: string) => Promise<void>
         if (this.config.changeMasterInfoApi) {
@@ -1200,8 +1167,13 @@ class ComRegister {
                                 if (timer >= (6 * 60 * this.config.pushTime)) { // 到时间推送直播消息
                                     // 到时间重新计时
                                     timer = 0
+                                    // 定义直播中通知消息
+                                    const liveMsg = this.config.customLive
+                                        .replace('-name', username)
+                                        .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
                                     // 发送直播通知卡片
-                                    sendLiveNotifyCard(data, LiveType.LiveBroadcast)
+                                    sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
                                 }
                             }
                             // 否则继续循环
@@ -1510,7 +1482,7 @@ class ComRegister {
                     liveSubNum++
                     // 订阅直播，开始循环检测
                     const dispose = ctx.setInterval(
-                        this.liveDetect(ctx, sub.room_id, targetIdArr),
+                        this.liveDetect(ctx, sub.room_id, targetIdArr, sub.platform),
                         this.config.liveLoopTime * 1000
                     )
                     // 保存销毁函数
@@ -1653,9 +1625,9 @@ class ComRegister {
 
 namespace ComRegister {
     export interface Config {
-        platform: string,
         master: {
-            enable: boolean
+            enable: boolean,
+            platform: string,
             masterAccount: string,
             masterAccountGuildId: string
         },
@@ -1664,10 +1636,10 @@ namespace ComRegister {
         changeMasterInfoApi: boolean,
         liveStartAtAll: boolean,
         restartPush: boolean,
-        pushUrl: boolean,
         pushTime: number,
         liveLoopTime: number,
         customLiveStart: string,
+        customLive: string,
         customLiveEnd: string,
         dynamicUrl: boolean,
         dynamicLoopTime: number,
@@ -1682,9 +1654,9 @@ namespace ComRegister {
     }
 
     export const Config: Schema<Config> = Schema.object({
-        platform: Schema.string(),
         master: Schema.object({
             enable: Schema.boolean(),
+            platform: Schema.string(),
             masterAccount: Schema.string(),
             masterAccountGuildId: Schema.string()
         }),
@@ -1693,10 +1665,10 @@ namespace ComRegister {
         changeMasterInfoApi: Schema.boolean().required(),
         liveStartAtAll: Schema.boolean().required(),
         restartPush: Schema.boolean().required(),
-        pushUrl: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),
         customLiveStart: Schema.string().required(),
+        customLive: Schema.string(),
         customLiveEnd: Schema.string().required(),
         dynamicUrl: Schema.boolean().required(),
         dynamicLoopTime: Schema.number().default(60),

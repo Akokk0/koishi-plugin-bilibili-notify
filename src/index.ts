@@ -24,7 +24,6 @@ declare module 'koishi' {
 export interface Config {
     require: {},
     key: string,
-    platform: 'qq' | 'qqguild' | 'onebot' | 'discord' | 'red' | 'telegram' | 'satori' | 'chronocat' | 'lark',
     master: {},
     basicSettings: {},
     unlockSubLimits: boolean,
@@ -39,9 +38,9 @@ export interface Config {
     changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
     restartPush: boolean,
-    pushUrl: boolean,
     pushTime: number,
     customLiveStart: string,
+    customLive: string,
     customLiveEnd: string,
     hideDesc: boolean,
     style: {},
@@ -64,11 +63,6 @@ export const Config: Schema<Config> = Schema.object({
         .required()
         .description('请输入一个32位小写字母的十六进制密钥（例如：9b8db7ae562b9864efefe06289cc5530），使用此密钥将你的B站登录信息存储在数据库中，请一定保存好此密钥。如果你忘记了此密钥，必须重新登录。你可以自行生成，或到这个网站生成：https://www.sexauth.com/'),
 
-    platform: Schema.union(['qq', 'qqguild', 'onebot', 'discord', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
-        .role('')
-        .required()
-        .description('请选择你的机器人平台，目前支持QQ、QQ群、OneBot、Discord、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
-
     master: Schema.intersect([
         Schema.object({
             enable: Schema.boolean()
@@ -78,6 +72,8 @@ export const Config: Schema<Config> = Schema.object({
         Schema.union([
             Schema.object({
                 enable: Schema.const(true).required(),
+                platform: Schema.union(['qq', 'qqguild', 'onebot', 'discord', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
+                    .description('请选择您的私人机器人平台，目前支持QQ、QQ群、OneBot、Discord、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
                 masterAccount: Schema.string()
                     .role('secret')
                     .required()
@@ -142,10 +138,6 @@ export const Config: Schema<Config> = Schema.object({
         .default(true)
         .description('插件重启后，如果订阅的主播正在直播，是否进行一次推送，默认开启'),
 
-    pushUrl: Schema.boolean()
-        .default(false)
-        .description('推送直播状态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！'),
-
     pushTime: Schema.number()
         .min(0)
         .max(12)
@@ -156,6 +148,9 @@ export const Config: Schema<Config> = Schema.object({
     customLiveStart: Schema.string()
         .default('-name开播啦 -link')
         .description('自定义开播提示语，-name代表UP昵称，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦'),
+
+    customLive: Schema.string()
+        .description('自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx'),
 
     customLiveEnd: Schema.string()
         .default('-name下播啦，本次直播了-time')
@@ -320,14 +315,12 @@ class ServerManager extends Service {
 
             // CR = ComRegister
             const cr = this.ctx.plugin(ComRegister, {
-                platform: globalConfig.platform,
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,
                 changeMasterInfoApi: globalConfig.changeMasterInfoApi,
                 liveStartAtAll: globalConfig.liveStartAtAll,
                 restartPush: globalConfig.restartPush,
-                pushUrl: globalConfig.pushUrl,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
                 customLiveEnd: globalConfig.customLiveEnd,
