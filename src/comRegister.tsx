@@ -113,7 +113,7 @@ class ComRegister {
             .usage('查看订阅管理对象')
             .example('status sm')
             .action(async () => {
-                console.log(this.subManager);
+                this.logger.info(this.subManager)
                 return '查看控制台'
             })
 
@@ -297,8 +297,10 @@ class ComRegister {
                 }
                 // 检查必选参数是否已填
                 if (!mid) return '请输入用户uid'
-                // 订阅对象 TODO
-
+                // 订阅对象
+                const subUserData = await this.subUserInBili(ctx, mid)
+                // 判断是否订阅对象存在
+                if (!subUserData.flag) return '订阅对象失败，请稍后重试！'
                 // 定义外围变量                
                 let content: any
                 try {
@@ -1022,7 +1024,7 @@ class ComRegister {
                 // 推送直播信息
                 // pic 存在，使用的是render模式
                 if (pic) {
-                    const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting ? `https://live.bilibili.com/${roomId}` : ''}</>
+                    const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}{liveType !== LiveType.StartBroadcasting && liveType !== LiveType.StopBroadcast ? `https://live.bilibili.com/${roomId}` : ''}</>
                     return await this.sendMsg(guildId, pic + msg)
                 }
                 // pic不存在，说明使用的是page模式
