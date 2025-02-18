@@ -183,6 +183,7 @@
 - ver 2.0.0-alpha.3 修复：订阅和取消订阅的bug，下播通知的bug
 - ver 2.0.0-alpha.4 修复：初次订阅后不推送动态的bug 优化：下播不再发送链接
 - ver 2.0.0-alpha.5 移除：选项pushUrl，选项platform 新增：选项customLive，主人账号中platform选项。支持多平台，且可同时推送不同平台，单个UP主只能推送一个平台
+- ver 2.0.0-alpha.6 修复：直播推送发送失败的bug
 
 ## 交流群
 

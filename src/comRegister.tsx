@@ -999,7 +999,7 @@ class ComRegister {
         let flag: boolean = true
 
         // 定义发送直播通知卡片方法
-        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveStartMsg?: string, atAll?: boolean) => {
+        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveNotifyMsg?: string, atAll?: boolean) => {
             // 定义变量
             let pic: string
             let buffer: Buffer
@@ -1025,11 +1025,11 @@ class ComRegister {
             // 推送直播信息
             // pic 存在，使用的是render模式
             if (pic) {
-                const msg = <>{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+                const msg = <>{atAll && <at type="all" />}{liveNotifyMsg && liveNotifyMsg}</>
                 return await this.sendMsg(ctx, guildId, pic + msg, platform)
             }
             // pic不存在，说明使用的是page模式
-            const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveStartMsg && liveStartMsg}</>
+            const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveNotifyMsg && liveNotifyMsg}</>
             await this.sendMsg(ctx, guildId, msg, platform)
         }
 
@@ -1168,10 +1168,10 @@ class ComRegister {
                                     // 到时间重新计时
                                     timer = 0
                                     // 定义直播中通知消息
-                                    const liveMsg = this.config.customLive
+                                    const liveMsg = this.config.customLive ? this.config.customLive
                                         .replace('-name', username)
                                         .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
+                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : ''
                                     // 发送直播通知卡片
                                     sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
                                 }
@@ -1519,7 +1519,7 @@ class ComRegister {
             // num--
             this.num--
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-            this.checkIfUserThatIsSubDynAndUnsub()
+            this.checkIfUserIsTheLastOneWhoSubDyn()
         }
 
         try {
@@ -1564,7 +1564,7 @@ class ComRegister {
                     // 取消订阅
                     this.subManager[index].dynamic = false
                     // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-                    this.checkIfUserThatIsSubDynAndUnsub()
+                    this.checkIfUserIsTheLastOneWhoSubDyn()
                     // 如果没有对这个UP的任何订阅，则移除
                     if (checkIfNoSubExist(sub)) {
                         // 从管理对象中移除
@@ -1585,7 +1585,7 @@ class ComRegister {
         }
     }
 
-    checkIfUserThatIsSubDynAndUnsub() {
+    checkIfUserIsTheLastOneWhoSubDyn() {
         if (this.subManager.some(sub => sub.dynamic)) {
             // 停止动态监测
             this.dynamicDispose()
@@ -1598,7 +1598,7 @@ class ComRegister {
             // 取消全部订阅 执行dispose方法，销毁定时器
             if (sub.live) await this.subManager[i].liveDispose()
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-            this.checkIfUserThatIsSubDynAndUnsub()
+            this.checkIfUserIsTheLastOneWhoSubDyn()
             // 从数据库中删除订阅
             await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
             // 将该订阅对象从订阅管理对象中移除
