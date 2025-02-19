@@ -53,15 +53,7 @@ class GenerateImg extends Service {
         this.giConfig = config
     }
 
-    /* protected start(): void | Promise<void> {
-        this.logger.info('工作中');
-    }
-
-    protected stop(): void | Promise<void> {
-        this.logger.info('已停止工作')
-    } */
-
-    async generateLiveImg(data: any, username: string, userface: string, liveStatus: number /*0未开播 1刚开播 2已开播 */) {
+    async generateLiveImg(data: any, username: string, userface: string, liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/) {
         const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
         // 加载字体
         const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
@@ -1449,6 +1441,12 @@ class GenerateImg extends Service {
                 titleStatus = '正在直播';
                 liveTime = `直播时长：${await this.getTimeDifference(time)}`;
                 cover = false;
+                break;
+            }
+            case 3: {
+                titleStatus = '下播啦';
+                liveTime = `直播时长：${await this.getTimeDifference(time)}`;
+                cover = true;
                 break;
             }
         }

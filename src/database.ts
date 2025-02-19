@@ -22,19 +22,13 @@ export interface Bilibili {
 export interface LoginBili {
     id: number,
     bili_cookies: string,
-    bili_refresh_token: string
+    bili_refresh_token: string,
+    dynamic_group_id: string
 }
 
 export const name = 'Database'
 
 export function apply(ctx: Context) {
-    // 新增LoginBili表
-    ctx.model.extend('loginBili', {
-        id: 'unsigned',
-        bili_cookies: 'text',
-        bili_refresh_token: 'text'
-    })
-
     // 新增Bilibili表
     ctx.model.extend('bilibili', {
         id: 'unsigned',
@@ -47,4 +41,12 @@ export function apply(ctx: Context) {
         platform: 'string',
         time: 'timestamp'
     }, { autoInc: true })
+
+    // 新增LoginBili表
+    ctx.model.extend('loginBili', {
+        id: 'unsigned',
+        bili_cookies: 'text',
+        bili_refresh_token: 'text',
+        dynamic_group_id: 'string'
+    })
 }

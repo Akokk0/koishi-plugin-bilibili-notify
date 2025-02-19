@@ -28,6 +28,8 @@ const mixinKeyEncTab = [
 const bangumiTripData = { "code": 0, "data": { "live_room": { "roomid": 931774 } } }
 
 const GET_USER_SPACE_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space'
+const GET_ALL_DYNAMIC_LIST = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all'
+const HAS_NEW_DYNAMIC = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update'
 const GET_COOKIES_INFO = 'https://passport.bilibili.com/x/passport-login/web/cookie/info'
 const GET_USER_INFO = 'https://api.bilibili.com/x/space/wbi/acc/info'
 const GET_MYSELF_INFO = 'https://api.bilibili.com/x/member/web/account'
@@ -37,6 +39,14 @@ const GET_LIVE_ROOM_INFO = 'https://api.live.bilibili.com/room/v1/Room/get_info'
 const GET_MASTER_INFO = 'https://api.live.bilibili.com/live_user/v1/Master/info'
 const GET_TIME_NOW = 'https://api.bilibili.com/x/report/click/now'
 const GET_SERVER_UTC_TIME = 'https://interface.bilibili.com/serverdate.js'
+
+// 操作
+const MODIFY_RELATION = 'https://api.bilibili.com/x/relation/modify'
+const CREATE_GROUP = 'https://api.bilibili.com/x/relation/tag/create'
+const MODIFY_GROUP_MEMBER = 'https://api.bilibili.com/x/relation/tags/addUsers'
+const GET_ALL_GROUP = 'https://api.bilibili.com/x/relation/tags'
+const COPY_USER_TO_GROUP = 'https://api.bilibili.com/x/relation/tags/copyUsers'
+const GET_RELATION_GROUP_DETAIL = 'https://api.bilibili.com/x/relation/tag'
 
 class BiliAPI extends Service {
     static inject = ['database', 'notifier']
@@ -148,9 +158,121 @@ class BiliAPI extends Service {
         }
     }
 
+    async getAllGroup() {
+        try {
+            const { data } = await this.client.get(GET_ALL_GROUP)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async removeUserFromGroup(mid: string) {
+        // 获取csrf
+        const csrf = this.getCSRF()
+        try {
+            // 将用户mid添加到groupId
+            const { data } = await this.client.post(MODIFY_GROUP_MEMBER, {
+                fids: mid,
+                tagids: 0,
+                csrf
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async copyUserToGroup(mid: string, groupId: string) {
+        // 获取csrf
+        const csrf = this.getCSRF()
+        try {
+            // 将用户mid添加到groupId
+            const { data } = await this.client.post(COPY_USER_TO_GROUP, {
+                fids: mid,
+                tagids: groupId,
+                csrf
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
     async getUserSpaceDynamic(mid: string) {
         try {
             const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async createGroup(tag: string) {
+        try {
+            const { data } = await this.client.post(CREATE_GROUP, {
+                tag,
+                csrf: this.getCSRF()
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async getAllDynamic(updateBaseline?: string) {
+        let url = GET_ALL_DYNAMIC_LIST
+        updateBaseline && (url += `?update_baseline=${updateBaseline}`)
+        try {
+            const { data } = await this.client.get(url)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async hasNewDynamic(updateBaseline: string) {
+        try {
+            const { data } = await this.client.get(`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`)
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async follow(fid: string) {
+        try {
+            const { data } = await this.client.post(MODIFY_RELATION, {
+                fid,
+                act: 1,
+                re_src: 11,
+                csrf: this.getCSRF()
+            }, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
+
+    async getRelationGroupDetail(tagid: string) {
+        try {
+            const { data } = await this.client.get(`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`)
             return data
         } catch (e) {
             throw new Error('网络异常，本次请求失败！')
@@ -336,6 +458,11 @@ class BiliAPI extends Service {
         }
     }
 
+    getCSRF() {
+        // 获取csrf
+        return this.jar.serializeSync().cookies.find(cookie => cookie.key === 'bili_jct').value
+    }
+
     async loadCookiesFromDatabase() {
         // Get login info from db
         const { cookies, refresh_token } = await this.getLoginInfoFromDB()
@@ -353,7 +480,7 @@ class BiliAPI extends Service {
             secure: boolean,
             httpOnly: boolean,
             sameSite: string
-        
+
         cookies.forEach(cookieData => {
             // 获取key为bili_jct的值
             if (cookieData.key === 'bili_jct') {

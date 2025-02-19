@@ -33,14 +33,14 @@ export interface Config {
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
-    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '20分钟',
+    dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '10分钟' | '20分钟'
     live: {},
     changeMasterInfoApi: boolean,
     liveStartAtAll: boolean,
     restartPush: boolean,
-    pushUrl: boolean,
     pushTime: number,
     customLiveStart: string,
+    customLive: string,
     customLiveEnd: string,
     hideDesc: boolean,
     style: {},
@@ -72,6 +72,8 @@ export const Config: Schema<Config> = Schema.object({
         Schema.union([
             Schema.object({
                 enable: Schema.const(true).required(),
+                platform: Schema.union(['qq', 'qqguild', 'onebot', 'discord', 'red', 'telegram', 'satori', 'chronocat', 'lark'])
+                    .description('请选择您的私人机器人平台，目前支持QQ、QQ群、OneBot、Discord、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件'),
                 masterAccount: Schema.string()
                     .role('secret')
                     .required()
@@ -88,8 +90,8 @@ export const Config: Schema<Config> = Schema.object({
 
     unlockSubLimits: Schema.boolean()
         .default(false)
-        .description('解锁3个订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
-    
+        .description('解锁3个直播订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险'),
+
     automaticResend: Schema.boolean()
         .default(true)
         .description('是否开启自动重发功能，默认开启。开启后，如果推送失败，将会自动重发，尝试三次。关闭后，推送失败将不会再重发，直到下一次推送'),
@@ -117,7 +119,7 @@ export const Config: Schema<Config> = Schema.object({
         .default(5)
         .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应+1。默认值为5条'),
 
-    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '20分钟'])
+    dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '10分钟', '20分钟'])
         .role('')
         .default('2分钟')
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
@@ -126,8 +128,7 @@ export const Config: Schema<Config> = Schema.object({
 
     changeMasterInfoApi: Schema.boolean()
         .default(false)
-        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换')
-        .experimental(),
+        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换'),
 
     liveStartAtAll: Schema.boolean()
         .default(false)
@@ -136,11 +137,6 @@ export const Config: Schema<Config> = Schema.object({
     restartPush: Schema.boolean()
         .default(true)
         .description('插件重启后，如果订阅的主播正在直播，是否进行一次推送，默认开启'),
-
-    pushUrl: Schema.boolean()
-        .default(false)
-        .description('推送直播状态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！')
-        .experimental(),
 
     pushTime: Schema.number()
         .min(0)
@@ -153,14 +149,16 @@ export const Config: Schema<Config> = Schema.object({
         .default('-name开播啦 -link')
         .description('自定义开播提示语，-name代表UP昵称，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦'),
 
+    customLive: Schema.string()
+        .description('自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx'),
+
     customLiveEnd: Schema.string()
         .default('-name下播啦，本次直播了-time')
         .description('自定义下播提示语，-name代表UP昵称，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒'),
 
     hideDesc: Schema.boolean()
         .default(false)
-        .description('是否隐藏UP主直播间简介，开启后推送的直播卡片将不再展示简介')
-        .experimental(),
+        .description('是否隐藏UP主直播间简介，开启后推送的直播卡片将不再展示简介'),
 
     style: Schema.object({}).description('美化设置'),
 
@@ -281,6 +279,7 @@ class ServerManager extends Service {
             case '2分钟': this.dynamicLoopTime = 120; break;
             case '3分钟': this.dynamicLoopTime = 180; break;
             case '5分钟': this.dynamicLoopTime = 300; break;
+            case '10分钟': this.dynamicLoopTime = 600; break;
             case '20分钟': this.dynamicLoopTime = 1200; break;
         }
         // 注册插件
@@ -322,7 +321,6 @@ class ServerManager extends Service {
                 changeMasterInfoApi: globalConfig.changeMasterInfoApi,
                 liveStartAtAll: globalConfig.liveStartAtAll,
                 restartPush: globalConfig.restartPush,
-                pushUrl: globalConfig.pushUrl,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
                 customLiveEnd: globalConfig.customLiveEnd,
@@ -332,7 +330,7 @@ class ServerManager extends Service {
                 filter: globalConfig.filter,
                 dynamicDebugMode: globalConfig.dynamicDebugMode
             })
-            
+
             // 添加服务
             this.servers.push(ba)
             this.servers.push(gi)
@@ -386,7 +384,7 @@ export function apply(ctx: Context, config: Config) {
     globalConfig = config
     // 设置提示
     ctx.notifier.create({
-        content: '请记得使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
+        content: '请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
     })
     if (config.unlockSubLimits) { // 用户允许订阅超过三个用户
         // 设置警告
