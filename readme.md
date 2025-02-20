@@ -5,6 +5,7 @@
 ---
 
 - koishi-plugin-bilibili-notify [![npm](https://img.shields.io/npm/v/koishi-plugin-bilibili-notify?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-bilibili-notify)
+  - [重新订阅](#重新订阅)
   - [功能](#功能)
   - [注意事项](#注意事项)
   - [安装](#安装)
@@ -13,6 +14,10 @@
   - [交流群](#交流群)
   - [感谢](#感谢)
   - [License](#License)
+
+## 重新订阅
+
+由于版本 `2.0.0-alpha.7` 重构了订阅功能，从 `2.0.0-alpha.7` 以前版本升级到以后版本的需重新订阅
 
 ## 功能
 
@@ -184,6 +189,7 @@
 - ver 2.0.0-alpha.5 移除：选项pushUrl，选项platform 新增：选项customLive，主人账号中platform选项。支持多平台，且可同时推送不同平台，单个UP主只能推送一个平台
 - ver 2.0.0-alpha.6 修复：直播推送发送失败的bug
 - ver 2.0.0-alpha.7 重构：现已支持同一UP多平台推送
+- ver 2.0.0-alpha.8 新增：重新订阅提示
 
 ## 交流群
 

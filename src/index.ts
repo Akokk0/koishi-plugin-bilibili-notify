@@ -384,6 +384,9 @@ export function apply(ctx: Context, config: Config) {
     globalConfig = config
     // 设置提示
     ctx.notifier.create({
+        content: '从2.0.0-alpha.7以前版本更新需重新订阅'
+    })
+    ctx.notifier.create({
         content: '请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
     })
     if (config.unlockSubLimits) { // 用户允许订阅超过三个用户
