@@ -14,7 +14,7 @@ export interface Bilibili {
     dynamic: number,
     video: number,
     live: number,
-    targetId: string,
+    target: string,
     platform: string,
     time: Date
 }
@@ -37,7 +37,7 @@ export function apply(ctx: Context) {
         dynamic: 'unsigned',
         video: 'unsigned',
         live: 'unsigned',
-        targetId: 'string',
+        target: 'string',
         platform: 'string',
         time: 'timestamp'
     }, { autoInc: true })
