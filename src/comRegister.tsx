@@ -352,25 +352,31 @@ class ComRegister {
                                 const targetArr = []
                                 // 获取机器人加入的群组
                                 const guildList = await bot.getGuildList()
-                                // 遍历群组
-                                for (const guild of guildList.data) {
-                                    // 获取频道
-                                    const channelList = await bot.getChannelList(guild.id)
-                                    // 判断群号是否符合条件
-                                    for (const id of idArr) {
-                                        // 判断是否机器人加入了该群
-                                        if (channelList.data.some(channel => channel.id === id)) { // 机器人加入了该群
-                                            // 保存到数组
+                                // 遍历target数组
+                                for (const id of idArr) {
+                                    // 定义是否加入群组标志
+                                    let flag = false
+                                    // 遍历群组
+                                    for (const guild of guildList.data) {
+                                        // 获取频道列表
+                                        const channelList = await bot.getChannelList(guild.id)
+                                        // 判断机器人是否加入群聊或频道
+                                        if (channelList.data.some(channel => channel.id === id)) {
+                                            // 加入群聊或频道
                                             targetArr.push(id)
-                                            // 继续下一个循环
-                                            continue
+                                            // 设置标志位为true
+                                            flag = true
+                                            // 结束循环
+                                            break
                                         }
+                                    }
+                                    if (!flag) {
                                         // 不满足条件发送错误提示
                                         await session.send(`您的机器未加入${id}，无法对该群或频道进行推送`)
                                     }
                                 }
                                 // 判断targetArr是否为空
-                                if (targetArr.length === 0) {
+                                if (target.length === 0) {
                                     // 为空则默认为当前环境
                                     target = [{ idArr: [session.event.channel.id], platform: session.event.platform }]
                                     // 没有满足条件的群组或频道
