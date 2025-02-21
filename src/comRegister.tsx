@@ -317,8 +317,7 @@ class ComRegister {
             )
             .option('live', '-l')
             .option('dynamic', '-d')
-            .option('all', '-a <platform:string>')
-            .option('atAll', '-q')
+            .option('atAll', '-a')
             .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d')
             .example('bili sub 1194210119 目标群号或频道号 -l -d 订阅UID为1194210119的UP主的动态和直播')
             .action(async ({ session, options }, mid) => {
@@ -356,7 +355,7 @@ class ComRegister {
                                 await session.send('您未配置对应平台的机器人，不能在该平台进行订阅操作')
                             }
                             // 判断是否需要加入的群全部推送
-                            if (!options.all) {
+                            if (channelIdArr[0].channelId !== 'all') {
                                 // 定义满足条件的群组数组
                                 const targetArr: ChannelIdArr = []
                                 // 获取机器人加入的群组
@@ -393,15 +392,8 @@ class ComRegister {
                                 }
                                 // 将符合条件的群组添加到target中
                                 target[index].channelIdArr = targetArr
-                            } else { // 如果为all则全部推送
-                                // 判断是对那些平台进行
-                                options.all.split(',').forEach(pf => {
-                                    target.push({
-                                        channelIdArr: [{ channelId: 'all', atAll: options.atAll }],
-                                        platform: pf
-                                    })
-                                })
                             }
+                            // 如果为all则全部推送，不需要进行处理
                         } else {
                             // 未填写群号或频道号，默认为当前环境
                             target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
@@ -516,24 +508,6 @@ class ComRegister {
                 // 新增订阅展示到控制台
                 this.updateSubNotifier(ctx)
             })
-
-        /* biliCom
-            .subcommand('.live <roomId:string> <...guildId:string>', '订阅主播开播通知', { hidden: true })
-            .usage('订阅主播开播通知')
-            .example('bili live 26316137 订阅房间号为26316137的直播间')
-            .action(async (_, roomId, ...guildId) => {
-                this.logger.info('调用bili.live指令')
-                // 如果room_id为空则返回
-                if (!roomId) return `${roomId}非法调用 dynamic 指令` // 订阅主播房间号不能为空
-                if (!guildId) return `${roomId}非法调用 dynamic 指令` // 目标群组或频道不能为空
-                // 要订阅的对象不在订阅管理对象中，直接返回
-                const index = this.subManager.findIndex(sub => sub.roomId === roomId)
-                if (index === -1) return '请勿直接调用该指令'
-                // 开始循环检测
-                const dispose = ctx.setInterval(this.liveDetect(ctx, roomId, guildId, this.subManager[index].platform), config.liveLoopTime * 1000)
-                // 保存销毁函数
-                this.subManager[index].liveDispose = dispose
-            }) */
 
         biliCom
             .subcommand('.status <roomId:string>', '查询主播当前直播状态', { hidden: true })
@@ -1077,11 +1051,11 @@ class ComRegister {
             // pic 存在，使用的是render模式
             if (pic) {
                 const msg = <>{liveNotifyMsg && liveNotifyMsg}</>
-                return await this.sendMsg(ctx, target, pic + msg)
+                return await this.sendMsg(ctx, target, pic + msg, true)
             }
             // pic不存在，说明使用的是page模式
             const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg && liveNotifyMsg}</>
-            await this.sendMsg(ctx, target, pic + msg)
+            await this.sendMsg(ctx, target, msg, true)
         }
 
         // 定义获取主播信息方法
