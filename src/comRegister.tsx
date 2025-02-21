@@ -15,8 +15,13 @@ enum LiveType {
     StopBroadcast
 }
 
+type ChannelIdArr = Array<{
+    channelId: string,
+    atAll: boolean
+}>
+
 type TargetItem = {
-    idArr: Array<string>,
+    channelIdArr: ChannelIdArr,
     platform: string
 }
 
@@ -52,7 +57,7 @@ class ComRegister {
     // 动态销毁函数
     dynamicDispose: Function
     // 发送消息方式
-    sendMsgFunc: (bot: Bot<Context, any>, guild: string, content: any) => Promise<void>
+    sendMsgFunc: (bot: Bot<Context, any>, channelId: string, content: any) => Promise<void>
     // 构造函数
     constructor(ctx: Context, config: ComRegister.Config) {
         this.logger = ctx.logger('cr')
@@ -71,22 +76,22 @@ class ComRegister {
         this.getSubFromDatabase(ctx)
         // 判断消息发送方式
         if (config.automaticResend) {
-            this.sendMsgFunc = async (bot: Bot<Context, any>, guild: string, content: any) => {
+            this.sendMsgFunc = async (bot: Bot<Context, any>, channelId: string, content: any) => {
                 // 多次尝试发送消息
                 const attempts = 3
                 for (let i = 0; i < attempts; i++) {
                     try {
                         // 发送消息
-                        await bot.sendMessage(guild, content)
+                        await bot.sendMessage(channelId, content)
                         // 防止消息发送速度过快被忽略
                         await ctx.sleep(500)
                         // 成功发送消息，跳出循环
                         break
                     } catch (e) {
                         if (i === attempts - 1) { // 已尝试三次
-                            this.logger.error(`发送群组ID:${guild}消息失败！原因: ` + e.message)
+                            this.logger.error(`发送群组ID:${channelId}消息失败！原因: ` + e.message)
                             console.log(e);
-                            this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`)
+                            this.sendPrivateMsg(`发送群组ID:${channelId}消息失败，请查看日志`)
                         }
                     }
                 }
@@ -308,12 +313,14 @@ class ComRegister {
             .option(
                 'multiplatform',
                 '-m <value:string>',
-                { type: /^[A-Za-z0-9]+(?:,[A-Za-z0-9]+)*\.[A-Za-z0-9]+(?:,[A-Za-z0-9]+)*(?:;[A-Za-z0-9]+(?:,[A-Za-z0-9]+)*\.[A-Za-z0-9]+(?:,[A-Za-z0-9]+)*)*$/ }
+                { type: /^[A-Za-z0-9]+@?(?:,[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+(?:;[A-Za-z0-9]+@?(?:,[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+)*$/ }
             )
             .option('live', '-l')
             .option('dynamic', '-d')
-            .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d。若没有加任何参数，之后会向你单独询问，尖括号中为必选参数，中括号为可选参数，目标群号若不填，则默认为当前群聊')
-            .example('bili sub 1194210119 目标QQ群号(实验性) -l -d 订阅UID为1194210119的UP主的动态和直播')
+            .option('all', '-a')
+            .option('atAll', '-q')
+            .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d')
+            .example('bili sub 1194210119 目标群号或频道号 -l -d 订阅UID为1194210119的UP主的动态和直播')
             .action(async ({ session, options }, mid) => {
                 this.logger.info('调用bili.sub指令')
                 // 先判断是否订阅直播，再判断是否解锁订阅限制，最后判断直播订阅是否已超三个
@@ -331,15 +338,17 @@ class ComRegister {
                 const subUserData = await this.subUserInBili(ctx, mid)
                 // 判断是否订阅对象存在
                 if (!subUserData.flag) return '订阅对象失败，请稍后重试！'
+                // 定义目标变量
                 let target: Target
                 // 判断是否使用多平台功能
                 if (options.multiplatform) {
                     // 分割字符串，赋值给target
                     target = this.splitMultiPlatformStr(options.multiplatform)
                 }
+                // 判断是否使用了多平台
                 if (target) {
-                    target.forEach(async ({ idArr, platform }, index) => {
-                        if (idArr.length > 0) { // 输入了推送群号或频道号
+                    target.forEach(async ({ channelIdArr, platform }, index) => {
+                        if (channelIdArr.length > 0) { // 输入了推送群号或频道号
                             // 拿到对应的bot
                             const bot = this.getBot(ctx, platform)
                             // 判断是否配置了对应平台的机器人
@@ -347,13 +356,13 @@ class ComRegister {
                                 await session.send('您未配置对应平台的机器人，不能在该平台进行订阅操作')
                             }
                             // 判断是否需要加入的群全部推送
-                            if (idArr[0] !== 'all') {
+                            if (!options.all) {
                                 // 定义满足条件的群组数组
-                                const targetArr = []
+                                const targetArr: ChannelIdArr = []
                                 // 获取机器人加入的群组
                                 const guildList = await bot.getGuildList()
                                 // 遍历target数组
-                                for (const id of idArr) {
+                                for (const channelId of channelIdArr) {
                                     // 定义是否加入群组标志
                                     let flag = false
                                     // 遍历群组
@@ -361,9 +370,9 @@ class ComRegister {
                                         // 获取频道列表
                                         const channelList = await bot.getChannelList(guild.id)
                                         // 判断机器人是否加入群聊或频道
-                                        if (channelList.data.some(channel => channel.id === id)) {
+                                        if (channelList.data.some(channel => channel.id === channelId.channelId)) {
                                             // 加入群聊或频道
-                                            targetArr.push(id)
+                                            targetArr.push(channelId)
                                             // 设置标志位为true
                                             flag = true
                                             // 结束循环
@@ -372,30 +381,33 @@ class ComRegister {
                                     }
                                     if (!flag) {
                                         // 不满足条件发送错误提示
-                                        await session.send(`您的机器未加入${id}，无法对该群或频道进行推送`)
+                                        await session.send(`您的机器未加入${channelId.channelId}，无法对该群或频道进行推送`)
                                     }
                                 }
                                 // 判断targetArr是否为空
                                 if (target.length === 0) {
                                     // 为空则默认为当前环境
-                                    target = [{ idArr: [session.event.channel.id], platform: session.event.platform }]
+                                    target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
                                     // 没有满足条件的群组或频道
                                     await session.send('没有满足条件的群组或频道，默认订阅到当前聊天环境')
                                 }
                                 // 将符合条件的群组添加到target中
-                                target[index].idArr = targetArr
+                                target[index].channelIdArr = targetArr
+                            } else {
+                                // 如果为all则全部推送
+                                // 判断是否需要at全体成员
+                                target = [{ channelIdArr: [{ channelId: 'all', atAll: options.atAll }], platform: session.event.platform }]
                             }
-                            // 如果为all则全部推送，不需要进行修改
                         } else {
                             // 未填写群号或频道号，默认为当前环境
-                            target = [{ idArr: [session.event.channel.id], platform: session.event.platform }]
+                            target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
                             // 发送提示消息
                             await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                         }
                     })
                 } else {
                     // 用户直接订阅，将当前环境赋值给target
-                    target = [{ idArr: [session.event.channel.id], platform: session.event.platform }]
+                    target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
                 }
                 // 定义外围变量                
                 let content: any
@@ -479,7 +491,6 @@ class ComRegister {
                     uid: mid,
                     room_id: roomId,
                     dynamic: dynamicMsg ? 1 : 0,
-                    video: 1,
                     live: liveMsg ? 1 : 0,
                     target: JSON.stringify(target),
                     platform: session.event.platform,
@@ -577,10 +588,14 @@ class ComRegister {
             })
     }
 
-    splitMultiPlatformStr(str: string): Array<{ idArr: Array<string>, platform: string }> {
+    splitMultiPlatformStr(str: string): Target {
         return str.split(';').map(cv => cv.split('.')).map(([idStr, platform]) => {
-            const idArr = idStr.split(',')
-            return { idArr, platform }
+            const channelIdArr = idStr.split(',').map(id => {
+                const atAll = /@$/.test(id); // 使用正则表达式检查 id 是否以 @ 结尾
+                const channelId = atAll ? id.slice(0, -1) : id; // 去除末尾的 @
+                return { channelId, atAll }
+            })
+            return { channelIdArr, platform }
         })
     }
 
@@ -649,24 +664,31 @@ class ComRegister {
         return
     }
 
-    async sendMsg(ctx: Context, targets: Target, content: any) {
+    async sendMsg(ctx: Context, targets: Target, content: any, live?: boolean) {
         for (const target of targets) {
             // 获取机器人实例
             const bot = this.getBot(ctx, target.platform)
             // 定义需要发送的数组
-            let sendArr = []
+            let sendArr: ChannelIdArr = []
             // 判断是否需要推送所有机器人加入的群
-            if (target.idArr[0] === 'all') {
+            if (target.channelIdArr[0].channelId === 'all') {
                 // 获取所有guild
                 for (const guild of (await bot.getGuildList()).data) {
-                    sendArr.push(guild.id)
+                    sendArr.push({ channelId: guild.id, atAll: target.channelIdArr[0].atAll })
                 }
             } else {
-                sendArr = target.idArr
+                sendArr = target.channelIdArr
             }
             // 循环给每个群组发送
-            for (const guild of sendArr) {
-                await this.sendMsgFunc(bot, guild, content)
+            if (live) {
+                // 直播推送，需要判断是否为
+                for (const channel of sendArr) {
+                    await this.sendMsgFunc(bot, channel.channelId, <>{channel.atAll && <at type="all" />}{content}</>)
+                }
+            } else {
+                for (const channel of sendArr) {
+                    await this.sendMsgFunc(bot, channel.channelId, content)
+                }
             }
         }
     }
@@ -1024,7 +1046,7 @@ class ComRegister {
         let flag: boolean = true
 
         // 定义发送直播通知卡片方法
-        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveNotifyMsg?: string, atAll?: boolean) => {
+        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveNotifyMsg?: string) => {
             // 定义变量
             let pic: string
             let buffer: Buffer
@@ -1050,11 +1072,11 @@ class ComRegister {
             // 推送直播信息
             // pic 存在，使用的是render模式
             if (pic) {
-                const msg = <>{atAll && <at type="all" />}{liveNotifyMsg && liveNotifyMsg}</>
+                const msg = <>{liveNotifyMsg && liveNotifyMsg}</>
                 return await this.sendMsg(ctx, target, pic + msg)
             }
             // pic不存在，说明使用的是page模式
-            const msg = <>{h.image(buffer, 'image/png')}{atAll && <at type="all" />}{liveNotifyMsg && liveNotifyMsg}</>
+            const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg && liveNotifyMsg}</>
             await this.sendMsg(ctx, target, pic + msg)
         }
 
@@ -1177,14 +1199,8 @@ class ComRegister {
                                 .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                                 .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
-                            // 判断是否需要@全体成员
-                            if (this.config.liveStartAtAll) {
-                                // 发送@全体成员通知
-                                await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg, true)
-                            } else {
-                                // 发送直播通知卡片
-                                await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg)
-                            }
+                            // 发送消息
+                            await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg)
                         } else { // 还在直播
                             if (this.config.pushTime > 0) {
                                 timer++
@@ -1489,8 +1505,8 @@ class ComRegister {
                 roomId: sub.room_id,
                 target,
                 platform: sub.platform,
-                live: +sub.live === 1 ? true : false,
-                dynamic: +sub.dynamic === 1 ? true : false,
+                live: sub.live === 1 ? true : false,
+                dynamic: sub.dynamic === 1 ? true : false,
                 liveDispose: null
             }
             // 判断是否订阅直播
@@ -1659,7 +1675,6 @@ namespace ComRegister {
         unlockSubLimits: boolean,
         automaticResend: boolean,
         changeMasterInfoApi: boolean,
-        liveStartAtAll: boolean,
         restartPush: boolean,
         pushTime: number,
         liveLoopTime: number,
@@ -1688,7 +1703,6 @@ namespace ComRegister {
         unlockSubLimits: Schema.boolean().required(),
         automaticResend: Schema.boolean().required(),
         changeMasterInfoApi: Schema.boolean().required(),
-        liveStartAtAll: Schema.boolean().required(),
         restartPush: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),

@@ -366,9 +366,9 @@ class ServerManager extends Service {
         await this.disposePlugin()
         // 隔一秒启动插件
         return new Promise(resolve => {
-            this.ctx.setTimeout(async () => {
+            this.ctx.setTimeout(() => {
                 try {
-                    await this.registerPlugin()
+                    this.registerPlugin()
                 } catch (e) {
                     this.logger.error('重启插件失败', e)
                     resolve(false)
