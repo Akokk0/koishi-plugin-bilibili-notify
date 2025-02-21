@@ -317,7 +317,7 @@ class ComRegister {
             )
             .option('live', '-l')
             .option('dynamic', '-d')
-            .option('all', '-a')
+            .option('all', '-a <platform:string>')
             .option('atAll', '-q')
             .usage('订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d')
             .example('bili sub 1194210119 目标群号或频道号 -l -d 订阅UID为1194210119的UP主的动态和直播')
@@ -339,7 +339,7 @@ class ComRegister {
                 // 判断是否订阅对象存在
                 if (!subUserData.flag) return '订阅对象失败，请稍后重试！'
                 // 定义目标变量
-                let target: Target
+                let target: Target = []
                 // 判断是否使用多平台功能
                 if (options.multiplatform) {
                     // 分割字符串，赋值给target
@@ -393,10 +393,14 @@ class ComRegister {
                                 }
                                 // 将符合条件的群组添加到target中
                                 target[index].channelIdArr = targetArr
-                            } else {
-                                // 如果为all则全部推送
-                                // 判断是否需要at全体成员
-                                target = [{ channelIdArr: [{ channelId: 'all', atAll: options.atAll }], platform: session.event.platform }]
+                            } else { // 如果为all则全部推送
+                                // 判断是对那些平台进行
+                                options.all.split(',').forEach(pf => {
+                                    target.push({
+                                        channelIdArr: [{ channelId: 'all', atAll: options.atAll }],
+                                        platform: pf
+                                    })
+                                })
                             }
                         } else {
                             // 未填写群号或频道号，默认为当前环境
