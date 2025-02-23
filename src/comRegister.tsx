@@ -1068,11 +1068,21 @@ class ComRegister {
             // pic 存在，使用的是render模式
             if (pic) {
                 const msg = liveNotifyMsg ? liveNotifyMsg : ''
-                return await this.sendMsg(ctx, target, pic + msg, true)
+                // 只有在开播时才艾特全体成员
+                if (liveType === LiveType.StartBroadcasting) {
+                    return await this.sendMsg(ctx, target, pic + msg, true)
+                }
+                // 正常不需要艾特全体成员
+                return await this.sendMsg(ctx, target, pic + msg)
             }
             // pic不存在，说明使用的是page模式
             const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg && liveNotifyMsg}</>
-            await this.sendMsg(ctx, target, msg, true)
+            // 只有在开播时才艾特全体成员
+            if (liveType === LiveType.StartBroadcasting) {
+                return await this.sendMsg(ctx, target, msg, true)
+            }
+            // 正常不需要艾特全体成员
+            return await this.sendMsg(ctx, target, msg)
         }
 
         // 定义获取主播信息方法
