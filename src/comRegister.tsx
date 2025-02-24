@@ -313,7 +313,7 @@ class ComRegister {
             .option(
                 'multiplatform',
                 '-m <value:string>',
-                { type: /^[A-Za-z0-9]+@?(?:,[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+(?:;[A-Za-z0-9]+@?(?:,[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+)*$/ }
+                { type: /^(-?[a-zA-Z0-9]+@?[a-zA-Z0-9]*\.[a-zA-Z0-9]+(?:,-?[a-zA-Z0-9]+@?[a-zA-Z0-9]*\.[a-zA-Z0-9]+)*)(;(-?[a-zA-Z0-9]+@?[a-zA-Z0-9]*\.[a-zA-Z0-9]+(?:,-?[a-zA-Z0-9]+@?[a-zA-Z0-9]*\.[a-zA-Z0-9]+)*))*$/ }
             )
             .option('live', '-l')
             .option('dynamic', '-d')
@@ -362,13 +362,16 @@ class ComRegister {
                     }
                     // 判断是否使用了多平台
                     if (target) {
-                        target.forEach(async ({ channelIdArr, platform }, index) => {
+                        for (const [index, { channelIdArr, platform }] of target.entries()) {
                             if (channelIdArr.length > 0) { // 输入了推送群号或频道号
                                 // 拿到对应的bot
                                 const bot = this.getBot(ctx, platform)
                                 // 判断是否配置了对应平台的机器人
                                 if (!ctx.bots.some(bot => bot.platform === platform)) {
+                                    // 发送提示消息
                                     await session.send('您未配置对应平台的机器人，不能在该平台进行订阅操作')
+                                    // 直接返回
+                                    return
                                 }
                                 // 判断是否需要加入的群全部推送
                                 if (channelIdArr[0].channelId !== 'all') {
@@ -416,7 +419,7 @@ class ComRegister {
                                 // 发送提示消息
                                 await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                             }
-                        })
+                        }
                     } else {
                         // 用户直接订阅，将当前环境赋值给target
                         target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
