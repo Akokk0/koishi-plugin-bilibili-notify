@@ -17,6 +17,8 @@ enum LiveType {
 
 type ChannelIdArr = Array<{
     channelId: string,
+    dynamic: boolean,
+    live: boolean
     atAll: boolean
 }>
 
@@ -297,6 +299,8 @@ class ComRegister {
                     groupId.forEach(group => {
                         channelIdArr.push({
                             channelId: group,
+                            dynamic: true,
+                            live: true,
                             atAll: options.atAll
                         })
                     })
@@ -355,7 +359,7 @@ class ComRegister {
                                     // 判断targetArr是否为空
                                     if (target.length === 0) {
                                         // 为空则默认为当前环境
-                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
+                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
                                         // 没有满足条件的群组或频道
                                         await session.send('没有满足条件的群组或频道，默认订阅到当前聊天环境')
                                     }
@@ -365,14 +369,14 @@ class ComRegister {
                                 // 如果为all则全部推送，不需要进行处理
                             } else {
                                 // 未填写群号或频道号，默认为当前环境
-                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
+                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
                                 // 发送提示消息
                                 await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                             }
                         }
                     } else {
                         // 用户直接订阅，将当前环境赋值给target
-                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, atAll: options.atAll }], platform: session.event.platform }]
+                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
                     }
                 }
                 // 定义外围变量                
@@ -594,7 +598,7 @@ class ComRegister {
             const channelIdArr = idStr.split(',').map(id => {
                 const atAll = /@$/.test(id); // 使用正则表达式检查 id 是否以 @ 结尾
                 const channelId = atAll ? id.slice(0, -1) : id; // 去除末尾的 @
-                return { channelId, atAll }
+                return { channelId, dynamic: true, live: true, atAll }
             })
             return { channelIdArr, platform }
         })
@@ -675,20 +679,31 @@ class ComRegister {
             if (target.channelIdArr[0].channelId === 'all') {
                 // 获取所有guild
                 for (const guild of (await bot.getGuildList()).data) {
-                    sendArr.push({ channelId: guild.id, atAll: target.channelIdArr[0].atAll })
+                    sendArr.push({
+                        channelId: guild.id,
+                        dynamic: target.channelIdArr[0].dynamic,
+                        live: target.channelIdArr[0].live,
+                        atAll: target.channelIdArr[0].atAll
+                    })
                 }
             } else {
                 sendArr = target.channelIdArr
             }
-            // 循环给每个群组发送
+            // 判断是否是直播推送，如果是则需要进一步判断是否需要艾特群体成员
             if (live) {
-                // 直播推送，需要判断是否为
+                // 直播开播推送，判断是否需要艾特全体成员
                 for (const channel of sendArr) {
-                    await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll && <at type="all" />}</>)
+                    // 判断是否需要推送直播消息
+                    if (channel.live) {
+                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll && <at type="all" />}</>)
+                    }
                 }
             } else {
                 for (const channel of sendArr) {
-                    await this.sendMsgFunc(bot, channel.channelId, content)
+                    // 判断是否需要推送动态消息和直播消息
+                    if (channel.dynamic || channel.live) {
+                        await this.sendMsgFunc(bot, channel.channelId, content)
+                    }
                 }
             }
         }
@@ -1413,8 +1428,6 @@ class ComRegister {
 
     async loadSubFromConfig(ctx: Context, subs: ComRegister.Config["sub"]) {
         for (const sub of subs) {
-            // 整理target
-            const target = this.splitMultiPlatformStr(sub.target)
             // 定义Data
             let data: any
             // 定义直播销毁函数
@@ -1452,7 +1465,7 @@ class ComRegister {
                 if (sub.live) {
                     // 订阅直播
                     liveDispose = ctx.setInterval(() => {
-                        this.liveDetect(ctx, data.live_room.room_id, target)
+                        this.liveDetect(ctx, data.live_room.room_id, sub.target)
                     }, this.config.liveLoopTime * 1000)
                 }
             }
@@ -1465,7 +1478,7 @@ class ComRegister {
                 id: +sub.uid,
                 uid: sub.uid,
                 roomId: sub.live ? data.live_room.roomid : '',
-                target,
+                target: sub.target,
                 platform: '',
                 live: sub.live,
                 dynamic: sub.dynamic,
@@ -1745,7 +1758,20 @@ class ComRegister {
 
 namespace ComRegister {
     export interface Config {
-        sub: Array<{ uid: string, dynamic: boolean, live: boolean, target: string }>
+        sub: Array<{
+            uid: string,
+            dynamic: boolean,
+            live: boolean,
+            target: Array<{
+                channelIdArr: Array<{
+                    channelId: string,
+                    dynamic: boolean,
+                    live: boolean,
+                    atAll: boolean
+                }>,
+                platform: string
+            }>
+        }>,
         master: {
             enable: boolean,
             platform: string,
@@ -1775,12 +1801,19 @@ namespace ComRegister {
 
     export const Config: Schema<Config> = Schema.object({
         sub: Schema.array(Schema.object({
-            uid: Schema.string(),
-            roomid: Schema.string(),
-            dynamic: Schema.boolean(),
-            live: Schema.boolean(),
-            target: Schema.string(),
-        })),
+            uid: Schema.string().description('订阅用户UID'),
+            dynamic: Schema.boolean().description('是否订阅用户动态'),
+            live: Schema.boolean().description('是否订阅用户直播'),
+            target: Schema.array(Schema.object({
+                channelIdArr: Schema.array(Schema.object({
+                    channelId: Schema.string().description('频道/群组号'),
+                    dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
+                    live: Schema.boolean().description('该频道/群组是否推送直播通知'),
+                    atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
+                })).description('频道/群组信息'),
+                platform: Schema.string().description('推送平台')
+            })).description('订阅用户需要发送的频道/群组信息')
+        })).role('table').description('手动输入订阅信息，方便自定义订阅内容，这里的订阅内容不会存入数据库。uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播'),
         master: Schema.object({
             enable: Schema.boolean(),
             platform: Schema.string(),
