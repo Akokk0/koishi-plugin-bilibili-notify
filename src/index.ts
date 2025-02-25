@@ -30,6 +30,8 @@ export interface Config {
     automaticResend: boolean,
     renderType: 'render' | 'page',
     userAgent: string,
+    subTitle: {},
+    sub: Array<{uid: string, dynamic: boolean, live: boolean, target: string}>,
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
@@ -104,6 +106,15 @@ export const Config: Schema<Config> = Schema.object({
     userAgent: Schema.string()
         .required()
         .description('设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111'),
+
+    subTitle: Schema.object({}).description('手动订阅'),
+    
+    sub: Schema.array(Schema.object({
+        uid: Schema.string(),
+        dynamic: Schema.boolean(),
+        live: Schema.boolean(),
+        target: Schema.string()
+    })).role('table').description('手动输入订阅信息，方便自定义订阅内容，这里的订阅内容不会存入数据库。uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播，target：推送目标群组/频道号，若有多个请用逗号分隔'),
 
     dynamic: Schema.object({}).description('动态推送设置'),
 
@@ -315,6 +326,7 @@ class ServerManager extends Service {
 
             // CR = ComRegister
             const cr = this.ctx.plugin(ComRegister, {
+                sub: globalConfig.sub,
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,

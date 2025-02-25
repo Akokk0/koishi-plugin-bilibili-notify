@@ -60,54 +60,9 @@ class ComRegister {
     sendMsgFunc: (bot: Bot<Context, any>, channelId: string, content: any) => Promise<void>
     // 构造函数
     constructor(ctx: Context, config: ComRegister.Config) {
-        this.logger = ctx.logger('cr')
-        this.config = config
-        // 拿到私人机器人实例
-        this.privateBot = ctx.bots.find(bot => bot.platform === config.master.platform)
-        if (!this.privateBot) {
-            ctx.notifier.create({
-                content: '您未配置私人机器人，将无法向您推送机器人状态！'
-            })
-            this.logger.error('您未配置私人机器人，将无法向您推送机器人状态！')
-        }
-        // 检查登录数据库是否有数据
-        ctx.database.get('loginBili', 1, ['dynamic_group_id']).then(data => this.loginDBData = data[0])
-        // 从数据库获取订阅
-        this.getSubFromDatabase(ctx)
-        // 判断消息发送方式
-        if (config.automaticResend) {
-            this.sendMsgFunc = async (bot: Bot<Context, any>, channelId: string, content: any) => {
-                // 多次尝试发送消息
-                const attempts = 3
-                for (let i = 0; i < attempts; i++) {
-                    try {
-                        // 发送消息
-                        await bot.sendMessage(channelId, content)
-                        // 防止消息发送速度过快被忽略
-                        await ctx.sleep(500)
-                        // 成功发送消息，跳出循环
-                        break
-                    } catch (e) {
-                        if (i === attempts - 1) { // 已尝试三次
-                            this.logger.error(`发送群组ID:${channelId}消息失败！原因: ` + e.message)
-                            console.log(e);
-                            this.sendPrivateMsg(`发送群组ID:${channelId}消息失败，请查看日志`)
-                        }
-                    }
-                }
-            }
-        } else {
-            this.sendMsgFunc = async (bot: Bot<Context, any>, guild: string, content: any) => {
-                try {
-                    // 发送消息
-                    await bot.sendMessage(guild, content)
-                } catch (e) {
-                    this.logger.error(`发送群组ID:${guild}消息失败！原因: ` + e.message)
-                    await this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`)
-                }
-            }
-        }
-
+        // 初始化
+        this.init(ctx, config)
+        // 注册指令
         const statusCom = ctx.command('status', '插件状态相关指令', { permissions: ['authority:5'] })
 
         statusCom.subcommand('.dyn', '查看动态监测运行状态')
@@ -219,7 +174,7 @@ class ComRegister {
                             // 销毁定时器
                             this.loginTimer()
                             // 订阅之前的订阅
-                            await this.getSubFromDatabase(ctx)
+                            await this.loadSubFromDatabase(ctx)
                             // 清除控制台通知
                             ctx.ba.disposeNotifier()
                             // 发送成功登录推送
@@ -281,12 +236,7 @@ class ComRegister {
                         // id--
                         this.num--
                         // 判断是否还有动态订阅
-                        if (this.dynamicDispose && !this.subManager.find((sub) => sub.dynamic === true)) { // 没有动态订阅
-                            // 将动态检测关闭
-                            this.dynamicDispose()
-                            // 将动态监测置为空
-                            this.dynamicDispose = null
-                        }
+                        this.checkIfUserIsTheLastOneWhoSubDyn()
                         // 发送成功通知
                         await session.send('已取消订阅该用户')
                         // 更新控制台提示
@@ -492,12 +442,7 @@ class ComRegister {
                 if (dynamicMsg) {
                     // 判断是否开启动态监测
                     if (!this.dynamicDispose) {
-                        // 开启动态监测
-                        if (this.config.dynamicDebugMode) {
-                            this.dynamicDispose = ctx.setInterval(this.debug_dynamicDetect(ctx), config.dynamicLoopTime * 1000)
-                        } else {
-                            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), config.dynamicLoopTime * 1000)
-                        }
+                        this.enableDynamicDetect(ctx)
                     }
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}动态通知`)
@@ -584,6 +529,64 @@ class ComRegister {
                 // 发送提示
                 await session.send('已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误')
             })
+    }
+
+    async init(ctx: Context, config: ComRegister.Config) {
+        // 设置logger
+        this.logger = ctx.logger('cr')
+        // 将config设置给类属性
+        this.config = config
+        // 拿到私人机器人实例
+        this.privateBot = ctx.bots.find(bot => bot.platform === config.master.platform)
+        if (!this.privateBot) {
+            ctx.notifier.create({
+                content: '您未配置私人机器人，将无法向您推送机器人状态！'
+            })
+            this.logger.error('您未配置私人机器人，将无法向您推送机器人状态！')
+        }
+        // 检查登录数据库是否有数据
+        this.loginDBData = (await ctx.database.get('loginBili', 1, ['dynamic_group_id']))[0]
+        // 从配置获取订阅
+        config.sub && await this.loadSubFromConfig(ctx, config.sub)
+        // 从数据库获取订阅
+        await this.loadSubFromDatabase(ctx)
+        // 判断消息发送方式
+        if (config.automaticResend) {
+            this.sendMsgFunc = async (bot: Bot<Context, any>, channelId: string, content: any) => {
+                // 多次尝试发送消息
+                const attempts = 3
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        // 发送消息
+                        await bot.sendMessage(channelId, content)
+                        // 防止消息发送速度过快被忽略
+                        await ctx.sleep(500)
+                        // 成功发送消息，跳出循环
+                        break
+                    } catch (e) {
+                        if (i === attempts - 1) { // 已尝试三次
+                            this.logger.error(`发送群组ID:${channelId}消息失败！原因: ` + e.message)
+                            console.log(e);
+                            this.sendPrivateMsg(`发送群组ID:${channelId}消息失败，请查看日志`)
+                        }
+                    }
+                }
+            }
+        } else {
+            this.sendMsgFunc = async (bot: Bot<Context, any>, guild: string, content: any) => {
+                try {
+                    // 发送消息
+                    await bot.sendMessage(guild, content)
+                } catch (e) {
+                    this.logger.error(`发送群组ID:${guild}消息失败！原因: ` + e.message)
+                    await this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`)
+                }
+            }
+        }
+        // 检查是否需要动态监测
+        this.checkIfDynamicDetectIsNeeded(ctx)
+        // 在控制台中显示订阅对象
+        this.updateSubNotifier(ctx)
     }
 
     splitMultiPlatformStr(str: string): Target {
@@ -1408,7 +1411,70 @@ class ComRegister {
         return { flag: true, msg: '用户订阅成功' }
     }
 
-    async getSubFromDatabase(ctx: Context) {
+    async loadSubFromConfig(ctx: Context, subs: ComRegister.Config["sub"]) {
+        for (const sub of subs) {
+            // 整理target
+            const target = this.splitMultiPlatformStr(sub.target)
+            // 定义Data
+            let data: any
+            // 定义直播销毁函数
+            let liveDispose: Function
+            // 判断是否需要订阅直播
+            if (sub.live) {
+                // 获取用户信息
+                let content: any
+                // 设置重试次数
+                const attempts = 3
+                for (let i = 0; i < attempts; i++) {
+                    try {
+                        // 获取用户信息
+                        content = await ctx.ba.getUserInfo(sub.uid)
+                        // 成功则跳出循环
+                        break
+                    } catch (e) {
+                        this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
+                        if (i === attempts - 1) { // 已尝试三次
+                            // 发送私聊消息并重启服务
+                            return await this.sendPrivateMsgAndStopService(ctx)
+                        }
+                    }
+                }
+                // 获取data
+                data = content.data
+                // 检查roomid是否存在
+                if (!data.live_room) {
+                    // 用户没有开通直播间，无法订阅直播
+                    sub.live = false
+                    // 发送提示
+                    this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`)
+                }
+                // 判断是否订阅直播
+                if (sub.live) {
+                    // 订阅直播
+                    liveDispose = ctx.setInterval(() => {
+                        this.liveDetect(ctx, data.live_room.room_id, target)
+                    }, this.config.liveLoopTime * 1000)
+                }
+            }
+            // 在B站中订阅该对象
+            const subInfo = await this.subUserInBili(ctx, sub.uid)
+            // 判断订阅是否成功
+            if (!subInfo.flag) this.logger.warn(subInfo.msg)
+            // 将该订阅添加到sm中
+            this.subManager.push({
+                id: +sub.uid,
+                uid: sub.uid,
+                roomId: sub.live ? data.live_room.roomid : '',
+                target,
+                platform: '',
+                live: sub.live,
+                dynamic: sub.dynamic,
+                liveDispose
+            })
+        }
+    }
+
+    async loadSubFromDatabase(ctx: Context) {
         // 判断登录信息是否已加载完毕
         await this.checkIfLoginInfoIsLoaded(ctx)
         // 如果未登录，则直接返回
@@ -1504,6 +1570,7 @@ class ComRegister {
                 this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
                 // Send msg
                 await this.sendPrivateMsg(`UID:${sub.uid} 房间号被篡改，自动取消订阅`)
+                // 直接返回
                 return
             }
             // 构建订阅对象
@@ -1521,11 +1588,12 @@ class ComRegister {
             if (sub.live) {
                 // 判断订阅直播数是否超过限制
                 if (!this.config.unlockSubLimits && liveSubNum >= 3) {
+                    // 将live改为false
                     subManagerItem.live = false
                     // log
                     this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
                     // 发送错误消息
-                    this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
+                    await this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
                 } else {
                     // 直播订阅数+1
                     liveSubNum++
@@ -1541,17 +1609,20 @@ class ComRegister {
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
         }
+    }
+
+    checkIfDynamicDetectIsNeeded(ctx: Context) {
         // 检查是否有订阅对象需要动态监测
-        if (this.subManager.some(sub => sub.dynamic)) {
-            // 开始动态监测
-            if (this.config.dynamicDebugMode) {
-                this.dynamicDispose = ctx.setInterval(this.debug_dynamicDetect(ctx), 10000)
-            } else {
-                this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), 10000 /* this.config.dynamicLoopTime * 1000 */)
-            }
+        if (this.subManager.some(sub => sub.dynamic)) this.enableDynamicDetect(ctx)
+    }
+
+    enableDynamicDetect(ctx: Context) {
+        // 开始动态监测
+        if (this.config.dynamicDebugMode) {
+            this.dynamicDispose = ctx.setInterval(this.debug_dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
+        } else {
+            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
         }
-        // 在控制台中显示订阅对象
-        this.updateSubNotifier(ctx)
     }
 
     unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
@@ -1635,7 +1706,7 @@ class ComRegister {
     }
 
     checkIfUserIsTheLastOneWhoSubDyn() {
-        if (this.subManager.some(sub => sub.dynamic)) {
+        if (this.dynamicDispose && !this.subManager.some(sub => sub.dynamic)) {
             // 停止动态监测
             this.dynamicDispose()
             this.dynamicDispose = null
@@ -1674,6 +1745,7 @@ class ComRegister {
 
 namespace ComRegister {
     export interface Config {
+        sub: Array<{ uid: string, dynamic: boolean, live: boolean, target: string }>
         master: {
             enable: boolean,
             platform: string,
@@ -1702,6 +1774,13 @@ namespace ComRegister {
     }
 
     export const Config: Schema<Config> = Schema.object({
+        sub: Schema.array(Schema.object({
+            uid: Schema.string(),
+            roomid: Schema.string(),
+            dynamic: Schema.boolean(),
+            live: Schema.boolean(),
+            target: Schema.string(),
+        })),
         master: Schema.object({
             enable: Schema.boolean(),
             platform: Schema.string(),
