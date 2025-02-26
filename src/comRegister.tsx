@@ -315,7 +315,7 @@ class ComRegister {
                         target = this.splitMultiPlatformStr(options.multiplatform)
                     }
                     // 判断是否使用了多平台
-                    if (target) {
+                    if (target.length > 0) {
                         for (const [index, { channelIdArr, platform }] of target.entries()) {
                             if (channelIdArr.length > 0) { // 输入了推送群号或频道号
                                 // 拿到对应的bot
@@ -359,7 +359,7 @@ class ComRegister {
                                     // 判断targetArr是否为空
                                     if (target.length === 0) {
                                         // 为空则默认为当前环境
-                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
+                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                         // 没有满足条件的群组或频道
                                         await session.send('没有满足条件的群组或频道，默认订阅到当前聊天环境')
                                     }
@@ -369,14 +369,14 @@ class ComRegister {
                                 // 如果为all则全部推送，不需要进行处理
                             } else {
                                 // 未填写群号或频道号，默认为当前环境
-                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
+                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                 // 发送提示消息
                                 await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                             }
                         }
                     } else {
                         // 用户直接订阅，将当前环境赋值给target
-                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll }], platform: session.event.platform }]
+                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                     }
                 }
                 // 定义外围变量                
