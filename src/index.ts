@@ -30,6 +30,21 @@ export interface Config {
     automaticResend: boolean,
     renderType: 'render' | 'page',
     userAgent: string,
+    subTitle: {},
+    sub: Array<{
+        uid: string,
+        dynamic: boolean,
+        live: boolean,
+        target: Array<{
+            channelIdArr: Array<{
+                channelId: string,
+                dynamic: boolean,
+                live: boolean,
+                atAll: boolean
+            }>,
+            platform: string
+        }>
+    }>,
     dynamic: {},
     dynamicUrl: boolean,
     dynamicCheckNumber: number,
@@ -104,6 +119,23 @@ export const Config: Schema<Config> = Schema.object({
     userAgent: Schema.string()
         .required()
         .description('设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111'),
+
+    subTitle: Schema.object({}).description('手动订阅'),
+
+    sub: Schema.array(Schema.object({
+        uid: Schema.string().description('订阅用户UID'),
+        dynamic: Schema.boolean().description('是否订阅用户动态'),
+        live: Schema.boolean().description('是否订阅用户直播'),
+        target: Schema.array(Schema.object({
+            channelIdArr: Schema.array(Schema.object({
+                channelId: Schema.string().description('频道/群组号'),
+                dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
+                live: Schema.boolean().description('该频道/群组是否推送直播通知'),
+                atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
+            })).description('频道/群组信息'),
+            platform: Schema.string().description('推送平台')
+        })).description('订阅用户需要发送的频道/群组信息')
+    })).role('table').description('手动输入订阅信息，方便自定义订阅内容，这里的订阅内容不会存入数据库。uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播'),
 
     dynamic: Schema.object({}).description('动态推送设置'),
 
@@ -315,6 +347,7 @@ class ServerManager extends Service {
 
             // CR = ComRegister
             const cr = this.ctx.plugin(ComRegister, {
+                sub: globalConfig.sub,
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,
@@ -366,9 +399,9 @@ class ServerManager extends Service {
         await this.disposePlugin()
         // 隔一秒启动插件
         return new Promise(resolve => {
-            this.ctx.setTimeout(async () => {
+            this.ctx.setTimeout(() => {
                 try {
-                    await this.registerPlugin()
+                    this.registerPlugin()
                 } catch (e) {
                     this.logger.error('重启插件失败', e)
                     resolve(false)
@@ -383,6 +416,9 @@ export function apply(ctx: Context, config: Config) {
     // 设置config
     globalConfig = config
     // 设置提示
+    ctx.notifier.create({
+        content: '从2.0.0-alpha.9以前版本更新需重新订阅'
+    })
     ctx.notifier.create({
         content: '请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
     })

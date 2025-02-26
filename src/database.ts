@@ -12,9 +12,8 @@ export interface Bilibili {
     uid: string,
     room_id: string,
     dynamic: number,
-    video: number,
     live: number,
-    targetId: string,
+    target: string,
     platform: string,
     time: Date
 }
@@ -35,9 +34,8 @@ export function apply(ctx: Context) {
         uid: 'string',
         room_id: 'string',
         dynamic: 'unsigned',
-        video: 'unsigned',
         live: 'unsigned',
-        targetId: 'string',
+        target: 'string',
         platform: 'string',
         time: 'timestamp'
     }, { autoInc: true })
