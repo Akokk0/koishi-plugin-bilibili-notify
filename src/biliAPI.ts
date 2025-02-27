@@ -423,6 +423,21 @@ class BiliAPI extends Service {
         return cookies
     }
 
+    async getCookiesForHeader() {
+        try {
+            // 获取cookies对象
+            const cookies = this.jar.serializeSync().cookies
+            // 将每个 cookie 对象转换为 "key=value" 形式，并用 "; " 连接起来
+            const cookieHeader = cookies
+                .map(cookie => `${cookie.key}=${cookie.value}`)
+                .join('; ')
+            return cookieHeader
+        } catch (e) {
+            console.error("无效的 JSON 格式：", e);
+            return "";
+        }
+    }
+
     getLoginInfoIsLoaded() {
         return this.loginInfoIsLoaded
     }
