@@ -1169,8 +1169,13 @@ class ComRegister {
                     if (data.live_status === 1) { // 当前正在直播
                         // 设置开播时间
                         liveTime = data.live_time
+                        // 设置直播中消息
+                        const liveMsg = this.config.customLive ? this.config.customLive
+                            .replace('-name', username)
+                            .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                            .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : ''
                         // 发送直播通知卡片
-                        if (this.config.restartPush) sendLiveNotifyCard(data, LiveType.LiveBroadcast)
+                        if (this.config.restartPush) sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
                         // 改变开播状态
                         open = true
                     } // 未开播，直接返回
@@ -1220,7 +1225,7 @@ class ComRegister {
                                     }
                                 }
                             }
-                            // 定义开播通知语
+                            // 定义开播通知语                            
                             const liveStartMsg = this.config.customLiveStart
                                 .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
@@ -1464,9 +1469,10 @@ class ComRegister {
                 // 判断是否订阅直播
                 if (sub.live) {
                     // 订阅直播
-                    liveDispose = ctx.setInterval(() => {
-                        this.liveDetect(ctx, data.live_room.room_id, sub.target)
-                    }, this.config.liveLoopTime * 1000)
+                    liveDispose = ctx.setInterval(
+                        this.liveDetect(ctx, data.live_room.roomid, sub.target),
+                        this.config.liveLoopTime * 1000
+                    )
                 }
             }
             // 在B站中订阅该对象

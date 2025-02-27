@@ -356,6 +356,7 @@ class ServerManager extends Service {
                 restartPush: globalConfig.restartPush,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
+                customLive: globalConfig.customLive,
                 customLiveEnd: globalConfig.customLiveEnd,
                 dynamicCheckNumber: globalConfig.dynamicCheckNumber,
                 dynamicLoopTime: this.dynamicLoopTime,
