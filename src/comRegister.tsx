@@ -695,7 +695,7 @@ class ComRegister {
                 for (const channel of sendArr) {
                     // 判断是否需要推送直播消息
                     if (channel.live) {
-                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll && <at type="all" />}</>)
+                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll ? <at type="all" /> : null}</>)
                     }
                 }
             } else {
@@ -1088,16 +1088,15 @@ class ComRegister {
             // 推送直播信息
             // pic 存在，使用的是render模式
             if (pic) {
-                const msg = liveNotifyMsg ? liveNotifyMsg : ''
                 // 只有在开播时才艾特全体成员
                 if (liveType === LiveType.StartBroadcasting) {
-                    return await this.sendMsg(ctx, target, pic + msg, true)
+                    return await this.sendMsg(ctx, target, pic + (liveNotifyMsg ?? ''), true)
                 }
                 // 正常不需要艾特全体成员
-                return await this.sendMsg(ctx, target, pic + msg)
+                return await this.sendMsg(ctx, target, pic + (liveNotifyMsg ?? ''))
             }
             // pic不存在，说明使用的是page模式
-            const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg && liveNotifyMsg}</>
+            const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg || ''}</>
             // 只有在开播时才艾特全体成员
             if (liveType === LiveType.StartBroadcasting) {
                 return await this.sendMsg(ctx, target, msg, true)
@@ -1173,7 +1172,7 @@ class ComRegister {
                         const liveMsg = this.config.customLive ? this.config.customLive
                             .replace('-name', username)
                             .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                            .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : ''
+                            .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                         // 发送直播通知卡片
                         if (this.config.restartPush) sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
                         // 改变开播状态
@@ -1191,9 +1190,9 @@ class ComRegister {
                             // 下播了将定时器清零
                             timer = 0
                             // 定义下播通知消息
-                            const liveEndMsg = this.config.customLiveEnd
+                            const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                                 .replace('-name', username)
-                                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                                .replace('-time', await ctx.gi.getTimeDifference(liveTime)) : null
                             // 更改直播时长
                             data.live_time = liveTime
                             // 发送@全体成员通知
@@ -1226,10 +1225,10 @@ class ComRegister {
                                 }
                             }
                             // 定义开播通知语                            
-                            const liveStartMsg = this.config.customLiveStart
+                            const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
                                 .replace('-name', username)
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                                .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`)
+                                .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                             // 发送消息
                             await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg)
                         } else { // 还在直播
@@ -1243,7 +1242,7 @@ class ComRegister {
                                     const liveMsg = this.config.customLive ? this.config.customLive
                                         .replace('-name', username)
                                         .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : ''
+                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                                     // 发送直播通知卡片
                                     sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
                                 }

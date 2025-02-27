@@ -205,6 +205,8 @@
 - ver 2.0.0-alpha.16 优化：手动订阅功能
 - ver 2.0.0-alpha.17 修复：直接订阅当前环境不会推送
 - ver 2.0.0-alpha.18 修复：手动订阅无法推送直播通知；自定义直播中通知语不会发送
+- ver 2.0.0-alpha.19 修复：开播通知后带false；下播通知卡片人气位置显示false
+- ver 2.0.0-alpha.20 修复：直播推送失败 `Error with request send_group_msg`
 
 ## 交流群
 
