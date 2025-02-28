@@ -8,7 +8,6 @@ import * as Database from './database'
 // import Service
 import GenerateImg from './generateImg'
 import BiliAPI from './biliAPI'
-import BLive from './blive'
 
 export const inject = ['puppeteer', 'database', 'notifier']
 
@@ -366,14 +365,10 @@ class ServerManager extends Service {
                 dynamicDebugMode: globalConfig.dynamicDebugMode
             })
 
-            // BL = BLive
-            const bl = this.ctx.plugin(BLive, {})
-
             // 添加服务
             this.servers.push(ba)
             this.servers.push(gi)
             this.servers.push(cr)
-            this.servers.push(bl)
         } catch (e) {
             this.logger.error('插件注册失败', e)
             return false
