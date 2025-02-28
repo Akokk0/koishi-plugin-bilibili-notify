@@ -695,7 +695,7 @@ class ComRegister {
                 for (const channel of sendArr) {
                     // 判断是否需要推送直播消息
                     if (channel.live) {
-                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll ? <at type="all" /> : null}</>)
+                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll ? <at type="all" /> : ''}</>)
                     }
                 }
             } else {
