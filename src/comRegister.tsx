@@ -689,13 +689,17 @@ class ComRegister {
             } else {
                 sendArr = target.channelIdArr
             }
-            // 判断是否是直播推送，如果是则需要进一步判断是否需要艾特群体成员
+            // 判断是否是直播开播推送，如果是则需要进一步判断是否需要艾特群体成员
             if (live) {
                 // 直播开播推送，判断是否需要艾特全体成员
                 for (const channel of sendArr) {
                     // 判断是否需要推送直播消息
                     if (channel.live) {
-                        await this.sendMsgFunc(bot, channel.channelId, <>{content}{channel.atAll ? <at type="all" /> : ''}</>)
+                        await this.sendMsgFunc(bot, channel.channelId, content)
+                    }
+                    // 判断是否需要艾特全体成员
+                    if (channel.atAll) {
+                        await this.sendMsgFunc(bot, channel.channelId, <at type="all" />)
                     }
                 }
             } else {
