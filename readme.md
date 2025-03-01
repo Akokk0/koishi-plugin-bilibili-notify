@@ -208,6 +208,8 @@
 - ver 2.0.0-alpha.19 修复：开播通知后带false；下播通知卡片人气位置显示false
 - ver 2.0.0-alpha.20 修复：直播推送失败 `Error with request send_group_msg`
 - ver 2.0.0-alpha.21 修复：在某些场景下仍会出现 `2.0.0-alpha.19` 和 `2.0.0-alpha.20` 版本已修复的问题
+- ver 2.0.0-alpha.22 移除：不需要的服务
+- ver 2.0.0-alpha.23 优化：将艾特全体成员消息单独发送
 
 ## 交流群
 
