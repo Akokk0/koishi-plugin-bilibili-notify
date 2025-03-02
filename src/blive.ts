@@ -1,22 +1,25 @@
-import { Context, Logger } from "koishi";
-import { startListen, type MsgHandler } from 'blive-message-listener'
+import { Context, Service } from "koishi";
+import { MessageListener, startListen, type MsgHandler } from 'blive-message-listener'
 
-class BLive {
+declare module 'koishi' {
+    interface Context {
+        bl: BLive
+    }
+}
+
+class BLive extends Service {
     // 必要服务
     static inject = ['ba']
     // 定义类属性
-    ctx: Context
-    logger: Logger
+    private listener: MessageListener
+    private danmakuArr: Array<string>
 
     constructor(ctx: Context) {
-        // 将ctx赋值给类属性
-        this.ctx = ctx
-        // 创建logger
-        this.logger = ctx.logger('bl')
-        // TEST
-        ctx.setTimeout(() => {
-            this.startLiveRoomListener(732)
-        }, 1000)
+        super(ctx, 'bl')
+        // 注册服务停用逻辑
+        ctx.on('dispose', () => {
+            this.closeListener()
+        })
     }
 
     async startLiveRoomListener(roomId: number) {
@@ -30,8 +33,11 @@ class BLive {
             onClose: () => {
                 this.logger.info('服务器连接已断开')
             },
-            onIncomeDanmu: (msg) => {
-                console.log(msg.id, msg.body)
+            onIncomeDanmu: ({body}) => {
+                // 处理消息，只需要UP主名字和消息内容
+                const content = `${body.user.uname}：${body.content}`
+                const bot = this.ctx.bots.find(bot => bot.platform === 'qqguild')
+                bot.sendMessage('635762054', content)
             },
             onIncomeSuperChat: (msg) => {
                 console.log(msg.id, msg.body)
@@ -40,7 +46,7 @@ class BLive {
         // 获取自身信息
         const mySelfInfo = await this.ctx.ba.getMyselfInfo()
         // 创建实例
-        startListen(roomId, handler, {
+        this.listener = startListen(roomId, handler, {
             ws: {
                 headers: {
                     Cookie: cookiesStr
@@ -48,6 +54,29 @@ class BLive {
                 uid: mySelfInfo.data.mid
             }
         })
+    }
+
+    closeListener() {
+        // 判断是否关闭
+        if (!this.listener || !this.listener.closed) {
+            // 输出logger
+            this.logger.info('直播间监听无需关闭')
+            // 直接返回
+            return
+        }
+        // 关闭监听器
+        this.listener.close()
+        // 判断是否关闭成功
+        if (this.listener.closed) {
+            // 将值置为空
+            this.listener = null
+            // 输出logger
+            this.logger.info('直播间监听已关闭')
+            // 直接返回 
+            return
+        }
+        // 未关闭成功
+        this.logger.warn('直播间监听未成功关闭')
     }
 }
 

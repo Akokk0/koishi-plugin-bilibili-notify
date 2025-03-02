@@ -371,9 +371,9 @@ class ServerManager extends Service {
 
             // 添加服务
             this.servers.push(ba)
+            this.servers.push(bl)
             this.servers.push(gi)
             this.servers.push(cr)
-            this.servers.push(bl)
         } catch (e) {
             this.logger.error('插件注册失败', e)
             return false

@@ -43,7 +43,7 @@ type SubItem = {
 type SubManager = Array<SubItem>
 
 class ComRegister {
-    static inject = ['ba', 'gi', 'database', 'sm'];
+    static inject = ['ba', 'gi', 'database', 'bl', 'sm'];
     qqRelatedBotList: Array<string> = ['qq', 'onebot', 'red', 'satori', 'chronocat']
     logger: Logger;
     config: ComRegister.Config
@@ -476,6 +476,18 @@ class ComRegister {
                 })
                 // 新增订阅展示到控制台
                 this.updateSubNotifier(ctx)
+            })
+
+        biliCom
+            .subcommand('.live <roomId:string>', '开启直播间弹幕监听功能')
+            .action(async (_, roomId) => {
+                await ctx.bl.startLiveRoomListener(+roomId)
+            })
+        
+        biliCom
+            .subcommand('.slive', '关闭直播间弹幕监听功能')
+            .action(async () => {
+                ctx.bl.closeListener()
             })
 
         biliCom
