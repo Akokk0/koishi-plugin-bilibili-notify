@@ -44,24 +44,31 @@ class BLive extends Service {
                 uid: mySelfInfo.data.mid
             }
         })
-        // 10s推送一次弹幕消息到群组并将dispose函数保存到Record中
+        // 默认30s推送一次弹幕消息到群组并将dispose函数保存到Record中
         this.timerRecord[roomId] = this.ctx.setInterval(pushOnceEveryTens, this.config.danmakuPushTime * 1000 * 60)
     }
 
     closeListener(roomId: string) {
-        // 判断是否关闭
+        // 判断直播间监听器是否关闭
         if (!this.listenerRecord || !this.listenerRecord[roomId] || !this.listenerRecord[roomId].closed) {
             // 输出logger
-            this.logger.info('直播间监听无需关闭')
-            // 直接返回
-            return
+            this.logger.info('直播间监听器无需关闭')
         }
-        // 关闭监听器
+        // 判断消息发送定时器是否关闭
+        if (!this.timerRecord || !this.timerRecord[roomId]) {
+            // 输出logger
+            this.logger.info('消息发送定时器无需关闭')
+        }
+        // 关闭直播间监听器
         this.listenerRecord[roomId].close()
+        // 关闭消息发送定时器
+        this.timerRecord[roomId]()
         // 判断是否关闭成功
         if (this.listenerRecord[roomId].closed) {
-            // 将值置为空
+            // 删除直播间监听器
             delete this.listenerRecord[roomId]
+            // 删除消息发送定时器
+            delete this.timerRecord[roomId]
             // 输出logger
             this.logger.info('直播间监听已关闭')
             // 直接返回 

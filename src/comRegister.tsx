@@ -1285,6 +1285,203 @@ class ComRegister {
         }
     } */
 
+    async liveDetectWithAPI(
+        ctx: Context
+    ) {
+        // 定义变量：第一次订阅
+        let firstSubscription: boolean = true;
+        // 定义变量：timer计时器
+        let timer: number = 0;
+        // 相当于锁的作用，防止上一个循环没处理完
+        let flag: boolean = true
+        // 定义订阅对象Record 0未开播 1正在直播 2轮播中
+        const liveRecord: Record<number, {
+            liveStatus: number,
+            liveTime: string,
+            target: Target
+        }> = {}
+        // 初始化subRecord
+        this.subManager.forEach(sub => {
+            // 判断是否订阅直播
+            if (sub.live) {
+                // 将该订阅添加到subRecord中
+                liveRecord[sub.uid] = { liveStatus: 0, liveTime: '', target: sub.target }
+            }
+        })
+        // 定义函数: 发送请求获取直播状态
+        const useLiveStatus = async (roomId: string) => {
+            let content: any
+            const attempts = 3
+            for (let i = 0; i < attempts; i++) {
+                try {
+                    // 发送请求获取room信息
+                    content = await ctx.ba.getLiveRoomInfo(roomId)
+                    // 成功则跳出循环
+                    break
+                } catch (e) {
+                    this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
+                    if (i === attempts - 1) { // 已尝试三次
+                        // 发送私聊消息并重启服务
+                        return await this.sendPrivateMsgAndStopService(ctx)
+                    }
+                }
+            }
+            // 返回data
+            return content.data
+        }
+
+        return async () => {
+            // 如果flag为false则说明前面的代码还未执行完，则直接返回
+            if (!flag) return
+            // 将标志位置为false
+            flag = false
+            try {
+                // 获取正在直播对象
+                const liveUsers = await ctx.ba.getTheUserWhoIsLiveStreaming()
+                // 判断是否是第一次订阅
+                if (firstSubscription) {
+                    // 将第一次订阅置为false
+                    firstSubscription = false
+                    // 先判断是否有UP主正在直播
+                    if (liveUsers.count > 0) {
+                        // 遍历liveUsers
+                        liveUsers.items.forEach(async item => {
+                            // 判断是否有订阅对象正在直播
+                            if (liveRecord[item.mid]) {
+                                // 获取当前用户直播间信息
+                                const data = await useLiveStatus(item.room_id.toString())
+                                // 设置开播时间
+                                liveRecord[item.mid].liveTime = data.live_time
+                                // 设置直播中消息
+                                const liveMsg = this.config.customLive ? this.config.customLive
+                                    .replace('-name', item.uname)
+                                    .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                    .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
+                                // 发送直播通知卡片
+                                if (this.config.restartPush) this.sendLiveNotifyCard(ctx,
+                                    {
+                                        username: item.uname,
+                                        userface: item.face,
+                                        target: liveRecord[item.mid].target,
+                                        data
+                                    },
+                                    LiveType.LiveBroadcast,
+                                    liveMsg
+                                )
+                                // 改变开播状态
+                                liveRecord[item.mid].liveStatus = 1
+                            }
+                        })
+                    }
+                    // 没有正在直播的订阅对象，直接返回
+                    return
+                }
+                // 获取当前订阅直播的数量
+                const currentLiveSubs = this.subManager.filter(sub => sub.live)
+                // 获取当前liveRecord里的订阅数量
+                const currentLiveRecordKeys = Object.keys(liveRecord)
+                // 判断是否能匹配双方数量
+                if (currentLiveRecordKeys.length < currentLiveSubs.length) {
+                    // 遍历currentLiveSubs
+                    for (const sub of currentLiveSubs) {
+                        // 判断liveRecord中缺少了哪些订阅
+                        if (!liveRecord[sub.uid]) {
+                            // 获取当前用户直播间信息
+                            const data = await useLiveStatus(sub.roomId.toString())
+                            switch (data.live_status) {
+                                case 0:
+                                case 2: { // 未开播
+                                    // 添加到liveRecord中
+                                    liveRecord[sub.uid] = { liveStatus: 0, liveTime: '', target: sub.target }
+                                    // break
+                                    break
+                                }
+                                case 1: { //正在直播
+                                    // 添加到liveRecord中
+                                    liveRecord[sub.uid] = { liveStatus: 1, liveTime: data.live_time, target: sub.target }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (currentLiveRecordKeys.length > currentLiveSubs.length) {
+                    // 创建Set
+                    const setCurrentLiveSubs = new Set(currentLiveSubs.map(sub => sub.uid))
+                    // 找出 currentLiveRecordKeys中比currentLiveSubs 多的元素
+                    const extraInCurrentLiveSubs = currentLiveRecordKeys.filter(key => !setCurrentLiveSubs.has(key))
+                    // 遍历 extraInCurrentLiveSubs 
+                    for (const subUID of extraInCurrentLiveSubs) {
+                        // 删除记录
+                        delete liveRecord[subUID]
+                    }
+                }
+                // 遍历liveUsers
+                liveUsers.items.forEach(async item => {
+                    // 判断是否有正在直播的订阅对象
+                    if (liveRecord[item.mid]) { // 有正在直播的订阅对象
+                        // 获取当前用户直播间信息
+                        const data = await useLiveStatus(item.room_id.toString())
+                        // 判断开播状态
+                        switch (liveRecord[item.mid].liveStatus) {
+                            case 0: { // 之前未开播，现在开播了
+                                // 设置开播时间
+                                liveRecord[item.mid].liveTime = data.live_time
+                                // 定义开播通知语                            
+                                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
+                                    .replace('-name', item.uname)
+                                    .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                    .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
+                                // 发送直播通知卡片
+                                if (this.config.restartPush) this.sendLiveNotifyCard(ctx,
+                                    {
+                                        username: item.uname,
+                                        userface: item.face,
+                                        target: liveRecord[item.mid].target,
+                                        data
+                                    },
+                                    LiveType.LiveBroadcast,
+                                    liveStartMsg
+                                )
+                                // 改变开播状态
+                                liveRecord[item.mid].liveStatus = 1
+                                // 结束
+                                break
+                            }
+                            case 1: { // 仍在直播
+                                if (this.config.pushTime > 0) {
+                                    timer++
+                                    // 开始记录时间
+                                    if (timer >= (6 * 60 * this.config.pushTime)) { // 到时间推送直播消息
+                                        // 到时间重新计时
+                                        timer = 0
+                                        // 定义直播中通知消息
+                                        const liveMsg = this.config.customLive ? this.config.customLive
+                                            .replace('-name', item.uname)
+                                            .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                            .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
+                                        // 发送直播通知卡片
+                                        this.sendLiveNotifyCard(ctx, {
+                                            username: item.uname,
+                                            userface: item.face,
+                                            target: liveRecord[item.mid].target,
+                                            data
+                                        },
+                                            LiveType.LiveBroadcast,
+                                            liveMsg
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
+            } finally {
+                // 执行完方法体不论如何都把flag设置为true
+                flag = true
+            }
+        }
+    }
+
     liveDetectWithListener(
         ctx: Context,
         roomId: string,
