@@ -55,6 +55,7 @@ export interface Config {
     liveStartAtAll: boolean,
     restartPush: boolean,
     pushTime: number,
+    danmakuPushTime: number,
     customLiveStart: string,
     customLive: string,
     customLiveEnd: string,
@@ -176,7 +177,14 @@ export const Config: Schema<Config> = Schema.object({
         .max(12)
         .step(0.5)
         .default(1)
-        .description('设定隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
+        .description('设定间隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
+
+    danmakuPushTime: Schema.number()
+        .min(0)
+        .max(10)
+        .step(0.5)
+        .default(0.5)
+        .description('设定间隔多长时间推送一次弹幕消息，单位为分钟，默认为半分钟'),
 
     customLiveStart: Schema.string()
         .default('-name开播啦 -link')
@@ -367,7 +375,9 @@ class ServerManager extends Service {
             })
 
             // BL = BLive
-            const bl = this.ctx.plugin(BLive, {})
+            const bl = this.ctx.plugin(BLive, {
+                danmakuPushTime: globalConfig.danmakuPushTime
+            })
 
             // 添加服务
             this.servers.push(ba)

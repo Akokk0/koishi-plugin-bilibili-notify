@@ -479,18 +479,6 @@ class ComRegister {
                 this.updateSubNotifier(ctx)
             })
 
-        /* biliCom
-            .subcommand('.live <roomId:string>', '开启直播间弹幕监听功能')
-            .action(async (_, roomId) => {
-                await ctx.bl.startLiveRoomListener(+roomId)
-            }) */
-
-        biliCom
-            .subcommand('.slive', '关闭直播间弹幕监听功能')
-            .action(async () => {
-                ctx.bl.closeListener()
-            })
-
         biliCom
             .subcommand('.status <roomId:string>', '查询主播当前直播状态', { hidden: true })
             .usage('查询主播当前直播状态')
@@ -1302,14 +1290,13 @@ class ComRegister {
         roomId: string,
         target: Target
     ) {
-        // 弹幕存放数组
-        const currentLiveDanmakuArr: Array<string> = []
-        const temporaryLiveDanmakuArr: Array<string> = []
         // 定义开播时间
         let liveTime: string
         // 定义定时推送定时器
         let pushAtTimeTimer: Function
-
+        // 定义弹幕存放数组
+        const currentLiveDanmakuArr: Array<string> = []
+        const temporaryLiveDanmakuArr: Array<string> = []
         // 定义定时推送函数
         const pushAtTime = async () => {
             // 获取直播间信息
@@ -1331,16 +1318,26 @@ class ComRegister {
                     data: liveRoomInfo
                 },
                 LiveType.LiveBroadcast,
-                liveMsg)
+                liveMsg
+            )
         }
-
+        // 定义10秒推送函数
+        const pushOnceEveryTenS = () => {
+            // 判断数组是否有内容
+            if (temporaryLiveDanmakuArr.length > 0) {
+                // 发送消息
+                this.sendMsg(ctx, target, temporaryLiveDanmakuArr.join('\n'))
+                // 将临时消息数组清空
+                temporaryLiveDanmakuArr.length = 0
+            }
+        }
         // 构建消息处理函数
         const handler: MsgHandler = {
             onOpen: () => {
-                this.logger.info('服务器连接成功')
+                this.logger.info('直播间连接成功')
             },
             onClose: () => {
-                this.logger.info('服务器连接已断开')
+                this.logger.info('直播间连接已断开')
             },
             onIncomeDanmu: ({ body }) => {
                 // 处理消息，只需要UP主名字和消息内容
@@ -1353,33 +1350,6 @@ class ComRegister {
                 console.log(msg.id, msg.body)
             },
             onLiveStart: async () => {
-                // 获取直播间消息
-                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
-                // 获取主播信息
-                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
-                // 设置开播时间
-                liveTime = liveRoomInfo.live_time
-                // 开启推送定时器
-                pushAtTimeTimer = ctx.setInterval(pushAtTime, 3600 * 1000)
-                // 定义开播通知语                            
-                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
-                    .replace('-name', masterInfo.username)
-                    .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                    .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
-                // 推送通知卡片
-                await this.sendLiveNotifyCard(
-                    ctx,
-                    {
-                        username: masterInfo.username,
-                        userface: masterInfo.userface,
-                        target,
-                        data: liveRoomInfo
-                    },
-                    LiveType.StartBroadcasting,
-                    liveStartMsg
-                )
-            },
-            onLiveEnd: async () => {
                 // 获取直播间信息
                 const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
                 // 获取主播信息
@@ -1406,26 +1376,37 @@ class ComRegister {
                 pushAtTimeTimer()
                 // 定时器变量置空
                 pushAtTimeTimer = null
+            },
+            onLiveEnd: async () => {
+                // 获取直播间消息
+                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+                // 获取主播信息
+                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+                // 设置开播时间
+                liveTime = liveRoomInfo.live_time
+                // 开启推送定时器
+                pushAtTimeTimer = ctx.setInterval(pushAtTime, 3600 * 1000)
+                // 定义开播通知语                            
+                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
+                    .replace('-name', masterInfo.username)
+                    .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                    .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+                // 推送通知卡片
+                await this.sendLiveNotifyCard(
+                    ctx,
+                    {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target,
+                        data: liveRoomInfo
+                    },
+                    LiveType.StartBroadcasting,
+                    liveStartMsg
+                )
             }
         }
         // 启动直播间弹幕监测
-        ctx.bl.startLiveRoomListener(+roomId, handler)
-        // 10s推送一次弹幕消息到群组
-        ctx.setInterval(() => {
-            // 判断数组是否有内容
-            if (temporaryLiveDanmakuArr.length > 0) {
-                // 发送消息
-                this.sendMsg(ctx, target, temporaryLiveDanmakuArr.join('\n'))
-                // 结束本次循环
-                return
-            }
-            // 将临时消息数组清空
-            temporaryLiveDanmakuArr.length = 0
-        }, 10000)
-    }
-
-    liveDetectWithAPI() {
-        // TODO
+        ctx.bl.startLiveRoomListener(roomId, handler, pushOnceEveryTenS)
     }
 
     subShow() {
