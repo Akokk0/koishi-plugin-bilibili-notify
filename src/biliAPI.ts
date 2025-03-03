@@ -40,6 +40,9 @@ const GET_MASTER_INFO = 'https://api.live.bilibili.com/live_user/v1/Master/info'
 const GET_TIME_NOW = 'https://api.bilibili.com/x/report/click/now'
 const GET_SERVER_UTC_TIME = 'https://interface.bilibili.com/serverdate.js'
 
+// 最近更新UP
+const GET_LATEST_UPDATED_UPS = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/portal'
+
 // 操作
 const MODIFY_RELATION = 'https://api.bilibili.com/x/relation/modify'
 const CREATE_GROUP = 'https://api.bilibili.com/x/relation/tag/create'
@@ -135,6 +138,17 @@ class BiliAPI extends Service {
     }
 
     // BA API
+
+    async getLatestUpdatedUPs() {
+        try {
+            // 获取直播间信息流密钥
+            const { data } = await this.client.get(GET_LATEST_UPDATED_UPS)
+            // 返回data
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
 
     async getLiveRoomInfoStreamKey(roomId: string) {
         try {

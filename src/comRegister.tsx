@@ -7,6 +7,7 @@ import { } from '@koishijs/plugin-help'
 // 导入qrcode
 import QRCode from 'qrcode'
 import { LoginBili } from "./database";
+import { MsgHandler } from "blive-message-listener";
 
 enum LiveType {
     NotLiveBroadcast,
@@ -437,8 +438,8 @@ class ComRegister {
                 let liveDispose: Function
                 // 订阅直播
                 if (liveMsg) {
-                    // 开始循环检测
-                    liveDispose = ctx.setInterval(this.liveDetect(ctx, roomId, target), config.liveLoopTime * 1000)
+                    // 连接到服务器
+                    this.liveDetectWithListener(ctx, roomId, target)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
@@ -478,12 +479,12 @@ class ComRegister {
                 this.updateSubNotifier(ctx)
             })
 
-        biliCom
+        /* biliCom
             .subcommand('.live <roomId:string>', '开启直播间弹幕监听功能')
             .action(async (_, roomId) => {
                 await ctx.bl.startLiveRoomListener(+roomId)
-            })
-        
+            }) */
+
         biliCom
             .subcommand('.slive', '关闭直播间弹幕监听功能')
             .action(async () => {
@@ -1063,7 +1064,88 @@ class ComRegister {
         }
     }
 
-    liveDetect(
+    // 定义发送直播通知卡片方法
+    async sendLiveNotifyCard(
+        ctx: Context,
+        info: {
+            username: string,
+            userface: string,
+            target: Target,
+            data: any
+        },
+        liveType: LiveType,
+        liveNotifyMsg?: string
+    ) {
+        // 定义变量
+        let pic: string
+        let buffer: Buffer
+        // 多次尝试生成图片
+        const attempts = 3
+        for (let i = 0; i < attempts; i++) {
+            try {
+                // 获取直播通知卡片
+                const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(info.data, info.username, info.userface, liveType)
+                // 赋值
+                pic = picv
+                buffer = bufferv
+                // 成功则跳出循环
+                break
+            } catch (e) {
+                if (i === attempts - 1) { // 已尝试三次
+                    this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
+                    // 发送私聊消息并重启服务
+                    return await this.sendPrivateMsgAndStopService(ctx)
+                }
+            }
+        }
+        // 推送直播信息
+        // pic 存在，使用的是render模式
+        if (pic) {
+            // 只有在开播时才艾特全体成员
+            if (liveType === LiveType.StartBroadcasting) {
+                return await this.sendMsg(ctx, info.target, pic + (liveNotifyMsg ?? ''), true)
+            }
+            // 正常不需要艾特全体成员
+            return await this.sendMsg(ctx, info.target, pic + (liveNotifyMsg ?? ''))
+        }
+        // pic不存在，说明使用的是page模式
+        const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg || ''}</>
+        // 只有在开播时才艾特全体成员
+        if (liveType === LiveType.StartBroadcasting) {
+            return await this.sendMsg(ctx, info.target, msg, true)
+        }
+        // 正常不需要艾特全体成员
+        return await this.sendMsg(ctx, info.target, msg)
+    }
+
+    // 定义获取主播信息方法
+    async useMasterInfo(ctx: Context, uid: string): Promise<{ username: string, userface: string }> {
+        const { data: { info } } = await ctx.ba.getMasterInfo(uid)
+        return { username: info.name, userface: info.face }
+    }
+
+    async useLiveRoomInfo(ctx: Context, roomId: string) {
+        // 发送请求获取直播间信息
+        let content: any
+        const attempts = 3
+        for (let i = 0; i < attempts; i++) {
+            try {
+                // 发送请求获取room信息
+                content = await ctx.ba.getLiveRoomInfo(roomId)
+                // 成功则跳出循环
+                break
+            } catch (e) {
+                this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
+                if (i === attempts - 1) { // 已尝试三次
+                    // 发送私聊消息并重启服务
+                    return await this.sendPrivateMsgAndStopService(ctx)
+                }
+            }
+        }
+        return content.data
+    }
+
+    /* liveDetect(
         ctx: Context,
         roomId: string,
         target: Target
@@ -1076,66 +1158,6 @@ class ComRegister {
         let userface: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
-
-        // 定义发送直播通知卡片方法
-        const sendLiveNotifyCard = async (data: any, liveType: LiveType, liveNotifyMsg?: string) => {
-            // 定义变量
-            let pic: string
-            let buffer: Buffer
-            // 多次尝试生成图片
-            const attempts = 3
-            for (let i = 0; i < attempts; i++) {
-                try {
-                    // 获取直播通知卡片
-                    const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(data, username, userface, liveType)
-                    // 赋值
-                    pic = picv
-                    buffer = bufferv
-                    // 成功则跳出循环
-                    break
-                } catch (e) {
-                    if (i === attempts - 1) { // 已尝试三次
-                        this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
-                        // 发送私聊消息并重启服务
-                        return await this.sendPrivateMsgAndStopService(ctx)
-                    }
-                }
-            }
-            // 推送直播信息
-            // pic 存在，使用的是render模式
-            if (pic) {
-                // 只有在开播时才艾特全体成员
-                if (liveType === LiveType.StartBroadcasting) {
-                    return await this.sendMsg(ctx, target, pic + (liveNotifyMsg ?? ''), true)
-                }
-                // 正常不需要艾特全体成员
-                return await this.sendMsg(ctx, target, pic + (liveNotifyMsg ?? ''))
-            }
-            // pic不存在，说明使用的是page模式
-            const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg || ''}</>
-            // 只有在开播时才艾特全体成员
-            if (liveType === LiveType.StartBroadcasting) {
-                return await this.sendMsg(ctx, target, msg, true)
-            }
-            // 正常不需要艾特全体成员
-            return await this.sendMsg(ctx, target, msg)
-        }
-
-        // 定义获取主播信息方法
-        let useMasterInfo: (uid: string) => Promise<void>
-        if (this.config.changeMasterInfoApi) {
-            useMasterInfo = async (uid: string) => {
-                const { data } = await ctx.ba.getUserInfo(uid)
-                username = data.name
-                userface = data.face
-            }
-        } else {
-            useMasterInfo = async (uid: string) => {
-                const { data: { info } } = await ctx.ba.getMasterInfo(uid)
-                username = info.uname
-                userface = info.face
-            }
-        }
 
         return async () => {
             // 如果flag为false则说明前面的代码还未执行完，则直接返回
@@ -1211,7 +1233,7 @@ class ComRegister {
                                 .replace('-time', await ctx.gi.getTimeDifference(liveTime)) : null
                             // 更改直播时长
                             data.live_time = liveTime
-                            // 发送@全体成员通知
+                            // 推送下播通知
                             await sendLiveNotifyCard(data, LiveType.StopBroadcast, liveEndMsg)
                         }
                         // 未进循环，还未开播，继续循环
@@ -1273,6 +1295,137 @@ class ComRegister {
                 flag = true
             }
         }
+    } */
+
+    liveDetectWithListener(
+        ctx: Context,
+        roomId: string,
+        target: Target
+    ) {
+        // 弹幕存放数组
+        const currentLiveDanmakuArr: Array<string> = []
+        const temporaryLiveDanmakuArr: Array<string> = []
+        // 定义开播时间
+        let liveTime: string
+        // 定义定时推送定时器
+        let pushAtTimeTimer: Function
+
+        // 定义定时推送函数
+        const pushAtTime = async () => {
+            // 获取直播间信息
+            const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+            // 获取主播信息
+            const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+            // 定义直播中通知消息
+            const liveMsg = this.config.customLive ? this.config.customLive
+                .replace('-name', masterInfo.username)
+                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+            // 发送直播通知卡片
+            await this.sendLiveNotifyCard(
+                liveRoomInfo,
+                {
+                    username: masterInfo.username,
+                    userface: masterInfo.userface,
+                    target,
+                    data: liveRoomInfo
+                },
+                LiveType.LiveBroadcast,
+                liveMsg)
+        }
+
+        // 构建消息处理函数
+        const handler: MsgHandler = {
+            onOpen: () => {
+                this.logger.info('服务器连接成功')
+            },
+            onClose: () => {
+                this.logger.info('服务器连接已断开')
+            },
+            onIncomeDanmu: ({ body }) => {
+                // 处理消息，只需要UP主名字和消息内容
+                const content = `${body.user.uname}：${body.content}`
+                // 保存消息到数组
+                currentLiveDanmakuArr.push(content)
+                temporaryLiveDanmakuArr.push(content)
+            },
+            onIncomeSuperChat: (msg) => {
+                console.log(msg.id, msg.body)
+            },
+            onLiveStart: async () => {
+                // 获取直播间消息
+                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+                // 获取主播信息
+                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+                // 设置开播时间
+                liveTime = liveRoomInfo.live_time
+                // 开启推送定时器
+                pushAtTimeTimer = ctx.setInterval(pushAtTime, 3600 * 1000)
+                // 定义开播通知语                            
+                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
+                    .replace('-name', masterInfo.username)
+                    .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                    .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+                // 推送通知卡片
+                await this.sendLiveNotifyCard(
+                    ctx,
+                    {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target,
+                        data: liveRoomInfo
+                    },
+                    LiveType.StartBroadcasting,
+                    liveStartMsg
+                )
+            },
+            onLiveEnd: async () => {
+                // 获取直播间信息
+                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+                // 获取主播信息
+                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+                // 定义下播通知消息
+                const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
+                    .replace('-name', masterInfo.username)
+                    .replace('-time', await ctx.gi.getTimeDifference(liveTime)) : null
+                // 更改直播时长
+                liveRoomInfo.live_time = liveTime
+                // 推送下播通知
+                await this.sendLiveNotifyCard(
+                    liveRoomInfo,
+                    {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target,
+                        data: liveRoomInfo
+                    },
+                    LiveType.StopBroadcast,
+                    liveEndMsg
+                )
+                // 关闭定时器
+                pushAtTimeTimer()
+                // 定时器变量置空
+                pushAtTimeTimer = null
+            }
+        }
+        // 启动直播间弹幕监测
+        ctx.bl.startLiveRoomListener(+roomId, handler)
+        // 10s推送一次弹幕消息到群组
+        ctx.setInterval(() => {
+            // 判断数组是否有内容
+            if (temporaryLiveDanmakuArr.length > 0) {
+                // 发送消息
+                this.sendMsg(ctx, target, temporaryLiveDanmakuArr.join('\n'))
+                // 结束本次循环
+                return
+            }
+            // 将临时消息数组清空
+            temporaryLiveDanmakuArr.length = 0
+        }, 10000)
+    }
+
+    liveDetectWithAPI() {
+        // TODO
     }
 
     subShow() {
@@ -1484,10 +1637,7 @@ class ComRegister {
                 // 判断是否订阅直播
                 if (sub.live) {
                     // 订阅直播
-                    liveDispose = ctx.setInterval(
-                        this.liveDetect(ctx, data.live_room.roomid, sub.target),
-                        this.config.liveLoopTime * 1000
-                    )
+                    this.liveDetectWithListener(ctx, data.live_room.roomid, sub.target)
                 }
             }
             // 在B站中订阅该对象
@@ -1632,12 +1782,7 @@ class ComRegister {
                     // 直播订阅数+1
                     liveSubNum++
                     // 订阅直播，开始循环检测
-                    const dispose = ctx.setInterval(
-                        this.liveDetect(ctx, sub.room_id, target),
-                        this.config.liveLoopTime * 1000
-                    )
-                    // 保存销毁函数
-                    subManagerItem.liveDispose = dispose
+                    this.liveDetectWithListener(ctx, sub.room_id, target)
                 }
             }
             // 保存新订阅对象

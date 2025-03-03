@@ -22,27 +22,9 @@ class BLive extends Service {
         })
     }
 
-    async startLiveRoomListener(roomId: number) {
+    async startLiveRoomListener(roomId: number, handler: MsgHandler) {
         // 获取cookieStr
         const cookiesStr = await this.ctx.ba.getCookiesForHeader()
-        // 构建消息处理函数
-        const handler: MsgHandler = {
-            onOpen: () => {
-                this.logger.info('服务器连接成功')
-            },
-            onClose: () => {
-                this.logger.info('服务器连接已断开')
-            },
-            onIncomeDanmu: ({body}) => {
-                // 处理消息，只需要UP主名字和消息内容
-                const content = `${body.user.uname}：${body.content}`
-                const bot = this.ctx.bots.find(bot => bot.platform === 'qqguild')
-                bot.sendMessage('635762054', content)
-            },
-            onIncomeSuperChat: (msg) => {
-                console.log(msg.id, msg.body)
-            }
-        }
         // 获取自身信息
         const mySelfInfo = await this.ctx.ba.getMyselfInfo()
         // 创建实例
