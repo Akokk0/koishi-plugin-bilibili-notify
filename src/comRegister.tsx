@@ -44,14 +44,25 @@ type SubItem = {
 type SubManager = Array<SubItem>
 
 class ComRegister {
+    // 必须服务
     static inject = ['ba', 'gi', 'database', 'bl', 'sm'];
+    // 定义数组：QQ相关bot
     qqRelatedBotList: Array<string> = ['qq', 'onebot', 'red', 'satori', 'chronocat']
+    // logger
     logger: Logger;
+    // config
     config: ComRegister.Config
+    // 登录定时器
     loginTimer: Function
+    // 订阅数量
     num: number = 0
+    // 重启次数
     rebootCount: number = 0
+    // 订阅通知
     subNotifier: Notifier
+    // Context
+    ctx: Context
+    // 订阅管理器
     subManager: SubManager = []
     // 检查登录数据库是否有数据
     loginDBData: FlatPick<LoginBili, "dynamic_group_id">
@@ -63,8 +74,10 @@ class ComRegister {
     sendMsgFunc: (bot: Bot<Context, any>, channelId: string, content: any) => Promise<void>
     // 构造函数
     constructor(ctx: Context, config: ComRegister.Config) {
+        // 将ctx赋值给类属性
+        this.ctx = ctx
         // 初始化
-        this.init(ctx, config)
+        this.init(config)
         // 注册指令
         const statusCom = ctx.command('status', '插件状态相关指令', { permissions: ['authority:5'] })
 
@@ -177,7 +190,7 @@ class ComRegister {
                             // 销毁定时器
                             this.loginTimer()
                             // 订阅之前的订阅
-                            await this.loadSubFromDatabase(ctx)
+                            await this.loadSubFromDatabase()
                             // 清除控制台通知
                             ctx.ba.disposeNotifier()
                             // 发送成功登录推送
@@ -212,8 +225,8 @@ class ComRegister {
                     if (sub.uid === uid) {
                         // 取消单个订阅
                         if (options.live || options.dynamic) {
-                            if (options.live) await session.send(this.unsubSingle(ctx, sub.roomId, 0)) /* 0为取消订阅Live */
-                            if (options.dynamic) await session.send(this.unsubSingle(ctx, sub.uid, 1)) /* 1为取消订阅Dynamic */
+                            if (options.live) await session.send(this.unsubSingle(sub.roomId, 0)) /* 0为取消订阅Live */
+                            if (options.dynamic) await session.send(this.unsubSingle(sub.uid, 1)) /* 1为取消订阅Dynamic */
                             // 将存在flag设置为true
                             exist = true
                             // 结束循环
@@ -241,7 +254,7 @@ class ComRegister {
                         // 发送成功通知
                         await session.send('已取消订阅该用户')
                         // 更新控制台提示
-                        this.updateSubNotifier(ctx)
+                        this.updateSubNotifier()
                         // 将存在flag设置为true
                         exist = true
                     }
@@ -278,14 +291,14 @@ class ComRegister {
                     return '直播订阅已达上限，请取消部分直播订阅后再进行订阅'
                 }
                 // 检查是否登录
-                if (!(await this.checkIfIsLogin(ctx))) {
+                if (!(await this.checkIfIsLogin())) {
                     // 未登录直接返回
                     return '请使用指令bili login登录后再进行订阅操作'
                 }
                 // 检查必选参数是否已填
                 if (!mid) return '请输入用户uid'
                 // 订阅对象
-                const subUserData = await this.subUserInBili(ctx, mid)
+                const subUserData = await this.subUserInBili(mid)
                 // 判断是否订阅对象存在
                 if (!subUserData.flag) return '订阅对象失败，请稍后重试！'
                 // 定义目标变量
@@ -319,7 +332,7 @@ class ComRegister {
                         for (const [index, { channelIdArr, platform }] of target.entries()) {
                             if (channelIdArr.length > 0) { // 输入了推送群号或频道号
                                 // 拿到对应的bot
-                                const bot = this.getBot(ctx, platform)
+                                const bot = this.getBot(platform)
                                 // 判断是否配置了对应平台的机器人
                                 if (!ctx.bots.some(bot => bot.platform === platform)) {
                                     // 发送提示消息
@@ -436,7 +449,7 @@ class ComRegister {
                 // 订阅直播
                 if (liveMsg) {
                     // 连接到服务器
-                    this.liveDetectWithListener(ctx, roomId, target)
+                    this.liveDetectWithListener(roomId, target)
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
@@ -444,7 +457,7 @@ class ComRegister {
                 if (dynamicMsg) {
                     // 判断是否开启动态监测
                     if (!this.dynamicDispose) {
-                        this.enableDynamicDetect(ctx)
+                        this.enableDynamicDetect()
                     }
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}动态通知`)
@@ -472,7 +485,7 @@ class ComRegister {
                     dynamic: dynamicMsg,
                 })
                 // 新增订阅展示到控制台
-                this.updateSubNotifier(ctx)
+                this.updateSubNotifier()
             })
 
         biliCom
@@ -532,25 +545,19 @@ class ComRegister {
             })
     }
 
-    async init(ctx: Context, config: ComRegister.Config) {
+    async init(config: ComRegister.Config) {
         // 设置logger
-        this.logger = ctx.logger('cr')
+        this.logger = this.ctx.logger('cr')
         // 将config设置给类属性
         this.config = config
         // 拿到私人机器人实例
-        this.privateBot = ctx.bots.find(bot => bot.platform === config.master.platform)
+        this.privateBot = this.ctx.bots.find(bot => bot.platform === config.master.platform)
         if (!this.privateBot) {
-            ctx.notifier.create({
+            this.ctx.notifier.create({
                 content: '您未配置私人机器人，将无法向您推送机器人状态！'
             })
             this.logger.error('您未配置私人机器人，将无法向您推送机器人状态！')
         }
-        // 检查登录数据库是否有数据
-        this.loginDBData = (await ctx.database.get('loginBili', 1, ['dynamic_group_id']))[0]
-        // 从配置获取订阅
-        config.sub && await this.loadSubFromConfig(ctx, config.sub)
-        // 从数据库获取订阅
-        await this.loadSubFromDatabase(ctx)
         // 判断消息发送方式
         if (config.automaticResend) {
             this.sendMsgFunc = async (bot: Bot<Context, any>, channelId: string, content: any) => {
@@ -561,7 +568,7 @@ class ComRegister {
                         // 发送消息
                         await bot.sendMessage(channelId, content)
                         // 防止消息发送速度过快被忽略
-                        await ctx.sleep(500)
+                        await this.ctx.sleep(500)
                         // 成功发送消息，跳出循环
                         break
                     } catch (e) {
@@ -584,10 +591,16 @@ class ComRegister {
                 }
             }
         }
+        // 检查登录数据库是否有数据
+        this.loginDBData = (await this.ctx.database.get('loginBili', 1, ['dynamic_group_id']))[0]
+        // 从配置获取订阅
+        config.sub && await this.loadSubFromConfig(config.sub)
+        // 从数据库获取订阅
+        await this.loadSubFromDatabase()
         // 检查是否需要动态监测
-        this.checkIfDynamicDetectIsNeeded(ctx)
+        this.checkIfDynamicDetectIsNeeded()
         // 在控制台中显示订阅对象
-        this.updateSubNotifier(ctx)
+        this.updateSubNotifier()
     }
 
     splitMultiPlatformStr(str: string): Target {
@@ -601,8 +614,8 @@ class ComRegister {
         })
     }
 
-    getBot(ctx: Context, pf: string): Bot<Context, any> {
-        return ctx.bots.find(bot => bot.platform === pf)
+    getBot(pf: string): Bot<Context, any> {
+        return this.ctx.bots.find(bot => bot.platform === pf)
     }
 
     async sendPrivateMsg(content: string) {
@@ -624,7 +637,7 @@ class ComRegister {
         }
     }
 
-    async sendPrivateMsgAndRebootService(ctx: Context) {
+    async sendPrivateMsgAndRebootService() {
         // 判断重启次数是否超过三次
         if (this.rebootCount >= 3) {
             // logger
@@ -632,7 +645,7 @@ class ComRegister {
             // 重启失败，发送消息
             await this.sendPrivateMsg('已重启插件三次，请检查机器人状态后使用指令 sys start 启动插件')
             // 关闭插件
-            await ctx.sm.disposePlugin()
+            await this.ctx.sm.disposePlugin()
             // 结束
             return
         }
@@ -641,7 +654,7 @@ class ComRegister {
         // logger
         this.logger.info('插件出现未知错误，正在重启插件')
         // 重启插件
-        const flag = await ctx.sm.restartPlugin()
+        const flag = await this.ctx.sm.restartPlugin()
         // 判断是否重启成功
         if (flag) {
             this.logger.info('重启插件成功')
@@ -651,25 +664,25 @@ class ComRegister {
             // 重启失败，发送消息
             await this.sendPrivateMsg('重启插件失败，请检查机器人状态后使用指令 sys start 启动插件')
             // 关闭插件
-            await ctx.sm.disposePlugin()
+            await this.ctx.sm.disposePlugin()
         }
     }
 
-    async sendPrivateMsgAndStopService(ctx: Context) {
+    async sendPrivateMsgAndStopService() {
         // 发送消息
         await this.sendPrivateMsg('插件发生未知错误，请检查机器人状态后使用指令 sys start 启动插件')
         // logger
         this.logger.error('插件发生未知错误，请检查机器人状态后使用指令 sys start 启动插件')
         // 关闭插件
-        await ctx.sm.disposePlugin()
+        await this.ctx.sm.disposePlugin()
         // 结束
         return
     }
 
-    async sendMsg(ctx: Context, targets: Target, content: any, live?: boolean) {
+    async sendMsg(targets: Target, content: any, live?: boolean) {
         for (const target of targets) {
             // 获取机器人实例
-            const bot = this.getBot(ctx, target.platform)
+            const bot = this.getBot(target.platform)
             // 定义需要发送的数组
             let sendArr: ChannelIdArr = []
             // 判断是否需要推送所有机器人加入的群
@@ -711,7 +724,7 @@ class ComRegister {
         }
     }
 
-    dynamicDetect(ctx: Context) {
+    dynamicDetect() {
         let detectSetup: boolean = true
         let updateBaseline: string
         // 相当于锁的作用，防止上一个循环没处理完
@@ -726,7 +739,7 @@ class ComRegister {
                 // 检测启动初始化
                 if (detectSetup) {
                     // 获取动态信息
-                    const data = await ctx.ba.getAllDynamic() as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
+                    const data = await this.ctx.ba.getAllDynamic() as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
                     // 判断获取动态信息是否成功
                     if (data.code !== 0) return
                     // 设置更新基线
@@ -741,12 +754,12 @@ class ComRegister {
                 let content: any
                 try {
                     // 查询是否有新动态
-                    const data = await ctx.ba.hasNewDynamic(updateBaseline)
+                    const data = await this.ctx.ba.hasNewDynamic(updateBaseline)
                     updateNum = data.data.update_num
                     // 没有新动态或获取动态信息失败直接返回
                     if (updateNum <= 0 || data.code !== 0) return
                     // 获取动态内容
-                    content = await ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
+                    content = await this.ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
                 } catch (e) {
                     return this.logger.error('dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：' + e.message)
                 }
@@ -759,7 +772,7 @@ class ComRegister {
                             // 发送私聊消息
                             await this.sendPrivateMsg('账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
                             // 停止服务
-                            await ctx.sm.disposePlugin()
+                            await this.ctx.sm.disposePlugin()
                             // 结束循环
                             break
                         }
@@ -769,7 +782,7 @@ class ComRegister {
                             // 发送私聊消息
                             await this.sendPrivateMsg('账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
                             // 停止服务
-                            await ctx.sm.disposePlugin()
+                            await this.ctx.sm.disposePlugin()
                             // 结束循环
                             break
                         }
@@ -819,7 +832,7 @@ class ComRegister {
                                 // 获取动态推送图片
                                 try {
                                     // 渲染图片
-                                    const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gi.generateDynamicImg(items[num])
+                                    const { pic: gimgPic, buffer: gimgBuffer } = await this.ctx.gi.generateDynamicImg(items[num])
                                     // 赋值
                                     pic = gimgPic
                                     buffer = gimgBuffer
@@ -831,13 +844,13 @@ class ComRegister {
                                     if (e.message === '出现关键词，屏蔽该动态') {
                                         // 如果需要发送才发送
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(ctx, sub.target, `${upName}发布了一条含有屏蔽关键字的动态`)
+                                            await this.sendMsg(sub.target, `${upName}发布了一条含有屏蔽关键字的动态`)
                                         }
                                         return
                                     }
                                     if (e.message === '已屏蔽转发动态') {
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(ctx, sub.target, `${upName}发布了一条转发动态，已屏蔽`)
+                                            await this.sendMsg(sub.target, `${upName}发布了一条转发动态，已屏蔽`)
                                         }
                                         return
                                     }
@@ -845,7 +858,7 @@ class ComRegister {
                                     if (i === attempts - 1) {
                                         this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
                                         // 发送私聊消息并重启服务
-                                        return await this.sendPrivateMsgAndStopService(ctx)
+                                        return await this.sendPrivateMsgAndStopService()
                                     }
                                 }
                             }
@@ -855,11 +868,11 @@ class ComRegister {
                             if (pic) {
                                 this.logger.info('推送动态中，使用render模式');
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(ctx, sub.target, pic + <>{dUrl}</>)
+                                await this.sendMsg(sub.target, pic + <>{dUrl}</>)
                             } else if (buffer) {
                                 this.logger.info('推送动态中，使用page模式');
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(ctx, sub.target, <>{h.image(buffer, 'image/png')}{dUrl}</>)
+                                await this.sendMsg(sub.target, <>{h.image(buffer, 'image/png')}{dUrl}</>)
                             } else {
                                 this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                             }
@@ -873,7 +886,7 @@ class ComRegister {
         }
     }
 
-    debug_dynamicDetect(ctx: Context) {
+    debug_dynamicDetect() {
         let detectSetup: boolean = true
         let updateBaseline: string
         // 相当于锁的作用，防止上一个循环没处理完
@@ -889,7 +902,7 @@ class ComRegister {
                 // 检测启动初始化
                 if (detectSetup) {
                     // 获取动态信息
-                    const data = await ctx.ba.getAllDynamic() as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
+                    const data = await this.ctx.ba.getAllDynamic() as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
                     // 判断获取动态信息是否成功
                     if (data.code !== 0) return
                     console.log(`更新基线：${data.data.update_baseline}`);
@@ -905,14 +918,14 @@ class ComRegister {
                 let content: any
                 try {
                     // 查询是否有新动态
-                    const data = await ctx.ba.hasNewDynamic(updateBaseline)
+                    const data = await this.ctx.ba.hasNewDynamic(updateBaseline)
                     updateNum = data.data.update_num
                     console.log(`获取是否有新动态：`);
                     console.log(data);
                     // 没有新动态或获取动态信息失败直接返回
                     if (updateNum <= 0 || data.code !== 0) return
                     // 获取动态内容
-                    content = await ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
+                    content = await this.ctx.ba.getAllDynamic(updateBaseline) as { code: number, data: { has_more: boolean, items: [], offset: string, update_baseline: string, update_num: number } }
                     console.log('获取动态内容：');
                     console.log(content.data.items[0]);
                 } catch (e) {
@@ -927,7 +940,7 @@ class ComRegister {
                             // 发送私聊消息
                             await this.sendPrivateMsg('账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件')
                             // 停止服务
-                            await ctx.sm.disposePlugin()
+                            await this.ctx.sm.disposePlugin()
                             // 结束循环
                             break
                         }
@@ -937,7 +950,7 @@ class ComRegister {
                             // 发送私聊消息
                             await this.sendPrivateMsg('账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件')
                             // 停止服务
-                            await ctx.sm.disposePlugin()
+                            await this.ctx.sm.disposePlugin()
                             // 结束循环
                             break
                         }
@@ -995,7 +1008,7 @@ class ComRegister {
                                 // 获取动态推送图片
                                 try {
                                     // 渲染图片
-                                    const { pic: gimgPic, buffer: gimgBuffer } = await ctx.gi.generateDynamicImg(items[num])
+                                    const { pic: gimgPic, buffer: gimgBuffer } = await this.ctx.gi.generateDynamicImg(items[num])
                                     // 赋值
                                     pic = gimgPic
                                     buffer = gimgBuffer
@@ -1007,13 +1020,13 @@ class ComRegister {
                                     if (e.message === '出现关键词，屏蔽该动态') {
                                         // 如果需要发送才发送
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(ctx, sub.target, `${upName}发布了一条含有屏蔽关键字的动态`)
+                                            await this.sendMsg(sub.target, `${upName}发布了一条含有屏蔽关键字的动态`)
                                         }
                                         return
                                     }
                                     if (e.message === '已屏蔽转发动态') {
                                         if (this.config.filter.notify) {
-                                            await this.sendMsg(ctx, sub.target, `${upName}发布了一条转发动态，已屏蔽`)
+                                            await this.sendMsg(sub.target, `${upName}发布了一条转发动态，已屏蔽`)
                                         }
                                         return
                                     }
@@ -1021,7 +1034,7 @@ class ComRegister {
                                     if (i === attempts - 1) {
                                         this.logger.error('dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：' + e.message)
                                         // 发送私聊消息并重启服务
-                                        return await this.sendPrivateMsgAndStopService(ctx)
+                                        return await this.sendPrivateMsgAndStopService()
                                     }
                                 }
                             }
@@ -1031,11 +1044,11 @@ class ComRegister {
                             if (pic) {
                                 this.logger.info('推送动态中，使用render模式');
                                 // pic存在，使用的是render模式
-                                await this.sendMsg(ctx, sub.target, pic + <>{dUrl}</>)
+                                await this.sendMsg(sub.target, pic + <>{dUrl}</>)
                             } else if (buffer) {
                                 this.logger.info('推送动态中，使用page模式');
                                 // pic不存在，说明使用的是page模式
-                                await this.sendMsg(ctx, sub.target, <>{h.image(buffer, 'image/png')}{dUrl}</>)
+                                await this.sendMsg(sub.target, <>{h.image(buffer, 'image/png')}{dUrl}</>)
                             } else {
                                 this.logger.info(items[num].modules.module_author.name + '发布了一条动态，但是推送失败');
                             }
@@ -1051,7 +1064,6 @@ class ComRegister {
 
     // 定义发送直播通知卡片方法
     async sendLiveNotifyCard(
-        ctx: Context,
         info: {
             username: string,
             userface: string,
@@ -1069,7 +1081,7 @@ class ComRegister {
         for (let i = 0; i < attempts; i++) {
             try {
                 // 获取直播通知卡片
-                const { pic: picv, buffer: bufferv } = await ctx.gi.generateLiveImg(info.data, info.username, info.userface, liveType)
+                const { pic: picv, buffer: bufferv } = await this.ctx.gi.generateLiveImg(info.data, info.username, info.userface, liveType)
                 // 赋值
                 pic = picv
                 buffer = bufferv
@@ -1079,7 +1091,7 @@ class ComRegister {
                 if (i === attempts - 1) { // 已尝试三次
                     this.logger.error('liveDetect generateLiveImg() 推送卡片生成失败，原因：' + e.message)
                     // 发送私聊消息并重启服务
-                    return await this.sendPrivateMsgAndStopService(ctx)
+                    return await this.sendPrivateMsgAndStopService()
                 }
             }
         }
@@ -1088,203 +1100,49 @@ class ComRegister {
         if (pic) {
             // 只有在开播时才艾特全体成员
             if (liveType === LiveType.StartBroadcasting) {
-                return await this.sendMsg(ctx, info.target, pic + (liveNotifyMsg ?? ''), true)
+                return await this.sendMsg(info.target, pic + (liveNotifyMsg ?? ''), true)
             }
             // 正常不需要艾特全体成员
-            return await this.sendMsg(ctx, info.target, pic + (liveNotifyMsg ?? ''))
+            return await this.sendMsg(info.target, pic + (liveNotifyMsg ?? ''))
         }
         // pic不存在，说明使用的是page模式
         const msg = <>{h.image(buffer, 'image/png')}{liveNotifyMsg || ''}</>
         // 只有在开播时才艾特全体成员
         if (liveType === LiveType.StartBroadcasting) {
-            return await this.sendMsg(ctx, info.target, msg, true)
+            return await this.sendMsg(info.target, msg, true)
         }
         // 正常不需要艾特全体成员
-        return await this.sendMsg(ctx, info.target, msg)
+        return await this.sendMsg(info.target, msg)
     }
 
     // 定义获取主播信息方法
-    async useMasterInfo(ctx: Context, uid: string): Promise<{ username: string, userface: string, roomId: number }> {
-        const { data } = await ctx.ba.getMasterInfo(uid)
-        return { username: data.info.name, userface: data.info.face, roomId: data.room_id }
+    async useMasterInfo(uid: string): Promise<{ username: string, userface: string, roomId: number }> {
+        const { data } = await this.ctx.ba.getMasterInfo(uid)
+        return { username: data.info.uname, userface: data.info.face, roomId: data.room_id }
     }
 
-    async useLiveRoomInfo(ctx: Context, roomId: string) {
+    async useLiveRoomInfo(roomId: string) {
         // 发送请求获取直播间信息
         let content: any
         const attempts = 3
         for (let i = 0; i < attempts; i++) {
             try {
                 // 发送请求获取room信息
-                content = await ctx.ba.getLiveRoomInfo(roomId)
+                content = await this.ctx.ba.getLiveRoomInfo(roomId)
                 // 成功则跳出循环
                 break
             } catch (e) {
                 this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
                 if (i === attempts - 1) { // 已尝试三次
                     // 发送私聊消息并重启服务
-                    return await this.sendPrivateMsgAndStopService(ctx)
+                    return await this.sendPrivateMsgAndStopService()
                 }
             }
         }
         return content.data
     }
 
-    /* liveDetect(
-        ctx: Context,
-        roomId: string,
-        target: Target
-    ) {
-        let firstSubscription: boolean = true;
-        let timer: number = 0;
-        let open: boolean = false;
-        let liveTime: string;
-        let username: string
-        let userface: string
-        // 相当于锁的作用，防止上一个循环没处理完
-        let flag: boolean = true
-
-        return async () => {
-            // 如果flag为false则说明前面的代码还未执行完，则直接返回
-            if (!flag) return
-            flag = false
-            // 无论是否执行成功都要释放锁
-            try {
-                // 发送请求检测直播状态
-                let content: any
-                const attempts = 3
-                for (let i = 0; i < attempts; i++) {
-                    try {
-                        // 发送请求获取room信息
-                        content = await ctx.ba.getLiveRoomInfo(roomId)
-                        // 成功则跳出循环
-                        break
-                    } catch (e) {
-                        this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
-                        if (i === attempts - 1) { // 已尝试三次
-                            // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndStopService(ctx)
-                        }
-                    }
-                }
-                const { data } = content
-                // 判断是否是第一次订阅
-                if (firstSubscription) {
-                    firstSubscription = false
-                    // 获取主播信息
-                    const attempts = 3
-                    for (let i = 0; i < attempts; i++) {
-                        try {
-                            // 发送请求获取主播信息
-                            await useMasterInfo(data.uid)
-                            // 成功则跳出循环
-                            break
-                        } catch (e) {
-                            this.logger.error('liveDetect getMasterInfo() 发生了错误，错误为：' + e.message)
-                            if (i === attempts - 1) { // 已尝试三次
-                                // 发送私聊消息并重启服务
-                                return await this.sendPrivateMsgAndStopService(ctx)
-                            }
-                        }
-                    }
-                    // 判断直播状态
-                    if (data.live_status === 1) { // 当前正在直播
-                        // 设置开播时间
-                        liveTime = data.live_time
-                        // 设置直播中消息
-                        const liveMsg = this.config.customLive ? this.config.customLive
-                            .replace('-name', username)
-                            .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                            .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
-                        // 发送直播通知卡片
-                        if (this.config.restartPush) sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
-                        // 改变开播状态
-                        open = true
-                    } // 未开播，直接返回
-                    return
-                }
-                // 检查直播状态
-                switch (data.live_status) {
-                    case 0:
-                    case 2: { // 状态 0 和 2 说明未开播
-                        if (open) { // 之前开播，现在下播了
-                            // 更改直播状态
-                            open = false
-                            // 下播了将定时器清零
-                            timer = 0
-                            // 定义下播通知消息
-                            const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
-                                .replace('-name', username)
-                                .replace('-time', await ctx.gi.getTimeDifference(liveTime)) : null
-                            // 更改直播时长
-                            data.live_time = liveTime
-                            // 推送下播通知
-                            await sendLiveNotifyCard(data, LiveType.StopBroadcast, liveEndMsg)
-                        }
-                        // 未进循环，还未开播，继续循环
-                        break
-                    }
-                    case 1: {
-                        if (!open) { // 之前未开播，现在开播了
-                            // 更改直播状态
-                            open = true
-                            // 设置开播时间
-                            liveTime = data.live_time
-                            // 获取主播信息
-                            const attempts = 3
-                            for (let i = 0; i < attempts; i++) {
-                                try {
-                                    // 主播信息不会变，开播时刷新一次即可
-                                    // 发送请求获取主播信息
-                                    await useMasterInfo(data.uid)
-                                    // 成功则跳出循环
-                                    break
-                                } catch (e) {
-                                    this.logger.error('liveDetect open getMasterInfo() 发生了错误，错误为：' + e.message)
-                                    if (i === attempts - 1) { // 已尝试三次
-                                        // 发送私聊消息并重启服务
-                                        return await this.sendPrivateMsgAndStopService(ctx)
-                                    }
-                                }
-                            }
-                            // 定义开播通知语                            
-                            const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
-                                .replace('-name', username)
-                                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                                .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
-                            // 发送消息
-                            await sendLiveNotifyCard(data, LiveType.StartBroadcasting, liveStartMsg)
-                        } else { // 还在直播
-                            if (this.config.pushTime > 0) {
-                                timer++
-                                // 开始记录时间
-                                if (timer >= (6 * 60 * this.config.pushTime)) { // 到时间推送直播消息
-                                    // 到时间重新计时
-                                    timer = 0
-                                    // 定义直播中通知消息
-                                    const liveMsg = this.config.customLive ? this.config.customLive
-                                        .replace('-name', username)
-                                        .replace('-time', await ctx.gi.getTimeDifference(liveTime))
-                                        .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
-                                    // 发送直播通知卡片
-                                    sendLiveNotifyCard(data, LiveType.LiveBroadcast, liveMsg)
-                                }
-                            }
-                            // 否则继续循环
-                        }
-                    }
-                }
-            }
-            finally {
-                // 执行完方法体不论如何都把flag设置为true
-                flag = true
-            }
-        }
-    } */
-
-    async liveDetectWithAPI(
-        ctx: Context
-    ) {
+    async liveDetectWithAPI() {
         // 定义变量：第一次订阅
         let firstSubscription: boolean = true;
         // 定义变量：timer计时器
@@ -1312,14 +1170,14 @@ class ComRegister {
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 发送请求获取room信息
-                    content = await ctx.ba.getLiveRoomInfo(roomId)
+                    content = await this.ctx.ba.getLiveRoomInfo(roomId)
                     // 成功则跳出循环
                     break
                 } catch (e) {
                     this.logger.error('liveDetect getLiveRoomInfo 发生了错误，错误为：' + e.message)
                     if (i === attempts - 1) { // 已尝试三次
                         // 发送私聊消息并重启服务
-                        return await this.sendPrivateMsgAndStopService(ctx)
+                        return await this.sendPrivateMsgAndStopService()
                     }
                 }
             }
@@ -1334,7 +1192,7 @@ class ComRegister {
             flag = false
             try {
                 // 获取正在直播对象
-                const liveUsers = await ctx.ba.getTheUserWhoIsLiveStreaming()
+                const liveUsers = await this.ctx.ba.getTheUserWhoIsLiveStreaming()
                 // 判断是否是第一次订阅
                 if (firstSubscription) {
                     // 将第一次订阅置为false
@@ -1352,10 +1210,10 @@ class ComRegister {
                                 // 设置直播中消息
                                 const liveMsg = this.config.customLive ? this.config.customLive
                                     .replace('-name', item.uname)
-                                    .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                    .replace('-time', await this.ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
                                     .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                                 // 发送直播通知卡片
-                                if (this.config.restartPush) this.sendLiveNotifyCard(ctx,
+                                if (this.config.restartPush) this.sendLiveNotifyCard(
                                     {
                                         username: item.uname,
                                         userface: item.face,
@@ -1427,10 +1285,10 @@ class ComRegister {
                                 // 定义开播通知语                            
                                 const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
                                     .replace('-name', item.uname)
-                                    .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                    .replace('-time', await this.ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
                                     .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                                 // 发送直播通知卡片
-                                if (this.config.restartPush) this.sendLiveNotifyCard(ctx,
+                                await this.sendLiveNotifyCard(
                                     {
                                         username: item.uname,
                                         userface: item.face,
@@ -1455,15 +1313,16 @@ class ComRegister {
                                         // 定义直播中通知消息
                                         const liveMsg = this.config.customLive ? this.config.customLive
                                             .replace('-name', item.uname)
-                                            .replace('-time', await ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
+                                            .replace('-time', await this.ctx.gi.getTimeDifference(liveRecord[item.mid].liveTime))
                                             .replace('-link', `https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`) : null
                                         // 发送直播通知卡片
-                                        this.sendLiveNotifyCard(ctx, {
-                                            username: item.uname,
-                                            userface: item.face,
-                                            target: liveRecord[item.mid].target,
-                                            data
-                                        },
+                                        this.sendLiveNotifyCard(
+                                            {
+                                                username: item.uname,
+                                                userface: item.face,
+                                                target: liveRecord[item.mid].target,
+                                                data
+                                            },
                                             LiveType.LiveBroadcast,
                                             liveMsg
                                         )
@@ -1480,21 +1339,22 @@ class ComRegister {
                 // 遍历 extraInLiveRecord
                 for (const subUID of extraInLiveRecord) { // 下播的主播
                     // 获取主播信息
-                    const masterInfo = await this.useMasterInfo(ctx, subUID)
+                    const masterInfo = await this.useMasterInfo(subUID)
                     // 获取直播间消息
-                    const liveRoomInfo = await this.useLiveRoomInfo(ctx, masterInfo.roomId.toString())
+                    const liveRoomInfo = await this.useLiveRoomInfo(masterInfo.roomId.toString())
                     // 定义下播播通知语                            
                     const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                         .replace('-name', masterInfo.username)
-                        .replace('-time', await ctx.gi.getTimeDifference(liveRecord[subUID].liveTime))
+                        .replace('-time', await this.ctx.gi.getTimeDifference(liveRecord[subUID].liveTime))
                         .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
                     // 发送下播通知
-                    this.sendLiveNotifyCard(ctx, {
-                        username: masterInfo.username,
-                        userface: masterInfo.userface,
-                        target: liveRecord[subUID].target,
-                        data: liveRoomInfo
-                    },
+                    this.sendLiveNotifyCard(
+                        {
+                            username: masterInfo.username,
+                            userface: masterInfo.userface,
+                            target: liveRecord[subUID].target,
+                            data: liveRoomInfo
+                        },
                         LiveType.StopBroadcast,
                         liveEndMsg
                     )
@@ -1507,7 +1367,6 @@ class ComRegister {
     }
 
     async liveDetectWithListener(
-        ctx: Context,
         roomId: string,
         target: Target
     ) {
@@ -1530,17 +1389,16 @@ class ComRegister {
         // 定义定时推送函数
         const pushAtTimeFunc = async () => {
             // 获取直播间信息
-            const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+            const liveRoomInfo = await this.useLiveRoomInfo(roomId)
             // 获取主播信息
-            const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+            const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
             // 定义直播中通知消息
             const liveMsg = this.config.customLive ? this.config.customLive
                 .replace('-name', masterInfo.username)
-                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
                 .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
             // 发送直播通知卡片
             await this.sendLiveNotifyCard(
-                liveRoomInfo,
                 {
                     username: masterInfo.username,
                     userface: masterInfo.userface,
@@ -1556,11 +1414,15 @@ class ComRegister {
             // 判断数组是否有内容
             if (temporaryLiveDanmakuArr.length > 0) {
                 // 发送消息
-                this.sendMsg(ctx, newTarget, temporaryLiveDanmakuArr.join('\n'))
+                this.sendMsg(newTarget, temporaryLiveDanmakuArr.join('\n'))
                 // 将临时消息数组清空
                 temporaryLiveDanmakuArr.length = 0
             }
         }
+        // 获取直播间信息
+        const liveRoomInfo = await this.useLiveRoomInfo(roomId)
+        // 获取主播信息
+        const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
         // 构建消息处理函数
         const handler: MsgHandler = {
             onOpen: () => {
@@ -1571,32 +1433,37 @@ class ComRegister {
             },
             onIncomeDanmu: ({ body }) => {
                 // 处理消息，只需要UP主名字和消息内容
-                const content = `${body.user.uname}：${body.content}`
+                const content = `【${masterInfo.username}的直播间】${body.user.uname}：${body.content}`
                 // 保存消息到数组
                 currentLiveDanmakuArr.push(body.content)
                 temporaryLiveDanmakuArr.push(content)
             },
             onIncomeSuperChat: ({ body }) => {
                 // 处理SC消息
-                const content = `${body.user.uname}发送了一条SC：${body.content}`
+                const content = `【${masterInfo.username}的直播间】${body.user.uname}发送了一条SC：${body.content}`
                 // 保存消息到数组
                 currentLiveDanmakuArr.push(body.content)
                 temporaryLiveDanmakuArr.push(content)
             },
+            onGuardBuy: ({ body }) => {
+                const content = `【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`
+                // 保存消息到数组
+                currentLiveDanmakuArr.push(content)
+                temporaryLiveDanmakuArr.push(content)
+            },
             onLiveStart: async () => {
                 // 获取直播间信息
-                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
                 // 获取主播信息
-                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
                 // 定义下播通知消息
                 const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                     .replace('-name', masterInfo.username)
-                    .replace('-time', await ctx.gi.getTimeDifference(liveTime)) : null
+                    .replace('-time', await this.ctx.gi.getTimeDifference(liveTime)) : null
                 // 更改直播时长
                 liveRoomInfo.live_time = liveTime
                 // 推送下播通知
                 await this.sendLiveNotifyCard(
-                    liveRoomInfo,
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
@@ -1609,9 +1476,9 @@ class ComRegister {
             },
             onLiveEnd: async () => {
                 // 获取直播间消息
-                const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
                 // 获取主播信息
-                const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
                 // 关闭定时推送定时器
                 pushAtTimeTimer()
                 // 将推送定时器变量置空
@@ -1619,11 +1486,10 @@ class ComRegister {
                 // 定义下播播通知语                            
                 const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                     .replace('-name', masterInfo.username)
-                    .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                    .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
                     .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
                 // 推送通知卡片
                 await this.sendLiveNotifyCard(
-                    ctx,
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
@@ -1636,36 +1502,31 @@ class ComRegister {
             }
         }
         // 启动直播间弹幕监测
-        ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
-        // 获取直播间信息
-        const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+        this.ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
         // 判断直播状态
         if (liveRoomInfo.live_status === 1) {
-            // 获取直播间信息
-            const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
-            // 获取主播信息
-            const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
             // 设置开播时间
             liveTime = liveRoomInfo.live_time
             // 定义直播中通知消息
             const liveMsg = this.config.customLive ? this.config.customLive
                 .replace('-name', masterInfo.username)
-                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
                 .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
             // 发送直播通知卡片
-            await this.sendLiveNotifyCard(
-                liveRoomInfo,
-                {
-                    username: masterInfo.username,
-                    userface: masterInfo.userface,
-                    target: newTarget,
-                    data: liveRoomInfo
-                },
-                LiveType.LiveBroadcast,
-                liveMsg
-            )
+            if (this.config.restartPush) {
+                await this.sendLiveNotifyCard(
+                    {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target: newTarget,
+                        data: liveRoomInfo
+                    },
+                    LiveType.LiveBroadcast,
+                    liveMsg
+                )
+            }
             // 正在直播，开启定时器
-            pushAtTimeTimer = ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+            pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
         }
     }
 
@@ -1707,7 +1568,7 @@ class ComRegister {
         return [false, true]
     }
 
-    updateSubNotifier(ctx: Context) {
+    updateSubNotifier() {
         // 更新控制台提示
         if (this.subNotifier) this.subNotifier.dispose()
         // 获取订阅信息
@@ -1733,14 +1594,14 @@ class ComRegister {
             </>
         }
         // 设置更新后的提示
-        this.subNotifier = ctx.notifier.create(table)
+        this.subNotifier = this.ctx.notifier.create(table)
     }
 
-    async checkIfLoginInfoIsLoaded(ctx: Context) {
+    async checkIfLoginInfoIsLoaded() {
         return new Promise(resolve => {
             const check = () => {
-                if (!ctx.ba.getLoginInfoIsLoaded()) {
-                    ctx.setTimeout(check, 500)
+                if (!this.ctx.ba.getLoginInfoIsLoaded()) {
+                    this.ctx.setTimeout(check, 500)
                 } else {
                     resolve('success')
                 }
@@ -1749,17 +1610,17 @@ class ComRegister {
         })
     }
 
-    async subUserInBili(ctx: Context, mid: string): Promise<{ flag: boolean, msg: string }> {
+    async subUserInBili(mid: string): Promise<{ flag: boolean, msg: string }> {
         // 获取关注分组信息
         const checkGroupIsReady = async (): Promise<boolean> => {
             // 判断是否有数据
             if (this.loginDBData.dynamic_group_id === '' || this.loginDBData.dynamic_group_id === null) {
                 // 没有数据，没有创建分组，尝试创建分组
-                const createGroupData = await ctx.ba.createGroup("订阅")
+                const createGroupData = await this.ctx.ba.createGroup("订阅")
                 // 如果分组已创建，则获取分组id
                 if (createGroupData.code === 22106) {
                     // 分组已存在，拿到之前的分组id
-                    const allGroupData = await ctx.ba.getAllGroup()
+                    const allGroupData = await this.ctx.ba.getAllGroup()
                     // 遍历所有分组
                     for (const group of allGroupData.data) {
                         // 找到订阅分组
@@ -1776,7 +1637,7 @@ class ComRegister {
                     return false
                 }
                 // 创建成功，保存到数据库
-                ctx.database.set('loginBili', 1, { dynamic_group_id: this.loginDBData.dynamic_group_id })
+                this.ctx.database.set('loginBili', 1, { dynamic_group_id: this.loginDBData.dynamic_group_id })
                 // 创建成功
                 return true
             }
@@ -1790,7 +1651,7 @@ class ComRegister {
             return { flag: false, msg: '创建分组失败，请尝试重启插件' }
         }
         // 获取分组明细
-        const relationGroupDetailData = await ctx.ba.getRelationGroupDetail(this.loginDBData.dynamic_group_id)
+        const relationGroupDetailData = await this.ctx.ba.getRelationGroupDetail(this.loginDBData.dynamic_group_id)
         // 判断分组信息是否获取成功
         if (relationGroupDetailData.code !== 0) {
             if (relationGroupDetailData.code === 22104) {
@@ -1815,7 +1676,7 @@ class ComRegister {
             }
         })
         // 订阅对象
-        const subUserData = await ctx.ba.follow(mid)
+        const subUserData = await this.ctx.ba.follow(mid)
         // 判断是否订阅成功
         switch (subUserData.code) {
             case -101: return { flag: false, msg: '账号未登录，请使用指令bili login登录后再进行订阅操作' }
@@ -1828,7 +1689,7 @@ class ComRegister {
             case 22014: // 已关注订阅对象 无需再次关注
             case 0: { // 执行订阅成功
                 // 把订阅对象添加到分组中
-                const copyUserToGroupData = await ctx.ba.copyUserToGroup(mid, this.loginDBData.dynamic_group_id)
+                const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(mid, this.loginDBData.dynamic_group_id)
                 // 判断是否添加成功
                 if (copyUserToGroupData.code !== 0) {
                     // 添加失败
@@ -1840,7 +1701,7 @@ class ComRegister {
         return { flag: true, msg: '用户订阅成功' }
     }
 
-    async loadSubFromConfig(ctx: Context, subs: ComRegister.Config["sub"]) {
+    async loadSubFromConfig(subs: ComRegister.Config["sub"]) {
         for (const sub of subs) {
             // 定义Data
             let data: any
@@ -1853,14 +1714,14 @@ class ComRegister {
                 for (let i = 0; i < attempts; i++) {
                     try {
                         // 获取用户信息
-                        content = await ctx.ba.getUserInfo(sub.uid)
+                        content = await this.ctx.ba.getUserInfo(sub.uid)
                         // 成功则跳出循环
                         break
                     } catch (e) {
                         this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
                         if (i === attempts - 1) { // 已尝试三次
                             // 发送私聊消息并重启服务
-                            return await this.sendPrivateMsgAndStopService(ctx)
+                            return await this.sendPrivateMsgAndStopService()
                         }
                     }
                 }
@@ -1876,11 +1737,11 @@ class ComRegister {
                 // 判断是否订阅直播
                 if (sub.live) {
                     // 订阅直播
-                    this.liveDetectWithListener(ctx, data.live_room.roomid, sub.target)
+                    this.liveDetectWithListener(data.live_room.roomid, sub.target)
                 }
             }
             // 在B站中订阅该对象
-            const subInfo = await this.subUserInBili(ctx, sub.uid)
+            const subInfo = await this.subUserInBili(sub.uid)
             // 判断订阅是否成功
             if (!subInfo.flag) this.logger.warn(subInfo.msg)
             // 将该订阅添加到sm中
@@ -1896,11 +1757,11 @@ class ComRegister {
         }
     }
 
-    async loadSubFromDatabase(ctx: Context) {
+    async loadSubFromDatabase() {
         // 判断登录信息是否已加载完毕
-        await this.checkIfLoginInfoIsLoaded(ctx)
+        await this.checkIfLoginInfoIsLoaded()
         // 如果未登录，则直接返回
-        if (!(await this.checkIfIsLogin(ctx))) {
+        if (!(await this.checkIfIsLogin())) {
             // log
             this.logger.info(`账号未登录，请登录`)
             return
@@ -1908,7 +1769,7 @@ class ComRegister {
         // 已存在订阅管理对象，不再进行订阅操作
         if (this.subManager.length !== 0) return
         // 从数据库中获取数据
-        const subData = await ctx.database.get('bilibili', { id: { $gt: 0 } })
+        const subData = await this.ctx.database.get('bilibili', { id: { $gt: 0 } })
         // 定义变量：订阅直播数
         let liveSubNum: number = 0
         // 循环遍历
@@ -1916,14 +1777,14 @@ class ComRegister {
             // 判断是否存在没有任何订阅的数据
             if (!sub.dynamic && !sub.live) { // 存在未订阅任何项目的数据
                 // 删除该条数据
-                ctx.database.remove('bilibili', { id: sub.id })
+                this.ctx.database.remove('bilibili', { id: sub.id })
                 // log
                 this.logger.warn(`UID:${sub.uid} 该条数据没有任何订阅数据，自动取消订阅`)
                 // 跳过下面的步骤
                 continue
             }
             // 判断用户是否在B站中订阅了
-            const subUserData = await this.subUserInBili(ctx, sub.uid)
+            const subUserData = await this.subUserInBili(sub.uid)
             // 判断是否订阅
             if (!subUserData.flag) {
                 // log
@@ -1931,7 +1792,7 @@ class ComRegister {
                 // 发送私聊消息
                 await this.sendPrivateMsg(`UID:${sub.uid} ${subUserData.msg}，自动取消订阅`)
                 // 删除该条数据
-                await ctx.database.remove('bilibili', { id: sub.id })
+                await this.ctx.database.remove('bilibili', { id: sub.id })
                 // 跳过下面的步骤
                 continue
             }
@@ -1944,14 +1805,14 @@ class ComRegister {
             for (let i = 0; i < attempts; i++) {
                 try {
                     // 获取用户信息
-                    content = await ctx.ba.getUserInfo(sub.uid)
+                    content = await this.ctx.ba.getUserInfo(sub.uid)
                     // 成功则跳出循环
                     break
                 } catch (e) {
                     this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
                     if (i === attempts - 1) { // 已尝试三次
                         // 发送私聊消息并重启服务
-                        return await this.sendPrivateMsgAndStopService(ctx)
+                        return await this.sendPrivateMsgAndStopService()
                     }
                 }
             }
@@ -1960,7 +1821,7 @@ class ComRegister {
             // 定义函数删除数据和发送提示
             const deleteSub = async () => {
                 // 从数据库删除该条数据
-                await ctx.database.remove('bilibili', { id: sub.id })
+                await this.ctx.database.remove('bilibili', { id: sub.id })
                 // 给用户发送提示
                 await this.sendPrivateMsg(`UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`)
             }
@@ -2020,7 +1881,7 @@ class ComRegister {
                     // 直播订阅数+1
                     liveSubNum++
                     // 订阅直播，开始循环检测
-                    this.liveDetectWithListener(ctx, sub.room_id, target)
+                    this.liveDetectWithListener(sub.room_id, target)
                 }
             }
             // 保存新订阅对象
@@ -2028,21 +1889,21 @@ class ComRegister {
         }
     }
 
-    checkIfDynamicDetectIsNeeded(ctx: Context) {
+    checkIfDynamicDetectIsNeeded() {
         // 检查是否有订阅对象需要动态监测
-        if (this.subManager.some(sub => sub.dynamic)) this.enableDynamicDetect(ctx)
+        if (this.subManager.some(sub => sub.dynamic)) this.enableDynamicDetect()
     }
 
-    enableDynamicDetect(ctx: Context) {
+    enableDynamicDetect() {
         // 开始动态监测
         if (this.config.dynamicDebugMode) {
-            this.dynamicDispose = ctx.setInterval(this.debug_dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
+            this.dynamicDispose = this.ctx.setInterval(this.debug_dynamicDetect(), this.config.dynamicLoopTime * 1000)
         } else {
-            this.dynamicDispose = ctx.setInterval(this.dynamicDetect(ctx), this.config.dynamicLoopTime * 1000)
+            this.dynamicDispose = this.ctx.setInterval(this.dynamicDetect(), this.config.dynamicLoopTime * 1000)
         }
     }
 
-    unsubSingle(ctx: Context, id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
+    unsubSingle(id: string /* UID或RoomId */, type: number /* 0取消Live订阅，1取消Dynamic订阅 */): string {
         // 定义返回消息
         let msg: string
         // 定义方法：检查是否没有任何订阅
@@ -2052,7 +1913,7 @@ class ComRegister {
             // 从管理对象中移除
             this.subManager.splice(index, 1)
             // 从数据库中删除
-            ctx.database.remove('bilibili', [this.subManager[index].id])
+            this.ctx.database.remove('bilibili', [this.subManager[index].id])
             // num--
             this.num--
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
@@ -2080,7 +1941,7 @@ class ComRegister {
                         return '已取消订阅该用户'
                     }
                     // 更新数据库
-                    ctx.database.upsert('bilibili', [{
+                    this.ctx.database.upsert('bilibili', [{
                         id: +`${sub.id}`,
                         live: 0
                     }])
@@ -2107,7 +1968,7 @@ class ComRegister {
                         return '已取消订阅该用户'
                     }
                     // 更新数据库
-                    ctx.database.upsert('bilibili', [{
+                    this.ctx.database.upsert('bilibili', [{
                         id: sub.id,
                         dynamic: 0
                     }])
@@ -2116,7 +1977,7 @@ class ComRegister {
             }
         } finally {
             // 执行完该方法后，保证执行一次updateSubNotifier()
-            this.updateSubNotifier(ctx)
+            this.updateSubNotifier()
         }
     }
 
@@ -2128,12 +1989,12 @@ class ComRegister {
         }
     }
 
-    unsubAll(ctx: Context, uid: string) {
+    unsubAll(uid: string) {
         this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
             this.checkIfUserIsTheLastOneWhoSubDyn()
             // 从数据库中删除订阅
-            await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
+            await this.ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
             // 将该订阅对象从订阅管理对象中移除
             this.subManager.splice(i, 1)
             // id--
@@ -2141,14 +2002,14 @@ class ComRegister {
             // 发送成功通知
             this.sendPrivateMsg(`UID:${uid}，已取消订阅该用户`)
             // 更新控制台提示
-            this.updateSubNotifier(ctx)
+            this.updateSubNotifier()
         })
     }
 
-    async checkIfIsLogin(ctx: Context) {
-        if ((await ctx.database.get('loginBili', 1)).length !== 0) { // 数据库中有数据
+    async checkIfIsLogin() {
+        if ((await this.ctx.database.get('loginBili', 1)).length !== 0) { // 数据库中有数据
             // 检查cookie中是否有值
-            if (ctx.ba.getCookies() !== '[]') { // 有值说明已登录
+            if (this.ctx.ba.getCookies() !== '[]') { // 有值说明已登录
                 return true
             }
         }
@@ -2181,7 +2042,6 @@ namespace ComRegister {
         },
         unlockSubLimits: boolean,
         automaticResend: boolean,
-        changeMasterInfoApi: boolean,
         restartPush: boolean,
         pushTime: number,
         liveLoopTime: number,
@@ -2224,7 +2084,6 @@ namespace ComRegister {
         }),
         unlockSubLimits: Schema.boolean().required(),
         automaticResend: Schema.boolean().required(),
-        changeMasterInfoApi: Schema.boolean().required(),
         restartPush: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),

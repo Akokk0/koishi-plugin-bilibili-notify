@@ -52,8 +52,6 @@ export interface Config {
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '10分钟' | '20分钟'
     live: {},
-    changeMasterInfoApi: boolean,
-    liveStartAtAll: boolean,
     restartPush: boolean,
     pushTime: number,
     danmakuPushTime: number,
@@ -161,14 +159,6 @@ export const Config: Schema<Config> = Schema.object({
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
 
     live: Schema.object({}).description('直播推送设置'),
-
-    changeMasterInfoApi: Schema.boolean()
-        .default(false)
-        .description('是否切换获取主播信息API，在遇到错误getMasterInfo()时可以尝试切换'),
-
-    liveStartAtAll: Schema.boolean()
-        .default(false)
-        .description('直播开始时艾特全体成员，默认关闭'),
 
     restartPush: Schema.boolean()
         .default(true)
@@ -362,8 +352,6 @@ class ServerManager extends Service {
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,
-                changeMasterInfoApi: globalConfig.changeMasterInfoApi,
-                liveStartAtAll: globalConfig.liveStartAtAll,
                 restartPush: globalConfig.restartPush,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
