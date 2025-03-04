@@ -1469,8 +1469,8 @@ class GenerateImg extends Service {
         const seconds = differenceInSeconds % 60;
         // 返回格式化的字符串
         return days ?
-            `${days} 天 ${hours}小时${minutes.toString().padStart(2, '0')}分钟${seconds.toString().padStart(2, '0')}秒` :
-            `${hours}小时${minutes.toString().padStart(2, '0')}分钟${seconds.toString().padStart(2, '0')}秒`
+            `${days} 天 ${hours}小时${minutes.toString().padStart(2, '0')}分${seconds.toString().padStart(2, '0')}秒` :
+            `${hours}小时${minutes.toString().padStart(2, '0')}分${seconds.toString().padStart(2, '0')}秒`
     }
 
     unixTimestampToString(timestamp: number) {

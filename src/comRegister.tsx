@@ -19,7 +19,8 @@ enum LiveType {
 type ChannelIdArr = Array<{
     channelId: string,
     dynamic: boolean,
-    live: boolean
+    live: boolean,
+    liveDanmaku: boolean,
     atAll: boolean
 }>
 
@@ -37,8 +38,7 @@ type SubItem = {
     target: Target,
     platform: string,
     live: boolean,
-    dynamic: boolean,
-    liveDispose: Function
+    dynamic: boolean
 }
 
 type SubManager = Array<SubItem>
@@ -219,8 +219,6 @@ class ComRegister {
                             // 结束循环
                             return
                         }
-                        // 取消全部订阅 执行dispose方法，销毁定时器
-                        if (sub.live) this.subManager[i].liveDispose()
                         // 从数据库中删除订阅
                         await ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
                         // 将该订阅对象从订阅管理对象中移除
@@ -302,6 +300,7 @@ class ComRegister {
                             channelId: group,
                             dynamic: true,
                             live: true,
+                            liveDanmaku: false,
                             atAll: options.atAll
                         })
                     })
@@ -360,7 +359,7 @@ class ComRegister {
                                     // 判断targetArr是否为空
                                     if (target.length === 0) {
                                         // 为空则默认为当前环境
-                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                         // 没有满足条件的群组或频道
                                         await session.send('没有满足条件的群组或频道，默认订阅到当前聊天环境')
                                     }
@@ -370,14 +369,14 @@ class ComRegister {
                                 // 如果为all则全部推送，不需要进行处理
                             } else {
                                 // 未填写群号或频道号，默认为当前环境
-                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                 // 发送提示消息
                                 await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                             }
                         }
                     } else {
                         // 用户直接订阅，将当前环境赋值给target
-                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                     }
                 }
                 // 定义外围变量                
@@ -434,8 +433,6 @@ class ComRegister {
                     this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
                     return '订阅出错啦，请重试'
                 }
-                // 定义live销毁函数
-                let liveDispose: Function
                 // 订阅直播
                 if (liveMsg) {
                     // 连接到服务器
@@ -473,7 +470,6 @@ class ComRegister {
                     platform: session.event.platform,
                     live: liveMsg,
                     dynamic: dynamicMsg,
-                    liveDispose
                 })
                 // 新增订阅展示到控制台
                 this.updateSubNotifier(ctx)
@@ -599,7 +595,7 @@ class ComRegister {
             const channelIdArr = idStr.split(',').map(id => {
                 const atAll = /@$/.test(id); // 使用正则表达式检查 id 是否以 @ 结尾
                 const channelId = atAll ? id.slice(0, -1) : id; // 去除末尾的 @
-                return { channelId, dynamic: true, live: true, atAll }
+                return { channelId, dynamic: true, live: true, liveDanmaku: false, atAll }
             })
             return { channelIdArr, platform }
         })
@@ -684,6 +680,7 @@ class ComRegister {
                         channelId: guild.id,
                         dynamic: target.channelIdArr[0].dynamic,
                         live: target.channelIdArr[0].live,
+                        liveDanmaku: target.channelIdArr[0].liveDanmaku,
                         atAll: target.channelIdArr[0].atAll
                     })
                 }
@@ -1107,9 +1104,9 @@ class ComRegister {
     }
 
     // 定义获取主播信息方法
-    async useMasterInfo(ctx: Context, uid: string): Promise<{ username: string, userface: string }> {
-        const { data: { info } } = await ctx.ba.getMasterInfo(uid)
-        return { username: info.name, userface: info.face }
+    async useMasterInfo(ctx: Context, uid: string): Promise<{ username: string, userface: string, roomId: number }> {
+        const { data } = await ctx.ba.getMasterInfo(uid)
+        return { username: data.info.name, userface: data.info.face, roomId: data.room_id }
     }
 
     async useLiveRoomInfo(ctx: Context, roomId: string) {
@@ -1415,6 +1412,7 @@ class ComRegister {
                         delete liveRecord[subUID]
                     }
                 }
+                // 数量没有差异，则不进行其他操作
                 // 遍历liveUsers
                 liveUsers.items.forEach(async item => {
                     // 判断是否有正在直播的订阅对象
@@ -1475,6 +1473,32 @@ class ComRegister {
                         }
                     }
                 })
+                // 找出liveRecord中liveStatus为1但liveUsers中没有的元素
+                const extraInLiveRecord = currentLiveRecordKeys.filter(
+                    key => !liveUsers.items.some(item => item.mid === Number(key))
+                )
+                // 遍历 extraInLiveRecord
+                for (const subUID of extraInLiveRecord) { // 下播的主播
+                    // 获取主播信息
+                    const masterInfo = await this.useMasterInfo(ctx, subUID)
+                    // 获取直播间消息
+                    const liveRoomInfo = await this.useLiveRoomInfo(ctx, masterInfo.roomId.toString())
+                    // 定义下播播通知语                            
+                    const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
+                        .replace('-name', masterInfo.username)
+                        .replace('-time', await ctx.gi.getTimeDifference(liveRecord[subUID].liveTime))
+                        .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+                    // 发送下播通知
+                    this.sendLiveNotifyCard(ctx, {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target: liveRecord[subUID].target,
+                        data: liveRoomInfo
+                    },
+                        LiveType.StopBroadcast,
+                        liveEndMsg
+                    )
+                }
             } finally {
                 // 执行完方法体不论如何都把flag设置为true
                 flag = true
@@ -1482,7 +1506,7 @@ class ComRegister {
         }
     }
 
-    liveDetectWithListener(
+    async liveDetectWithListener(
         ctx: Context,
         roomId: string,
         target: Target
@@ -1494,8 +1518,17 @@ class ComRegister {
         // 定义弹幕存放数组
         const currentLiveDanmakuArr: Array<string> = []
         const temporaryLiveDanmakuArr: Array<string> = []
+        // 处理target
+        // 找到频道/群组对应的
+        const newTarget: Target = target.map(channel => {
+            const liveDanmakuArr = channel.channelIdArr.filter(channelId => channelId.liveDanmaku)
+            return {
+                channelIdArr: liveDanmakuArr,
+                platform: channel.platform
+            }
+        })
         // 定义定时推送函数
-        const pushAtTime = async () => {
+        const pushAtTimeFunc = async () => {
             // 获取直播间信息
             const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
             // 获取主播信息
@@ -1511,19 +1544,19 @@ class ComRegister {
                 {
                     username: masterInfo.username,
                     userface: masterInfo.userface,
-                    target,
+                    target: newTarget,
                     data: liveRoomInfo
                 },
                 LiveType.LiveBroadcast,
                 liveMsg
             )
         }
-        // 定义10秒推送函数
-        const pushOnceEveryTenS = () => {
+        // 定义弹幕推送函数
+        const danmakuPushFunc = () => {
             // 判断数组是否有内容
             if (temporaryLiveDanmakuArr.length > 0) {
                 // 发送消息
-                this.sendMsg(ctx, target, temporaryLiveDanmakuArr.join('\n'))
+                this.sendMsg(ctx, newTarget, temporaryLiveDanmakuArr.join('\n'))
                 // 将临时消息数组清空
                 temporaryLiveDanmakuArr.length = 0
             }
@@ -1540,11 +1573,15 @@ class ComRegister {
                 // 处理消息，只需要UP主名字和消息内容
                 const content = `${body.user.uname}：${body.content}`
                 // 保存消息到数组
-                currentLiveDanmakuArr.push(content)
+                currentLiveDanmakuArr.push(body.content)
                 temporaryLiveDanmakuArr.push(content)
             },
-            onIncomeSuperChat: (msg) => {
-                console.log(msg.id, msg.body)
+            onIncomeSuperChat: ({ body }) => {
+                // 处理SC消息
+                const content = `${body.user.uname}发送了一条SC：${body.content}`
+                // 保存消息到数组
+                currentLiveDanmakuArr.push(body.content)
+                temporaryLiveDanmakuArr.push(content)
             },
             onLiveStart: async () => {
                 // 获取直播间信息
@@ -1563,28 +1600,24 @@ class ComRegister {
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
-                        target,
+                        target: newTarget,
                         data: liveRoomInfo
                     },
                     LiveType.StopBroadcast,
                     liveEndMsg
                 )
-                // 关闭定时器
-                pushAtTimeTimer()
-                // 定时器变量置空
-                pushAtTimeTimer = null
             },
             onLiveEnd: async () => {
                 // 获取直播间消息
                 const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
                 // 获取主播信息
                 const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
-                // 设置开播时间
-                liveTime = liveRoomInfo.live_time
-                // 开启推送定时器
-                pushAtTimeTimer = ctx.setInterval(pushAtTime, 3600 * 1000)
-                // 定义开播通知语                            
-                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
+                // 关闭定时推送定时器
+                pushAtTimeTimer()
+                // 将推送定时器变量置空
+                pushAtTimeTimer = null
+                // 定义下播播通知语                            
+                const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                     .replace('-name', masterInfo.username)
                     .replace('-time', await ctx.gi.getTimeDifference(liveTime))
                     .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
@@ -1594,16 +1627,46 @@ class ComRegister {
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
-                        target,
+                        target: newTarget,
                         data: liveRoomInfo
                     },
                     LiveType.StartBroadcasting,
-                    liveStartMsg
+                    liveEndMsg
                 )
             }
         }
         // 启动直播间弹幕监测
-        ctx.bl.startLiveRoomListener(roomId, handler, pushOnceEveryTenS)
+        ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
+        // 获取直播间信息
+        const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+        // 判断直播状态
+        if (liveRoomInfo.live_status === 1) {
+            // 获取直播间信息
+            const liveRoomInfo = await this.useLiveRoomInfo(ctx, roomId)
+            // 获取主播信息
+            const masterInfo = await this.useMasterInfo(ctx, liveRoomInfo.uid)
+            // 设置开播时间
+            liveTime = liveRoomInfo.live_time
+            // 定义直播中通知消息
+            const liveMsg = this.config.customLive ? this.config.customLive
+                .replace('-name', masterInfo.username)
+                .replace('-time', await ctx.gi.getTimeDifference(liveTime))
+                .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+            // 发送直播通知卡片
+            await this.sendLiveNotifyCard(
+                liveRoomInfo,
+                {
+                    username: masterInfo.username,
+                    userface: masterInfo.userface,
+                    target: newTarget,
+                    data: liveRoomInfo
+                },
+                LiveType.LiveBroadcast,
+                liveMsg
+            )
+            // 正在直播，开启定时器
+            pushAtTimeTimer = ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+        }
     }
 
     subShow() {
@@ -1781,8 +1844,6 @@ class ComRegister {
         for (const sub of subs) {
             // 定义Data
             let data: any
-            // 定义直播销毁函数
-            let liveDispose: Function
             // 判断是否需要订阅直播
             if (sub.live) {
                 // 获取用户信息
@@ -1830,8 +1891,7 @@ class ComRegister {
                 target: sub.target,
                 platform: '',
                 live: sub.live,
-                dynamic: sub.dynamic,
-                liveDispose
+                dynamic: sub.dynamic
             })
         }
     }
@@ -2012,8 +2072,6 @@ class ComRegister {
                         return msg
                     }
                     // 取消订阅
-                    if (sub.live) sub.liveDispose()
-                    sub.liveDispose = null
                     sub.live = false
                     // 如果没有对这个UP的任何订阅，则移除
                     if (checkIfNoSubExist(sub)) {
@@ -2072,8 +2130,6 @@ class ComRegister {
 
     unsubAll(ctx: Context, uid: string) {
         this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
-            // 取消全部订阅 执行dispose方法，销毁定时器
-            if (sub.live) await this.subManager[i].liveDispose()
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
             this.checkIfUserIsTheLastOneWhoSubDyn()
             // 从数据库中删除订阅
@@ -2111,6 +2167,7 @@ namespace ComRegister {
                     channelId: string,
                     dynamic: boolean,
                     live: boolean,
+                    liveDanmaku: boolean,
                     atAll: boolean
                 }>,
                 platform: string
@@ -2153,6 +2210,7 @@ namespace ComRegister {
                     channelId: Schema.string().description('频道/群组号'),
                     dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
                     live: Schema.boolean().description('该频道/群组是否推送直播通知'),
+                    liveDanmaku: Schema.boolean().description('该频道/群组是否推送弹幕消息'),
                     atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
                 })).description('频道/群组信息'),
                 platform: Schema.string().description('推送平台')

@@ -41,6 +41,7 @@ export interface Config {
                 channelId: string,
                 dynamic: boolean,
                 live: boolean,
+                liveDanmaku: boolean,
                 atAll: boolean
             }>,
             platform: string
@@ -133,6 +134,7 @@ export const Config: Schema<Config> = Schema.object({
                 channelId: Schema.string().description('频道/群组号'),
                 dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
                 live: Schema.boolean().description('该频道/群组是否推送直播通知'),
+                liveDanmaku: Schema.boolean().description('该频道/群组是否推送弹幕消息'),
                 atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
             })).description('频道/群组信息'),
             platform: Schema.string().description('推送平台')
