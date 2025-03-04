@@ -593,6 +593,14 @@ class ComRegister {
         }
         // 检查登录数据库是否有数据
         this.loginDBData = (await this.ctx.database.get('loginBili', 1, ['dynamic_group_id']))[0]
+        // 判断登录信息是否已加载完毕
+        await this.checkIfLoginInfoIsLoaded()
+        // 如果未登录，则直接返回
+        if (!(await this.checkIfIsLogin())) {
+            // log
+            this.logger.info(`账号未登录，请登录`)
+            return
+        }
         // 从配置获取订阅
         config.sub && await this.loadSubFromConfig(config.sub)
         // 从数据库获取订阅
@@ -1784,16 +1792,6 @@ class ComRegister {
     }
 
     async loadSubFromDatabase() {
-        // 判断登录信息是否已加载完毕
-        await this.checkIfLoginInfoIsLoaded()
-        // 如果未登录，则直接返回
-        if (!(await this.checkIfIsLogin())) {
-            // log
-            this.logger.info(`账号未登录，请登录`)
-            return
-        }
-        // 已存在订阅管理对象，不再进行订阅操作
-        if (this.subManager.length !== 0) return
         // 从数据库中获取数据
         const subData = await this.ctx.database.get('bilibili', { id: { $gt: 0 } })
         // 定义变量：订阅直播数
