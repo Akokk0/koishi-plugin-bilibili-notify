@@ -714,8 +714,12 @@ class ComRegister {
     }
 
     dynamicDetect(ctx: Context) {
+        // 检测初始化变量
         let detectSetup: boolean = true
+        // 更新基线
         let updateBaseline: string
+        // 第一条动态的动态ID
+        let dynamicIdStr: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
         // 返回一个闭包函数
@@ -807,14 +811,23 @@ class ComRegister {
                     // 寻找关注的UP主的动态
                     this.subManager.forEach(async (sub) => {
                         // 判断是否是订阅的UP主
-                        if (sub.uid == upUID) {
-                            // 订阅该UP主，推送该动态
+                        if (sub.dynamic && sub.uid == upUID) { // 订阅该UP主，推送该动态
+                            // 判断更新动态是否为1条
+                            if (updateNum === 1) {
+                                // 判断dynamicIdStr是否有值，是否与当前动态ID一致
+                                if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
+                                    // 重复动态，不再推送，直接返回
+                                    return
+                                }
+                                // 存储该动态ID
+                                dynamicIdStr = items[num].id_str
+                            }
                             // 定义变量
                             let pic: string
                             let buffer: Buffer
                             // 从动态数据中取出UP主名称和动态ID
-                            const upName = content.data.items[num].modules.module_author.name
-                            const dynamicId = content.data.items[num].id_str
+                            const upName = items[num].modules.module_author.name
+                            const dynamicId = items[num].id_str
                             // 推送该条动态
                             const attempts = 3;
                             for (let i = 0; i < attempts; i++) {
@@ -876,8 +889,12 @@ class ComRegister {
     }
 
     debug_dynamicDetect(ctx: Context) {
+        // 检测初始化变量
         let detectSetup: boolean = true
+        // 更新基线
         let updateBaseline: string
+        // 第一条动态的动态ID
+        let dynamicIdStr: string
         // 相当于锁的作用，防止上一个循环没处理完
         let flag: boolean = true
         // 返回一个闭包函数
@@ -982,14 +999,23 @@ class ComRegister {
                     this.subManager.forEach(async (sub) => {
                         console.log(`当前订阅UP主：${sub.uid}`);
                         // 判断是否是订阅的UP主
-                        if (sub.uid == upUID) {
-                            // 订阅该UP主，推送该动态
+                        if (sub.dynamic && sub.uid == upUID) { // 订阅该UP主，推送该动态
+                            // 判断更新动态是否为1条
+                            if (updateNum === 1) {
+                                // 判断dynamicIdStr是否有值，是否与当前动态ID一致
+                                if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
+                                    // 重复动态，不再推送，直接返回
+                                    return
+                                }
+                                // 存储该动态ID
+                                dynamicIdStr = items[num].id_str
+                            }
                             // 定义变量
                             let pic: string
                             let buffer: Buffer
                             // 从动态数据中取出UP主名称和动态ID
-                            const upName = content.data.items[num].modules.module_author.name
-                            const dynamicId = content.data.items[num].id_str
+                            const upName = items[num].modules.module_author.name
+                            const dynamicId = items[num].id_str
                             console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
                             // 推送该条动态
                             const attempts = 3;
