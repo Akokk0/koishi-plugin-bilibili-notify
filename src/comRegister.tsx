@@ -1405,7 +1405,7 @@ class ComRegister {
         const temporaryLiveDanmakuArr: Array<string> = []
         // 处理target
         // 找到频道/群组对应的
-        const newTarget: Target = target.map(channel => {
+        const danmakuPushTargetArr: Target = target.map(channel => {
             const liveDanmakuArr = channel.channelIdArr.filter(channelId => channelId.liveDanmaku)
             return {
                 channelIdArr: liveDanmakuArr,
@@ -1428,7 +1428,7 @@ class ComRegister {
                 {
                     username: masterInfo.username,
                     userface: masterInfo.userface,
-                    target: newTarget,
+                    target,
                     data: liveRoomInfo
                 },
                 LiveType.LiveBroadcast,
@@ -1440,7 +1440,7 @@ class ComRegister {
             // 判断数组是否有内容
             if (temporaryLiveDanmakuArr.length > 0) {
                 // 发送消息
-                this.sendMsg(newTarget, temporaryLiveDanmakuArr.join('\n'))
+                this.sendMsg(danmakuPushTargetArr, temporaryLiveDanmakuArr.join('\n'))
                 // 将临时消息数组清空
                 temporaryLiveDanmakuArr.length = 0
             }
@@ -1493,7 +1493,7 @@ class ComRegister {
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
-                        target: newTarget,
+                        target,
                         data: liveRoomInfo
                     },
                     LiveType.StopBroadcast,
@@ -1519,7 +1519,7 @@ class ComRegister {
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
-                        target: newTarget,
+                        target,
                         data: liveRoomInfo
                     },
                     LiveType.StartBroadcasting,
@@ -1544,7 +1544,7 @@ class ComRegister {
                     {
                         username: masterInfo.username,
                         userface: masterInfo.userface,
-                        target: newTarget,
+                        target,
                         data: liveRoomInfo
                     },
                     LiveType.LiveBroadcast,
@@ -1744,7 +1744,7 @@ class ComRegister {
                         // 成功则跳出循环
                         break
                     } catch (e) {
-                        this.logger.error('getSubFromDatabase() getUserInfo() 发生了错误，错误为：' + e.message)
+                        this.logger.error('loadSubFromConfig() getUserInfo() 发生了错误，错误为：' + e.message)
                         if (i === attempts - 1) { // 已尝试三次
                             // 发送私聊消息并重启服务
                             return await this.sendPrivateMsgAndStopService()

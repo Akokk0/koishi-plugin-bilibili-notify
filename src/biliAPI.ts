@@ -340,6 +340,7 @@ class BiliAPI extends Service {
             const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
             return data
         } catch (e) {
+            console.warn(e)
             throw new Error('网络异常，本次请求失败！')
         }
     }
