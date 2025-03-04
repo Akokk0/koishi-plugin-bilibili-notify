@@ -48,6 +48,9 @@ const GET_ALL_GROUP = 'https://api.bilibili.com/x/relation/tags'
 const COPY_USER_TO_GROUP = 'https://api.bilibili.com/x/relation/tags/copyUsers'
 const GET_RELATION_GROUP_DETAIL = 'https://api.bilibili.com/x/relation/tag'
 
+// 直播
+const GET_LIVE_ROOM_INFO_STREAM_KEY = 'https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo'
+
 class BiliAPI extends Service {
     static inject = ['database', 'notifier']
 
@@ -132,6 +135,17 @@ class BiliAPI extends Service {
     }
 
     // BA API
+
+    async getLiveRoomInfoStreamKey(roomId: string) {
+        try {
+            // 获取直播间信息流密钥
+            const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`)
+            // 返回data
+            return data
+        } catch (e) {
+            throw new Error('网络异常，本次请求失败！')
+        }
+    }
 
     async getServerUTCTime() {
         try {
