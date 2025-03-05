@@ -1178,7 +1178,7 @@ class ComRegister {
 
     async liveDetectWithAPI() {
         // 定义变量：第一次订阅
-        let firstSubscription: boolean = true;
+        let liveDetectSetup: boolean = true;
         // 定义变量：timer计时器
         let timer: number = 0;
         // 相当于锁的作用，防止上一个循环没处理完
@@ -1189,14 +1189,7 @@ class ComRegister {
             liveTime: string,
             target: Target
         }> = {}
-        // 初始化subRecord
-        this.subManager.forEach(sub => {
-            // 判断是否订阅直播
-            if (sub.live) {
-                // 将该订阅添加到subRecord中
-                liveRecord[sub.uid] = { liveStatus: 0, liveTime: '', target: sub.target }
-            }
-        })
+
         // 定义函数: 发送请求获取直播状态
         const useLiveStatus = async (roomId: string) => {
             let content: any
@@ -1227,10 +1220,18 @@ class ComRegister {
             try {
                 // 获取正在直播对象
                 const liveUsers = await this.ctx.ba.getTheUserWhoIsLiveStreaming()
-                // 判断是否是第一次订阅
-                if (firstSubscription) {
+                // 判断是否是初始化直播监测
+                if (liveDetectSetup) {
                     // 将第一次订阅置为false
-                    firstSubscription = false
+                    liveDetectSetup = false
+                    // 初始化subRecord
+                    this.subManager.forEach(sub => {
+                        // 判断是否订阅直播
+                        if (sub.live) {
+                            // 将该订阅添加到subRecord中
+                            liveRecord[sub.uid] = { liveStatus: 0, liveTime: '', target: sub.target }
+                        }
+                    })
                     // 先判断是否有UP主正在直播
                     if (liveUsers.count > 0) {
                         // 遍历liveUsers
@@ -1241,6 +1242,8 @@ class ComRegister {
                                 const data = await useLiveStatus(item.room_id.toString())
                                 // 设置开播时间
                                 liveRecord[item.mid].liveTime = data.live_time
+                                // 改变开播状态
+                                liveRecord[item.mid].liveStatus = 1
                                 // 设置直播中消息
                                 const liveMsg = this.config.customLive ? this.config.customLive
                                     .replace('-name', item.uname)
@@ -1257,8 +1260,6 @@ class ComRegister {
                                     LiveType.LiveBroadcast,
                                     liveMsg
                                 )
-                                // 改变开播状态
-                                liveRecord[item.mid].liveStatus = 1
                             }
                         })
                     }
@@ -1376,6 +1377,8 @@ class ComRegister {
                     const masterInfo = await this.useMasterInfo(subUID)
                     // 获取直播间消息
                     const liveRoomInfo = await this.useLiveRoomInfo(masterInfo.roomId.toString())
+                    // 设置开播时间
+                    liveRoomInfo.live_time = liveRecord[subUID].liveTime
                     // 定义下播播通知语                            
                     const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                         .replace('-name', masterInfo.username)
@@ -1513,6 +1516,8 @@ class ComRegister {
                 const liveRoomInfo = await this.useLiveRoomInfo(roomId)
                 // 获取主播信息
                 const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+                // 设置开播时间
+                liveRoomInfo.live_time = liveTime
                 // 关闭定时推送定时器
                 pushAtTimeTimer()
                 // 将推送定时器变量置空
@@ -1536,7 +1541,7 @@ class ComRegister {
             }
         }
         // 启动直播间弹幕监测
-        this.ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
+        await this.ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
         // 判断直播状态
         if (liveRoomInfo.live_status === 1) {
             // 设置开播时间
@@ -1771,7 +1776,16 @@ class ComRegister {
                 // 判断是否订阅直播
                 if (sub.live) {
                     // 订阅直播
-                    this.liveDetectWithListener(data.live_room.roomid, sub.target)
+                    // 判断使用什么方式订阅直播
+                    switch (this.config.liveDetectMode) {
+                        case "API": {
+                            this.liveDetectWithAPI()
+                            break
+                        }
+                        case "WS": {
+                            this.liveDetectWithListener(data.live_room.roomid, sub.target)
+                        }
+                    }
                 }
             }
             // 在B站中订阅该对象
@@ -2066,6 +2080,7 @@ namespace ComRegister {
         },
         unlockSubLimits: boolean,
         automaticResend: boolean,
+        liveDetectMode: 'API' | 'WS',
         restartPush: boolean,
         pushTime: number,
         liveLoopTime: number,
@@ -2108,6 +2123,10 @@ namespace ComRegister {
         }),
         unlockSubLimits: Schema.boolean().required(),
         automaticResend: Schema.boolean().required(),
+        liveDetectMode: Schema.union([
+            Schema.const('API'),
+            Schema.const('WS')
+        ]).required(),
         restartPush: Schema.boolean().required(),
         pushTime: Schema.number().required(),
         liveLoopTime: Schema.number().default(10),

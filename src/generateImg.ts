@@ -1445,7 +1445,7 @@ class GenerateImg extends Service {
             }
             case 3: {
                 titleStatus = '下播啦';
-                liveTime = `直播时长：${await this.getTimeDifference(time)}`;
+                liveTime = `开播时间：${time}`;
                 cover = true;
                 break;
             }

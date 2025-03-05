@@ -52,6 +52,7 @@ export interface Config {
     dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '10分钟' | '20分钟'
     live: {},
+    liveDetectMode: 'API' | 'WS',
     restartPush: boolean,
     pushTime: number,
     danmakuPushTime: number,
@@ -159,6 +160,11 @@ export const Config: Schema<Config> = Schema.object({
         .description('设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟'),
 
     live: Schema.object({}).description('直播推送设置'),
+
+    liveDetectMode: Schema.union([
+        Schema.const('WS').description('连接到对应的直播间，可获取弹幕消息，开播下播响应最快，但对订阅数有限制'),
+        Schema.const('API').description('请求对应直播间API，无法获取弹幕消息，开播下播响应慢，理论可无限订阅')
+    ]).role('radio'),
 
     restartPush: Schema.boolean()
         .default(true)
@@ -352,6 +358,7 @@ class ServerManager extends Service {
                 master: globalConfig.master,
                 unlockSubLimits: globalConfig.unlockSubLimits,
                 automaticResend: globalConfig.automaticResend,
+                liveDetectMode: globalConfig.liveDetectMode,
                 restartPush: globalConfig.restartPush,
                 pushTime: globalConfig.pushTime,
                 customLiveStart: globalConfig.customLiveStart,
