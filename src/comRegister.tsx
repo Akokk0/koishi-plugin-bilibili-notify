@@ -68,8 +68,10 @@ class ComRegister {
     loginDBData: FlatPick<LoginBili, "dynamic_group_id">
     // 机器人实例
     privateBot: Bot<Context>
-    // 动态销毁函数
+    // 动态检测销毁函数
     dynamicDispose: Function
+    // 直播检测销毁函数
+    liveDispose: Function
     // 发送消息方式
     sendMsgFunc: (bot: Bot<Context, any>, channelId: string, content: any) => Promise<void>
     // 构造函数
@@ -448,8 +450,21 @@ class ComRegister {
                 }
                 // 订阅直播
                 if (liveMsg) {
-                    // 连接到服务器
-                    this.liveDetectWithListener(roomId, target)
+                    // 判断直播订阅方式
+                    switch (this.config.liveDetectMode) {
+                        case "API": {
+                            // 判断是否已开启直播检测
+                            if (!this.liveDispose) { // 未开启直播检测
+                                // 开启直播检测并保存销毁函数
+                                this.liveDispose = await this.liveDetectWithAPI()
+                            }
+                            break
+                        }
+                        case "WS": {
+                            // 连接到服务器
+                            await this.liveDetectWithListener(roomId, target)
+                        }
+                    }
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
@@ -1429,7 +1444,7 @@ class ComRegister {
             const liveRoomInfo = await this.useLiveRoomInfo(roomId)
             // 获取主播信息
             const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
-            // 定义直播中通知消息
+            // 设置直播中消息
             const liveMsg = this.config.customLive ? this.config.customLive
                 .replace('-name', masterInfo.username)
                 .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
@@ -1449,7 +1464,7 @@ class ComRegister {
         // 定义弹幕推送函数
         const danmakuPushFunc = () => {
             // 判断数组是否有内容
-            if (temporaryLiveDanmakuArr.length > 0) {
+            if (danmakuPushTargetArr.length > 0 && temporaryLiveDanmakuArr.length > 0) {
                 // 发送消息
                 this.sendMsg(danmakuPushTargetArr, temporaryLiveDanmakuArr.join('\n'))
                 // 将临时消息数组清空
@@ -1493,13 +1508,39 @@ class ComRegister {
                 const liveRoomInfo = await this.useLiveRoomInfo(roomId)
                 // 获取主播信息
                 const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
-                // 定义下播通知消息
+                // 设置开播时间
+                liveTime = liveRoomInfo.live_time
+                // 定义开播通知语                            
+                const liveStartMsg = this.config.customLiveStart ? this.config.customLiveStart
+                    .replace('-name', masterInfo.username)
+                    .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
+                    .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
+                // 推送下播通知
+                await this.sendLiveNotifyCard(
+                    {
+                        username: masterInfo.username,
+                        userface: masterInfo.userface,
+                        target,
+                        data: liveRoomInfo
+                    },
+                    LiveType.StartBroadcasting,
+                    liveStartMsg
+                )
+                // 开始直播，开启定时器
+                pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+            },
+            onLiveEnd: async () => {
+                // 获取直播间消息
+                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
+                // 获取主播信息
+                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+                // 更改直播时长
+                liveRoomInfo.live_time = liveTime
+                // 定义下播播通知语                            
                 const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
                     .replace('-name', masterInfo.username)
                     .replace('-time', await this.ctx.gi.getTimeDifference(liveTime)) : null
-                // 更改直播时长
-                liveRoomInfo.live_time = liveTime
-                // 推送下播通知
+                // 推送通知卡片
                 await this.sendLiveNotifyCard(
                     {
                         username: masterInfo.username,
@@ -1510,34 +1551,10 @@ class ComRegister {
                     LiveType.StopBroadcast,
                     liveEndMsg
                 )
-            },
-            onLiveEnd: async () => {
-                // 获取直播间消息
-                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
-                // 获取主播信息
-                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
-                // 设置开播时间
-                liveRoomInfo.live_time = liveTime
                 // 关闭定时推送定时器
                 pushAtTimeTimer()
                 // 将推送定时器变量置空
                 pushAtTimeTimer = null
-                // 定义下播播通知语                            
-                const liveEndMsg = this.config.customLiveEnd ? this.config.customLiveEnd
-                    .replace('-name', masterInfo.username)
-                    .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
-                    .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
-                // 推送通知卡片
-                await this.sendLiveNotifyCard(
-                    {
-                        username: masterInfo.username,
-                        userface: masterInfo.userface,
-                        target,
-                        data: liveRoomInfo
-                    },
-                    LiveType.StartBroadcasting,
-                    liveEndMsg
-                )
             }
         }
         // 启动直播间弹幕监测
@@ -1775,15 +1792,19 @@ class ComRegister {
                 }
                 // 判断是否订阅直播
                 if (sub.live) {
-                    // 订阅直播
-                    // 判断使用什么方式订阅直播
+                    // 判断直播订阅方式
                     switch (this.config.liveDetectMode) {
                         case "API": {
-                            this.liveDetectWithAPI()
+                            // 判断是否已开启直播检测
+                            if (!this.liveDispose) { // 未开启直播检测
+                                // 开启直播检测并保存销毁函数
+                                this.liveDispose = await this.liveDetectWithAPI()
+                            }
                             break
                         }
                         case "WS": {
-                            this.liveDetectWithListener(data.live_room.roomid, sub.target)
+                            // 连接到服务器
+                            await this.liveDetectWithListener(data.live_room.roomid, sub.target)
                         }
                     }
                 }
@@ -1907,19 +1928,32 @@ class ComRegister {
             }
             // 判断是否订阅直播
             if (sub.live) {
-                // 判断订阅直播数是否超过限制
-                if (!this.config.unlockSubLimits && liveSubNum >= 3) {
-                    // 将live改为false
-                    subManagerItem.live = false
-                    // log
-                    this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
-                    // 发送错误消息
-                    await this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
-                } else {
-                    // 直播订阅数+1
-                    liveSubNum++
-                    // 订阅直播，开始循环检测
-                    this.liveDetectWithListener(sub.room_id, target)
+                // 判断直播检测方式
+                switch (this.config.liveDetectMode) {
+                    case "API": {
+                        // 判断是否已开启直播检测
+                        if (!this.liveDispose) { // 未开启直播检测
+                            // 开启直播检测并保存销毁函数
+                            this.liveDispose = await this.liveDetectWithAPI()
+                        }
+                        break
+                    }
+                    case "WS": {
+                        // 判断订阅直播数是否超过限制
+                        if (!this.config.unlockSubLimits && liveSubNum >= 3) {
+                            // 将live改为false
+                            subManagerItem.live = false
+                            // log
+                            this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
+                            // 发送错误消息
+                            await this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
+                        } else {
+                            // 直播订阅数+1
+                            liveSubNum++
+                            // 订阅直播，开始循环检测
+                            this.liveDetectWithListener(sub.room_id, target)
+                        }
+                    }
                 }
             }
             // 保存新订阅对象
@@ -1972,6 +2006,17 @@ class ComRegister {
                     }
                     // 取消订阅
                     sub.live = false
+                    // 判断直播检测方式
+                    switch (this.config.liveDetectMode) {
+                        case 'API': {
+                            msg = '请手动删除订阅，并重启插件'
+                            break
+                        }
+                        case 'WS': {
+                            // 取消直播监听
+                            this.ctx.bl.closeListener(sub.roomId)
+                        }
+                    }
                     // 如果没有对这个UP的任何订阅，则移除
                     if (checkIfNoSubExist(sub)) {
                         // 从管理对象中移除
@@ -2031,6 +2076,15 @@ class ComRegister {
         this.subManager.filter(sub => sub.uid === uid).map(async (sub, i) => {
             // 判断是否还存在订阅了动态的对象，不存在则停止动态监测
             this.checkIfUserIsTheLastOneWhoSubDyn()
+            switch (this.config.liveDetectMode) {
+                case "API": {
+                    break
+                }
+                case "WS": {
+                    // 停止直播检测
+                    this.ctx.bl.closeListener(sub.roomId)
+                }
+            }
             // 从数据库中删除订阅
             await this.ctx.database.remove('bilibili', { uid: this.subManager[i].uid })
             // 将该订阅对象从订阅管理对象中移除
