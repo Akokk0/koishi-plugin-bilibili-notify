@@ -1526,8 +1526,11 @@ class ComRegister {
                     LiveType.StartBroadcasting,
                     liveStartMsg
                 )
-                // 开始直播，开启定时器
-                pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+                // 判断定时器是否已开启
+                if (!pushAtTimeTimer) {
+                    // 开始直播，开启定时器
+                    pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+                }
             },
             onLiveEnd: async () => {
                 // 获取直播间消息
@@ -1582,7 +1585,11 @@ class ComRegister {
                 )
             }
             // 正在直播，开启定时器
-            pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+            // 判断定时器是否已开启
+            if (!pushAtTimeTimer) {
+                // 开始直播，开启定时器
+                pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
+            }
         }
     }
 
@@ -1951,7 +1958,7 @@ class ComRegister {
                             // 直播订阅数+1
                             liveSubNum++
                             // 订阅直播，开始循环检测
-                            this.liveDetectWithListener(sub.room_id, target)
+                            await this.liveDetectWithListener(sub.room_id, target)
                         }
                     }
                 }
