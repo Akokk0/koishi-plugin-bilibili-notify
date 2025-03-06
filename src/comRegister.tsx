@@ -1431,9 +1431,15 @@ class ComRegister {
         const currentLiveDanmakuArr: Array<string> = []
         const temporaryLiveDanmakuArr: Array<string> = []
         // 处理target
+        // 定义channelIdArr总长度
+        let channelIdArrLen = 0
         // 找到频道/群组对应的
         const danmakuPushTargetArr: Target = target.map(channel => {
+            // 获取符合条件的target
             const liveDanmakuArr = channel.channelIdArr.filter(channelId => channelId.liveDanmaku)
+            // 将当前liveDanmakuArr的长度+到channelIdArrLen中
+            channelIdArrLen += liveDanmakuArr.length
+            // 返回符合的target
             return {
                 channelIdArr: liveDanmakuArr,
                 platform: channel.platform
@@ -1465,7 +1471,7 @@ class ComRegister {
         // 定义弹幕推送函数
         const danmakuPushFunc = () => {
             // 判断数组是否有内容
-            if (danmakuPushTargetArr.length > 0 && temporaryLiveDanmakuArr.length > 0) {
+            if (channelIdArrLen > 0 && temporaryLiveDanmakuArr.length > 0) {
                 // 发送消息
                 this.sendMsg(danmakuPushTargetArr, temporaryLiveDanmakuArr.join('\n'))
                 // 将临时消息数组清空

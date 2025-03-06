@@ -10,6 +10,7 @@ import { wrapper } from 'axios-cookiejar-support'
 import { JSDOM } from 'jsdom'
 import { Notifier } from "@koishijs/plugin-notifier"
 import { DateTime } from "luxon"
+import Retry from "./utils/retry"
 
 declare module 'koishi' {
     interface Context {
@@ -138,7 +139,7 @@ class BiliAPI extends Service {
     }
 
     // BA API
-
+    @Retry()
     async getTheUserWhoIsLiveStreaming(): Promise<{
         count: number,
         group: string,
@@ -152,200 +153,154 @@ class BiliAPI extends Service {
             uname: string
         }]
     }> {
-        try {
-            // 获取直播间信息流密钥
-            const { data: { live_users } } = await this.client.get(GET_LATEST_UPDATED_UPS)
-            // 返回data
-            return live_users
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        // 获取直播间信息流密钥
+        const { data: { live_users } } = await this.client.get(GET_LATEST_UPDATED_UPS)
+        // 返回data
+        return live_users
     }
 
+    @Retry()
     async getLiveRoomInfoStreamKey(roomId: string) {
-        try {
-            // 获取直播间信息流密钥
-            const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`)
-            // 返回data
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        // 获取直播间信息流密钥
+        const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`)
+        // 返回data
+        return data
     }
 
+    @Retry()
     async getServerUTCTime() {
-        try {
-            const { data } = await this.client.get(GET_SERVER_UTC_TIME);
-            const regex = /Date\.UTC\((.*?)\)/;
-            const match = data.match(regex);
-            if (match) {
-                const timestamp = new Function(`return Date.UTC(${match[1]})`)();
-                return timestamp / 1000;
-            } else {
-                throw new Error('解析服务器时间失败！');
-            }
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！');
+        const { data } = await this.client.get(GET_SERVER_UTC_TIME);
+        const regex = /Date\.UTC\((.*?)\)/;
+        const match = data.match(regex);
+        if (match) {
+            const timestamp = new Function(`return Date.UTC(${match[1]})`)();
+            return timestamp / 1000;
+        } else {
+            throw new Error('解析服务器时间失败！');
         }
     }
 
+    @Retry()
     async getTimeNow() {
-        try {
-            const { data } = await this.client.get(GET_TIME_NOW)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(GET_TIME_NOW)
+        return data
     }
 
+    @Retry()
     async getAllGroup() {
-        try {
-            const { data } = await this.client.get(GET_ALL_GROUP)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(GET_ALL_GROUP)
+        return data
     }
 
+    @Retry()
     async removeUserFromGroup(mid: string) {
         // 获取csrf
         const csrf = this.getCSRF()
-        try {
-            // 将用户mid添加到groupId
-            const { data } = await this.client.post(MODIFY_GROUP_MEMBER, {
-                fids: mid,
-                tagids: 0,
-                csrf
-            }, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        // 将用户mid添加到groupId
+        const { data } = await this.client.post(MODIFY_GROUP_MEMBER, {
+            fids: mid,
+            tagids: 0,
+            csrf
+        }, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        return data
     }
 
+    @Retry()
     async copyUserToGroup(mid: string, groupId: string) {
         // 获取csrf
         const csrf = this.getCSRF()
-        try {
-            // 将用户mid添加到groupId
-            const { data } = await this.client.post(COPY_USER_TO_GROUP, {
-                fids: mid,
-                tagids: groupId,
-                csrf
-            }, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        // 将用户mid添加到groupId
+        const { data } = await this.client.post(COPY_USER_TO_GROUP, {
+            fids: mid,
+            tagids: groupId,
+            csrf
+        }, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        return data
     }
 
+    @Retry()
     async getUserSpaceDynamic(mid: string) {
-        try {
-            const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
+        return data
     }
 
+    @Retry()
     async createGroup(tag: string) {
-        try {
-            const { data } = await this.client.post(CREATE_GROUP, {
-                tag,
-                csrf: this.getCSRF()
-            }, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.post(CREATE_GROUP, {
+            tag,
+            csrf: this.getCSRF()
+        }, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        return data
     }
 
+    @Retry()
     async getAllDynamic(updateBaseline?: string) {
         let url = GET_ALL_DYNAMIC_LIST
         updateBaseline && (url += `?update_baseline=${updateBaseline}`)
-        try {
-            const { data } = await this.client.get(url)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(url)
+        return data
     }
 
+    @Retry()
     async hasNewDynamic(updateBaseline: string) {
-        try {
-            const { data } = await this.client.get(`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`)
+        return data
     }
 
+    @Retry()
     async follow(fid: string) {
-        try {
-            const { data } = await this.client.post(MODIFY_RELATION, {
-                fid,
-                act: 1,
-                re_src: 11,
-                csrf: this.getCSRF()
-            }, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                }
-            })
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.post(MODIFY_RELATION, {
+            fid,
+            act: 1,
+            re_src: 11,
+            csrf: this.getCSRF()
+        }, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        return data
     }
 
+    @Retry()
     async getRelationGroupDetail(tagid: string) {
-        try {
-            const { data } = await this.client.get(`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`)
+        return data
     }
 
     // Check if Token need refresh
+    @Retry()
     async getCookieInfo(refreshToken: string) {
-        try {
-            const { data } = await this.client.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
+        return data
     }
 
+    @Retry()
     async getUserInfo(mid: string) {
         //如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
         if (mid === "11783021") {
             console.log("检测到番剧出差UID，跳过远程用户接口访问")
             return bangumiTripData
         }
-        try {
-            const wbi = await this.getWbi({ mid })
-            const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
-            return data
-        } catch (e) {
-            console.warn(e)
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const wbi = await this.getWbi({ mid })
+        const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`)
+        return data
     }
 
     // 获取最新的 img_key 和 sub_key
+    @Retry()
     async getWbiKeys() {
         const { data } = await this.client.get('https://api.bilibili.com/x/web-interface/nav')
         const {
@@ -366,49 +321,34 @@ class BiliAPI extends Service {
         }
     }
 
+    @Retry()
     async getMyselfInfo() {
-        try {
-            const { data } = await this.client.get(GET_MYSELF_INFO)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(GET_MYSELF_INFO)
+        return data
     }
 
+    @Retry()
     async getLoginQRCode() {
-        try {
-            const { data } = await this.client.get(GET_LOGIN_QRCODE)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(GET_LOGIN_QRCODE)
+        return data
     }
 
+    @Retry()
     async getLoginStatus(qrcodeKey: string) {
-        try {
-            const { data } = await this.client.get(`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`)
+        return data
     }
 
+    @Retry()
     async getLiveRoomInfo(roomId: string) {
-        try {
-            const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`)
+        return data
     }
 
+    @Retry()
     async getMasterInfo(mid: string) {
-        try {
-            const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`)
-            return data
-        } catch (e) {
-            throw new Error('网络异常，本次请求失败！')
-        }
+        const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`)
+        return data
     }
 
     disposeNotifier() { if (this.loginNotifier) this.loginNotifier.dispose() }
