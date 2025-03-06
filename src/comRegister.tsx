@@ -448,23 +448,23 @@ class ComRegister {
                     this.logger.error('bili sub指令 getMasterInfo() 发生了错误，错误为：' + e.message)
                     return '订阅出错啦，请重试'
                 }
+                const liveDetectModeSelector = {
+                    API: async () => {
+                        // 判断是否已开启直播检测
+                        if (!this.liveDispose) { // 未开启直播检测
+                            // 开启直播检测并保存销毁函数
+                            this.liveDispose = await this.liveDetectWithAPI()
+                        }
+                    },
+                    WS: async () => {
+                        // 连接到服务器
+                        await this.liveDetectWithListener(roomId, target)
+                    }
+                }
                 // 订阅直播
                 if (liveMsg) {
                     // 判断直播订阅方式
-                    switch (this.config.liveDetectMode) {
-                        case "API": {
-                            // 判断是否已开启直播检测
-                            if (!this.liveDispose) { // 未开启直播检测
-                                // 开启直播检测并保存销毁函数
-                                this.liveDispose = await this.liveDetectWithAPI()
-                            }
-                            break
-                        }
-                        case "WS": {
-                            // 连接到服务器
-                            await this.liveDetectWithListener(roomId, target)
-                        }
-                    }
+                    await liveDetectModeSelector[this.config.liveDetectMode]()
                     // 发送订阅消息通知
                     await session.send(`订阅${userData.info.uname}直播通知`)
                 }
@@ -472,6 +472,7 @@ class ComRegister {
                 if (dynamicMsg) {
                     // 判断是否开启动态监测
                     if (!this.dynamicDispose) {
+                        // 开启动态监测
                         this.enableDynamicDetect()
                     }
                     // 发送订阅消息通知
@@ -1797,23 +1798,24 @@ class ComRegister {
                     // 发送提示
                     this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`)
                 }
+                // 
+                const liveDetectModeSelector = {
+                    API: async () => {
+                        // 判断是否已开启直播检测
+                        if (!this.liveDispose) { // 未开启直播检测
+                            // 开启直播检测并保存销毁函数
+                            this.liveDispose = await this.liveDetectWithAPI()
+                        }
+                    },
+                    WS: async () => {
+                        // 连接到服务器
+                        await this.liveDetectWithListener(data.live_room.roomid, sub.target)
+                    }
+                }
                 // 判断是否订阅直播
                 if (sub.live) {
-                    // 判断直播订阅方式
-                    switch (this.config.liveDetectMode) {
-                        case "API": {
-                            // 判断是否已开启直播检测
-                            if (!this.liveDispose) { // 未开启直播检测
-                                // 开启直播检测并保存销毁函数
-                                this.liveDispose = await this.liveDetectWithAPI()
-                            }
-                            break
-                        }
-                        case "WS": {
-                            // 连接到服务器
-                            await this.liveDetectWithListener(data.live_room.roomid, sub.target)
-                        }
-                    }
+                    // 启动直播监测
+                    await liveDetectModeSelector[this.config.liveDetectMode]()
                 }
             }
             // 在B站中订阅该对象
@@ -1933,35 +1935,36 @@ class ComRegister {
                 dynamic: sub.dynamic === 1 ? true : false,
                 liveDispose: null
             }
-            // 判断是否订阅直播
-            if (sub.live) {
-                // 判断直播检测方式
-                switch (this.config.liveDetectMode) {
-                    case "API": {
-                        // 判断是否已开启直播检测
-                        if (!this.liveDispose) { // 未开启直播检测
-                            // 开启直播检测并保存销毁函数
-                            this.liveDispose = await this.liveDetectWithAPI()
-                        }
-                        break
+            // 定义直播模式监测器
+            const liveDetectModeSelector = {
+                API: async () => {
+                    // 判断是否已开启直播检测
+                    if (!this.liveDispose) { // 未开启直播检测
+                        // 开启直播检测并保存销毁函数
+                        this.liveDispose = await this.liveDetectWithAPI()
                     }
-                    case "WS": {
-                        // 判断订阅直播数是否超过限制
-                        if (!this.config.unlockSubLimits && liveSubNum >= 3) {
-                            // 将live改为false
-                            subManagerItem.live = false
-                            // log
-                            this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
-                            // 发送错误消息
-                            await this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
-                        } else {
-                            // 直播订阅数+1
-                            liveSubNum++
-                            // 订阅直播，开始循环检测
-                            await this.liveDetectWithListener(sub.room_id, target)
-                        }
+                },
+                WS: async () => {
+                    // 判断订阅直播数是否超过限制
+                    if (!this.config.unlockSubLimits && liveSubNum >= 3) {
+                        // 将live改为false
+                        subManagerItem.live = false
+                        // log
+                        this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
+                        // 发送错误消息
+                        await this.sendPrivateMsg(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`)
+                    } else {
+                        // 直播订阅数+1
+                        liveSubNum++
+                        // 订阅直播，开始循环检测
+                        await this.liveDetectWithListener(sub.room_id, target)
                     }
                 }
+            }
+            // 判断是否订阅直播
+            if (sub.live) {
+                // 启动直播监测
+                await liveDetectModeSelector[this.config.liveDetectMode]()
             }
             // 保存新订阅对象
             this.subManager.push(subManagerItem)
