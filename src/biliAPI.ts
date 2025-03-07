@@ -139,7 +139,12 @@ class BiliAPI extends Service {
     }
 
     // BA API
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getTheUserWhoIsLiveStreaming() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getTheUserWhoIsLiveStreaming(): Promise<{
         count: number,
         group: string,
@@ -159,7 +164,12 @@ class BiliAPI extends Service {
         return live_users
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getLiveRoomInfoStreamKey() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getLiveRoomInfoStreamKey(roomId: string) {
         // 获取直播间信息流密钥
         const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`)
@@ -167,7 +177,12 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getServerUTCTime() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getServerUTCTime() {
         const { data } = await this.client.get(GET_SERVER_UTC_TIME);
         const regex = /Date\.UTC\((.*?)\)/;
@@ -180,19 +195,34 @@ class BiliAPI extends Service {
         }
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getTimeNow() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getTimeNow() {
         const { data } = await this.client.get(GET_TIME_NOW)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getAllGroup() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getAllGroup() {
         const { data } = await this.client.get(GET_ALL_GROUP)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`removeUserFromGroup() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async removeUserFromGroup(mid: string) {
         // 获取csrf
         const csrf = this.getCSRF()
@@ -209,7 +239,12 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`copyUserToGroup() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async copyUserToGroup(mid: string, groupId: string) {
         // 获取csrf
         const csrf = this.getCSRF()
@@ -226,13 +261,23 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getUserSpaceDynamic() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getUserSpaceDynamic(mid: string) {
         const { data } = await this.client.get(`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`createGroup() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async createGroup(tag: string) {
         const { data } = await this.client.post(CREATE_GROUP, {
             tag,
@@ -245,7 +290,12 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getAllDynamic() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getAllDynamic(updateBaseline?: string) {
         let url = GET_ALL_DYNAMIC_LIST
         updateBaseline && (url += `?update_baseline=${updateBaseline}`)
@@ -253,13 +303,23 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`hasNewDynamic() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async hasNewDynamic(updateBaseline: string) {
         const { data } = await this.client.get(`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`follow() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async follow(fid: string) {
         const { data } = await this.client.post(MODIFY_RELATION, {
             fid,
@@ -274,20 +334,35 @@ class BiliAPI extends Service {
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getRelationGroupDetail() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getRelationGroupDetail(tagid: string) {
         const { data } = await this.client.get(`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`)
         return data
     }
 
     // Check if Token need refresh
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getCookieInfo() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getCookieInfo(refreshToken: string) {
         const { data } = await this.client.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getUserInfo() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getUserInfo(mid: string) {
         //如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
         if (mid === "11783021") {
@@ -300,7 +375,12 @@ class BiliAPI extends Service {
     }
 
     // 获取最新的 img_key 和 sub_key
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getWbiKeys() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getWbiKeys() {
         const { data } = await this.client.get('https://api.bilibili.com/x/web-interface/nav')
         const {
@@ -321,31 +401,56 @@ class BiliAPI extends Service {
         }
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getMyselfInfo() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getMyselfInfo() {
         const { data } = await this.client.get(GET_MYSELF_INFO)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getLoginQRCode() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getLoginQRCode() {
         const { data } = await this.client.get(GET_LOGIN_QRCODE)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getLoginStatus() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getLoginStatus(qrcodeKey: string) {
         const { data } = await this.client.get(`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getLiveRoomInfo() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getLiveRoomInfo(roomId: string) {
         const { data } = await this.client.get(`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`)
         return data
     }
 
-    @Retry()
+    @Retry({
+        attempts: 3,
+        onFailure(error, attempts) {
+            this.logger.error(`getMasterInfo() 第${attempts}次失败: ${error.message}`);
+        },
+    })
     async getMasterInfo(mid: string) {
         const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`)
         return data

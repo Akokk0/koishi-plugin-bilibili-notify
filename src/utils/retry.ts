@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/ban-types */
+interface RetryOptions {
+    attempts: number;
+    onFailure?: (error: Error, attempts: number) => Promise<void> | void;
+}
 
-function Retry(attempts: number = 3, onFailure?: (error: Error, attempts: number) => Promise<void> | void): MethodDecorator {
+function Retry(options: RetryOptions = { attempts: 3 }): MethodDecorator {
     return function (
         target: Object,
         propertyKey: string | symbol,
@@ -12,13 +16,13 @@ function Retry(attempts: number = 3, onFailure?: (error: Error, attempts: number
         descriptor.value = async function (...args: any[]) {
             let lastError: Error;
 
-            for (let i = 0; i < attempts; i++) {
+            for (let i = 0; i < options.attempts; i++) {
                 try {
                     return await originalMethod.apply(this, args);
                 } catch (error) {
                     lastError = error as Error;
-                    if (onFailure) {
-                        await onFailure.call(this, lastError, i + 1);
+                    if (options.onFailure) {
+                        await options.onFailure.call(this, lastError, i + 1);
                     }
                 }
             }

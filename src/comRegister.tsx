@@ -191,6 +191,8 @@ class ComRegister {
                             }])
                             // 销毁定时器
                             this.loginTimer()
+                            // 订阅手动订阅中的订阅
+                            await this.loadSubFromConfig(config.sub)
                             // 订阅之前的订阅
                             await this.loadSubFromDatabase()
                             // 清除控制台通知
@@ -201,7 +203,6 @@ class ComRegister {
                             await session.execute('bili show')
                             // 开启cookies刷新检测
                             ctx.ba.enableRefreshCookiesDetect()
-                            return
                         }
                     } finally {
                         flag = true
@@ -1430,6 +1431,8 @@ class ComRegister {
         // 定义弹幕存放数组
         const currentLiveDanmakuArr: Array<string> = []
         const temporaryLiveDanmakuArr: Array<string> = []
+        // 定义开播状态
+        let liveStatus = false
         // 处理target
         // 定义channelIdArr总长度
         let channelIdArrLen = 0
@@ -1511,6 +1514,8 @@ class ComRegister {
                 temporaryLiveDanmakuArr.push(content)
             },
             onLiveStart: async () => {
+                // 判断是否已经开播
+                if (liveStatus) return
                 // 获取直播间信息
                 const liveRoomInfo = await this.useLiveRoomInfo(roomId)
                 // 获取主播信息
@@ -1522,7 +1527,7 @@ class ComRegister {
                     .replace('-name', masterInfo.username)
                     .replace('-time', await this.ctx.gi.getTimeDifference(liveTime))
                     .replace('-link', `https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`) : null
-                // 推送下播通知
+                // 推送开播通知
                 await this.sendLiveNotifyCard(
                     {
                         username: masterInfo.username,
@@ -1538,6 +1543,8 @@ class ComRegister {
                     // 开始直播，开启定时器
                     pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
                 }
+                // 设置开播状态为true
+                liveStatus = true
             },
             onLiveEnd: async () => {
                 // 获取直播间消息
@@ -1565,6 +1572,8 @@ class ComRegister {
                 pushAtTimeTimer()
                 // 将推送定时器变量置空
                 pushAtTimeTimer = null
+                // 将直播状态设置为false
+                liveStatus = false
             }
         }
         // 启动直播间弹幕监测
@@ -1597,6 +1606,8 @@ class ComRegister {
                 // 开始直播，开启定时器
                 pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
             }
+            // 设置直播状态为true
+            liveStatus = true
         }
     }
 
