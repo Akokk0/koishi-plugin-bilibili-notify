@@ -1436,6 +1436,13 @@ class ComRegister {
         // 处理target
         // 定义channelIdArr总长度
         let channelIdArrLen = 0
+        // 定义数据
+        let liveRoomInfo: any
+        let masterInfo: {
+            username: string;
+            userface: string;
+            roomId: number;
+        }
         // 找到频道/群组对应的
         const danmakuPushTargetArr: Target = target.map(channel => {
             // 获取符合条件的target
@@ -1450,10 +1457,13 @@ class ComRegister {
         })
         // 定义定时推送函数
         const pushAtTimeFunc = async () => {
-            // 获取直播间信息
-            const liveRoomInfo = await this.useLiveRoomInfo(roomId)
-            // 获取主播信息
-            const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+            // 判断是否信息是否获取成功
+            if (!(await useMasterAndLiveRoomInfo())) {
+                // 未获取成功，直接返回
+                return this.sendPrivateMsg('获取直播间信息失败，推送直播卡片失败！')
+            }
+            // 设置开播时间
+            liveTime = liveRoomInfo.live_time
             // 设置直播中消息
             const liveMsg = this.config.customLive ? this.config.customLive
                 .replace('-name', masterInfo.username)
@@ -1481,10 +1491,44 @@ class ComRegister {
                 temporaryLiveDanmakuArr.length = 0
             }
         }
-        // 获取直播间信息
-        const liveRoomInfo = await this.useLiveRoomInfo(roomId)
-        // 获取主播信息
-        const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+        // 定义直播间信息获取函数
+        const useMasterAndLiveRoomInfo = async () => {
+            // 定义flag
+            let flag = true
+            // 判断是否已存在值
+            if (liveRoomInfo && masterInfo && liveTime) {
+                // 所有值均已存在，不需要再获取信息
+                return flag
+            }
+            // 获取直播间信息
+            liveRoomInfo = await this.useLiveRoomInfo(roomId).catch(() => {
+                // 设置flag为false
+                flag = false
+                // 返回空
+                return null
+            })
+            // 判断是否成功获取信息
+            if (!flag || !liveRoomInfo || !liveRoomInfo.uid) {
+                // 上一步未成功
+                flag = false
+                // 返回flag
+                return flag
+            }
+            // 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
+            masterInfo = await this.useMasterInfo(liveRoomInfo.uid).catch(() => {
+                // 设置flag为false
+                flag = false
+                // 返回空
+                return null
+            })
+            // 返回信息
+            return flag
+        }
+        // 判断是否信息是否获取成功
+        if (!(await useMasterAndLiveRoomInfo())) {
+            // 未获取成功，直接返回
+            return this.sendPrivateMsg('获取直播间信息失败，启动直播间弹幕检测失败！')
+        }
         // 构建消息处理函数
         const handler: MsgHandler = {
             onOpen: () => {
@@ -1516,10 +1560,11 @@ class ComRegister {
             onLiveStart: async () => {
                 // 判断是否已经开播
                 if (liveStatus) return
-                // 获取直播间信息
-                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
-                // 获取主播信息
-                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+                // 判断是否信息是否获取成功
+                if (!(await useMasterAndLiveRoomInfo())) {
+                    // 未获取成功，直接返回
+                    return this.sendPrivateMsg('获取直播间信息失败，推送直播开播卡片失败！')
+                }
                 // 设置开播时间
                 liveTime = liveRoomInfo.live_time
                 // 定义开播通知语                            
@@ -1547,10 +1592,11 @@ class ComRegister {
                 liveStatus = true
             },
             onLiveEnd: async () => {
-                // 获取直播间消息
-                const liveRoomInfo = await this.useLiveRoomInfo(roomId)
-                // 获取主播信息
-                const masterInfo = await this.useMasterInfo(liveRoomInfo.uid)
+                // 判断是否信息是否获取成功
+                if (!(await useMasterAndLiveRoomInfo())) {
+                    // 未获取成功，直接返回
+                    return this.sendPrivateMsg('获取直播间信息失败，推送直播下播卡片失败！')
+                }
                 // 更改直播时长
                 liveRoomInfo.live_time = liveTime
                 // 定义下播播通知语                            
