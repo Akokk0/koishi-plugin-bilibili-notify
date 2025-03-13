@@ -1560,10 +1560,14 @@ class ComRegister {
             onLiveStart: async () => {
                 // 判断是否已经开播
                 if (liveStatus) return
+                // 设置开播状态为true
+                liveStatus = true
                 // 判断是否信息是否获取成功
                 if (!(await useMasterAndLiveRoomInfo())) {
+                    // 设置开播状态为false
+                    liveStatus = false
                     // 未获取成功，直接返回
-                    return this.sendPrivateMsg('获取直播间信息失败，推送直播开播卡片失败！')
+                    return await this.sendPrivateMsg('获取直播间信息失败，推送直播开播卡片失败！')
                 }
                 // 设置开播时间
                 liveTime = liveRoomInfo.live_time
@@ -1588,8 +1592,6 @@ class ComRegister {
                     // 开始直播，开启定时器
                     pushAtTimeTimer = this.ctx.setInterval(pushAtTimeFunc, this.config.pushTime * 1000 * 60 * 60)
                 }
-                // 设置开播状态为true
-                liveStatus = true
             },
             onLiveEnd: async () => {
                 // 判断是否信息是否获取成功
