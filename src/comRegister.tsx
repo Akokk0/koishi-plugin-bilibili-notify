@@ -10,7 +10,6 @@ import { LoginBili } from "./database";
 import { MsgHandler } from "blive-message-listener";
 // 弹幕词云
 import { Segment, useDefault } from 'segmentit';
-import { createCanvas } from 'canvas'
 import cloud from 'd3-cloud';
 
 enum LiveType {
@@ -1508,22 +1507,22 @@ class ComRegister {
             // 创建画布
             const width = 800;
             const height = 600;
-            const canvas = createCanvas(width, height);
-            const context = canvas.getContext('2d');
             // 定义绘制函数
-            const draw = (words) => {
-                context.clearRect(0, 0, width, height);
-                context.fillStyle = '#fff';
-                context.fillRect(0, 0, width, height);
-                words.forEach(function (d) {
-                    context.font = `${d.size}px Arial`;
-                    context.fillStyle = '#000';
-                    context.fillText(d.text, d.x, d.y);
-                });
-                // 保存画布为buffer
-                const buffer = canvas.toBuffer('image/png');
+            const generateSVG = async (words) => {
+                // 定义svg头部
+                const svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">`;
+                // 定义svg尾部
+                const svgFooter = '</svg>';
+                // 定义svg身体
+                const svgBody = words.map(d => {
+                    return `<text x="${d.x}" y="${d.y}" font-family="Arial" font-size="${d.size}" fill="black">${d.text}</text>`;
+                }).join('\n');
+                // 拼接svg
+                const svgContent = svgHeader + svgBody + svgFooter;
+                // 渲染svg
+                const pic = await this.ctx.gi.generateWordCloudImg(svgContent)
                 // 发送消息
-                this.sendMsg(target, h.image(buffer, 'image/png'))
+                this.sendMsg(target, pic)
             }
             // 配置词云
             const layout = cloud()
@@ -1532,7 +1531,7 @@ class ComRegister {
                 .padding(5)
                 .font('Arial')
                 .fontSize(d => d.size)
-                .on('end', draw);
+                .on('end', generateSVG);
             // 生成词云
             layout.start()
         }

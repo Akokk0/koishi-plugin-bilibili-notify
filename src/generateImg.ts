@@ -1420,6 +1420,13 @@ class GenerateImg extends Service {
         }
     }
 
+    async generateWordCloudImg(svgContent: string) {
+        // 渲染图片
+        const pic = await this.ctx.puppeteer.render(svgContent)
+        // 返回图片
+        return pic
+    }
+
     async getLiveStatus(time: string, liveStatus: number): Promise<[string, string, boolean]> {
         let titleStatus: string;
         let liveTime: string;
