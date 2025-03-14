@@ -8,6 +8,10 @@ import { } from '@koishijs/plugin-help'
 import QRCode from 'qrcode'
 import { LoginBili } from "./database";
 import { MsgHandler } from "blive-message-listener";
+// 弹幕词云
+import { Segment, useDefault } from 'segmentit';
+import { createCanvas } from 'canvas'
+import cloud from 'd3-cloud';
 
 enum LiveType {
     NotLiveBroadcast,
@@ -20,7 +24,7 @@ type ChannelIdArr = Array<{
     channelId: string,
     dynamic: boolean,
     live: boolean,
-    liveDanmaku: boolean,
+    liveGuardBuy: boolean,
     atAll: boolean
 }>
 
@@ -316,7 +320,7 @@ class ComRegister {
                             channelId: group,
                             dynamic: true,
                             live: true,
-                            liveDanmaku: false,
+                            liveGuardBuy: false,
                             atAll: options.atAll
                         })
                     })
@@ -375,7 +379,7 @@ class ComRegister {
                                     // 判断targetArr是否为空
                                     if (target.length === 0) {
                                         // 为空则默认为当前环境
-                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveGuardBuy: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                         // 没有满足条件的群组或频道
                                         await session.send('没有满足条件的群组或频道，默认订阅到当前聊天环境')
                                     }
@@ -385,14 +389,14 @@ class ComRegister {
                                 // 如果为all则全部推送，不需要进行处理
                             } else {
                                 // 未填写群号或频道号，默认为当前环境
-                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                                target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveGuardBuy: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                                 // 发送提示消息
                                 await session.send('没有填写群号或频道号，默认订阅到当前聊天环境')
                             }
                         }
                     } else {
                         // 用户直接订阅，将当前环境赋值给target
-                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveDanmaku: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
+                        target = [{ channelIdArr: [{ channelId: session.event.channel.id, dynamic: true, live: true, liveGuardBuy: false, atAll: options.atAll ? options.atAll : false }], platform: session.event.platform }]
                     }
                 }
                 // 定义外围变量                
@@ -633,7 +637,7 @@ class ComRegister {
             const channelIdArr = idStr.split(',').map(id => {
                 const atAll = /@$/.test(id); // 使用正则表达式检查 id 是否以 @ 结尾
                 const channelId = atAll ? id.slice(0, -1) : id; // 去除末尾的 @
-                return { channelId, dynamic: true, live: true, liveDanmaku: false, atAll }
+                return { channelId, dynamic: true, live: true, liveGuardBuy: false, atAll }
             })
             return { channelIdArr, platform }
         })
@@ -718,7 +722,7 @@ class ComRegister {
                         channelId: guild.id,
                         dynamic: target.channelIdArr[0].dynamic,
                         live: target.channelIdArr[0].live,
-                        liveDanmaku: target.channelIdArr[0].liveDanmaku,
+                        liveGuardBuy: target.channelIdArr[0].liveGuardBuy,
                         atAll: target.channelIdArr[0].atAll
                     })
                 }
@@ -1430,7 +1434,6 @@ class ComRegister {
         let pushAtTimeTimer: Function
         // 定义弹幕存放数组
         const currentLiveDanmakuArr: Array<string> = []
-        const temporaryLiveDanmakuArr: Array<string> = []
         // 定义开播状态
         let liveStatus = false
         // 处理target
@@ -1444,14 +1447,14 @@ class ComRegister {
             roomId: number;
         }
         // 找到频道/群组对应的
-        const danmakuPushTargetArr: Target = target.map(channel => {
+        const liveGuardBuyPushTargetArr: Target = target.map(channel => {
             // 获取符合条件的target
-            const liveDanmakuArr = channel.channelIdArr.filter(channelId => channelId.liveDanmaku)
+            const liveGuardBuyArr = channel.channelIdArr.filter(channelId => channelId.liveGuardBuy)
             // 将当前liveDanmakuArr的长度+到channelIdArrLen中
-            channelIdArrLen += liveDanmakuArr.length
+            channelIdArrLen += liveGuardBuyArr.length
             // 返回符合的target
             return {
-                channelIdArr: liveDanmakuArr,
+                channelIdArr: liveGuardBuyArr,
                 platform: channel.platform
             }
         })
@@ -1481,25 +1484,62 @@ class ComRegister {
                 liveMsg
             )
         }
-        // 定义弹幕推送函数
-        const danmakuPushFunc = () => {
-            // 判断数组是否有内容
-            if (channelIdArrLen > 0 && temporaryLiveDanmakuArr.length > 0) {
-                // 发送消息
-                this.sendMsg(danmakuPushTargetArr, temporaryLiveDanmakuArr.join('\n'))
-                // 将临时消息数组清空
-                temporaryLiveDanmakuArr.length = 0
+        // 定义获取弹幕权重Record函数
+        const getDanmakuWeightRecord = (): Record<string, number> => {
+            // 创建segmentit
+            const segmentit = useDefault(new Segment());
+            // 创建Record
+            const danmakuWeightRecord: Record<string, number> = {}
+            // 循环遍历currentLiveDanmakuArr
+            for (const danmaku of currentLiveDanmakuArr) {
+                // 遍历结果
+                segmentit.doSegment(danmaku).map((word: { w: string, p: number }) => {
+                    // 定义权重
+                    danmakuWeightRecord[word.w] = (danmakuWeightRecord[word.w] || 0) + 1
+                })
             }
+            // 返回Record
+            return danmakuWeightRecord
+        }
+        // 定义获取弹幕词云函数
+        const sendDanmakuWordCloud = (danmakuWeightRecord: Record<string, number>) => {
+            // 准备词云数据
+            const wordList = Object.keys(danmakuWeightRecord).map(word => ({ text: word, value: danmakuWeightRecord[word] }));
+            // 创建画布
+            const width = 800;
+            const height = 600;
+            const canvas = createCanvas(width, height);
+            const context = canvas.getContext('2d');
+            // 定义绘制函数
+            const draw = (words) => {
+                context.clearRect(0, 0, width, height);
+                context.fillStyle = '#fff';
+                context.fillRect(0, 0, width, height);
+                words.forEach(function (d) {
+                    context.font = `${d.size}px Arial`;
+                    context.fillStyle = '#000';
+                    context.fillText(d.text, d.x, d.y);
+                });
+                // 保存画布为buffer
+                const buffer = canvas.toBuffer('image/png');
+                // 发送消息
+                this.sendMsg(target, h.image(buffer, 'image/png'))
+            }
+            // 配置词云
+            const layout = cloud()
+                .size([width, height])
+                .words(wordList.map(d => ({ text: d.text, size: d.value })))
+                .padding(5)
+                .font('Arial')
+                .fontSize(d => d.size)
+                .on('end', draw);
+            // 生成词云
+            layout.start()
         }
         // 定义直播间信息获取函数
         const useMasterAndLiveRoomInfo = async () => {
-            // 定义flag
+            // 定义函数是否执行成功flag
             let flag = true
-            // 判断是否已存在值
-            if (liveRoomInfo && masterInfo && liveTime) {
-                // 所有值均已存在，不需要再获取信息
-                return flag
-            }
             // 获取直播间信息
             liveRoomInfo = await this.useLiveRoomInfo(roomId).catch(() => {
                 // 设置flag为false
@@ -1538,24 +1578,18 @@ class ComRegister {
                 this.logger.info('直播间连接已断开')
             },
             onIncomeDanmu: ({ body }) => {
-                // 处理消息，只需要UP主名字和消息内容
-                const content = `【${masterInfo.username}的直播间】${body.user.uname}：${body.content}`
                 // 保存消息到数组
                 currentLiveDanmakuArr.push(body.content)
-                temporaryLiveDanmakuArr.push(content)
             },
             onIncomeSuperChat: ({ body }) => {
-                // 处理SC消息
-                const content = `【${masterInfo.username}的直播间】${body.user.uname}发送了一条SC：${body.content}`
                 // 保存消息到数组
                 currentLiveDanmakuArr.push(body.content)
-                temporaryLiveDanmakuArr.push(content)
             },
             onGuardBuy: ({ body }) => {
-                const content = `【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`
-                // 保存消息到数组
-                currentLiveDanmakuArr.push(content)
-                temporaryLiveDanmakuArr.push(content)
+                // 定义消息
+                const content = `${body.user.uname}加入了大航海（${body.gift_name}）`
+                // 直接发送消息
+                channelIdArrLen > 0 && this.sendMsg(liveGuardBuyPushTargetArr, content)
             },
             onLiveStart: async () => {
                 // 判断是否已经开播
@@ -1620,12 +1654,14 @@ class ComRegister {
                 pushAtTimeTimer()
                 // 将推送定时器变量置空
                 pushAtTimeTimer = null
+                // 发送弹幕词云
+                sendDanmakuWordCloud(getDanmakuWeightRecord())
                 // 将直播状态设置为false
                 liveStatus = false
             }
         }
         // 启动直播间弹幕监测
-        await this.ctx.bl.startLiveRoomListener(roomId, handler, danmakuPushFunc)
+        await this.ctx.bl.startLiveRoomListener(roomId, handler)
         // 判断直播状态
         if (liveRoomInfo.live_status === 1) {
             // 设置开播时间
@@ -2195,7 +2231,7 @@ namespace ComRegister {
                     channelId: string,
                     dynamic: boolean,
                     live: boolean,
-                    liveDanmaku: boolean,
+                    liveGuardBuy: boolean,
                     atAll: boolean
                 }>,
                 platform: string
@@ -2218,7 +2254,6 @@ namespace ComRegister {
         customLiveEnd: string,
         dynamicUrl: boolean,
         dynamicLoopTime: number,
-        dynamicCheckNumber: number,
         filter: {
             enable: boolean,
             notify: boolean
@@ -2238,7 +2273,7 @@ namespace ComRegister {
                     channelId: Schema.string().description('频道/群组号'),
                     dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
                     live: Schema.boolean().description('该频道/群组是否推送直播通知'),
-                    liveDanmaku: Schema.boolean().description('该频道/群组是否推送弹幕消息'),
+                    liveGuardBuy: Schema.boolean().description('该频道/群组是否推送弹幕消息'),
                     atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
                 })).description('频道/群组信息'),
                 platform: Schema.string().description('推送平台')
@@ -2264,7 +2299,6 @@ namespace ComRegister {
         customLiveEnd: Schema.string().required(),
         dynamicUrl: Schema.boolean().required(),
         dynamicLoopTime: Schema.number().default(60),
-        dynamicCheckNumber: Schema.number().required(),
         filter: Schema.object({
             enable: Schema.boolean(),
             notify: Schema.boolean(),

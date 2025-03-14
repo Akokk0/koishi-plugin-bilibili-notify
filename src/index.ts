@@ -132,7 +132,6 @@ class ServerManager extends Service {
                 customLiveStart: globalConfig.customLiveStart,
                 customLive: globalConfig.customLive,
                 customLiveEnd: globalConfig.customLiveEnd,
-                dynamicCheckNumber: globalConfig.dynamicCheckNumber,
                 dynamicLoopTime: this.dynamicLoopTime,
                 dynamicUrl: globalConfig.dynamicUrl,
                 filter: globalConfig.filter,
@@ -140,9 +139,7 @@ class ServerManager extends Service {
             })
 
             // BL = BLive
-            const bl = this.ctx.plugin(BLive, {
-                danmakuPushTime: globalConfig.danmakuPushTime
-            })
+            const bl = this.ctx.plugin(BLive)
 
             // 添加服务
             this.servers.push(ba)
@@ -198,7 +195,7 @@ export function apply(ctx: Context, config: Config) {
     globalConfig = config
     // 设置提示
     ctx.notifier.create({
-        content: '从2.0.0-alpha.9以前版本更新需重新订阅'
+        content: '从3.0.0-alpha.10以前版本更新需重新订阅'
     })
     ctx.notifier.create({
         content: '请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。'
@@ -243,7 +240,7 @@ export interface Config {
                 channelId: string,
                 dynamic: boolean,
                 live: boolean,
-                liveDanmaku: boolean,
+                liveGuardBuy: boolean,
                 atAll: boolean
             }>,
             platform: string
@@ -251,13 +248,11 @@ export interface Config {
     }>,
     dynamic: {},
     dynamicUrl: boolean,
-    dynamicCheckNumber: number,
     dynamicLoopTime: '1分钟' | '2分钟' | '3分钟' | '5分钟' | '10分钟' | '20分钟'
     live: {},
     liveDetectMode: 'API' | 'WS',
     restartPush: boolean,
     pushTime: number,
-    danmakuPushTime: number,
     customLiveStart: string,
     customLive: string,
     customLiveEnd: string,
@@ -335,7 +330,7 @@ export const Config: Schema<Config> = Schema.object({
                 channelId: Schema.string().description('频道/群组号'),
                 dynamic: Schema.boolean().description('该频道/群组是否推送动态信息'),
                 live: Schema.boolean().description('该频道/群组是否推送直播通知'),
-                liveDanmaku: Schema.boolean().description('该频道/群组是否推送弹幕消息'),
+                liveGuardBuy: Schema.boolean().description('该频道/群组是否推送上舰消息'),
                 atAll: Schema.boolean().description('推送开播通知时是否艾特全体成员')
             })).description('频道/群组信息'),
             platform: Schema.string().description('推送平台')
@@ -347,14 +342,6 @@ export const Config: Schema<Config> = Schema.object({
     dynamicUrl: Schema.boolean()
         .default(false)
         .description('发送动态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！'),
-
-    dynamicCheckNumber: Schema.number()
-        .min(2)
-        .max(10)
-        .role('slider')
-        .step(1)
-        .default(5)
-        .description('设定每次检查动态的数量。若订阅的UP主经常在短时间内连着发多条动态可以将该值提高，若订阅的UP主有置顶动态，在计算该值时应+1。默认值为5条'),
 
     dynamicLoopTime: Schema.union(['1分钟', '2分钟', '3分钟', '5分钟', '10分钟', '20分钟'])
         .role('')
@@ -381,13 +368,6 @@ export const Config: Schema<Config> = Schema.object({
         .step(0.5)
         .default(1)
         .description('设定间隔多长时间推送一次直播状态，单位为小时，默认为一小时'),
-
-    danmakuPushTime: Schema.number()
-        .min(0)
-        .max(10)
-        .step(0.5)
-        .default(0.5)
-        .description('设定间隔多长时间推送一次弹幕消息，单位为分钟，默认为半分钟'),
 
     customLiveStart: Schema.string()
         .default('-name开播啦 -link')

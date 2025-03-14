@@ -1,4 +1,4 @@
-import { Awaitable, Context, Schema, Service } from "koishi";
+import { Awaitable, Context, Service } from "koishi";
 import { MessageListener, startListen, type MsgHandler } from 'blive-message-listener'
 
 declare module 'koishi' {
@@ -10,17 +10,12 @@ declare module 'koishi' {
 class BLive extends Service {
     // 必要服务
     static inject = ['ba']
-    // 配置
-    private blConfig: BLive.Config
     // 定义类属性
     private listenerRecord: Record<string, MessageListener> = {}
-    private timerRecord: Record<string, () => void> = {}
 
-    constructor(ctx: Context, config: BLive.Config) {
+    constructor(ctx: Context) {
         // Extends super
         super(ctx, 'bl')
-        // 将config赋值给类属性
-        this.blConfig = config
     }
 
     // 注册插件dispose逻辑
@@ -33,8 +28,7 @@ class BLive extends Service {
 
     async startLiveRoomListener(
         roomId: string,
-        handler: MsgHandler,
-        danmakuPushTime: () => void
+        handler: MsgHandler
     ) {
         // 获取cookieStr
         const cookiesStr = await this.ctx.ba.getCookiesForHeader()
@@ -49,8 +43,6 @@ class BLive extends Service {
                 uid: mySelfInfo.data.mid
             }
         })
-        // 默认30s推送一次弹幕消息到群组并将dispose函数保存到Record中
-        this.timerRecord[roomId] = this.ctx.setInterval(danmakuPushTime, this.blConfig.danmakuPushTime * 1000 * 60)
         // logger
         this.logger.info(`${roomId}直播间弹幕监听已开启`)
     }
@@ -61,21 +53,12 @@ class BLive extends Service {
             // 输出logger
             this.logger.info(`${roomId}直播间弹幕监听器无需关闭`)
         }
-        // 判断消息发送定时器是否关闭
-        if (!this.timerRecord || !this.timerRecord[roomId]) {
-            // 输出logger
-            this.logger.info(`${roomId}直播间消息发送定时器无需关闭`)
-        }
         // 关闭直播间监听器
         this.listenerRecord[roomId].close()
-        // 关闭消息发送定时器
-        this.timerRecord[roomId]()
         // 判断是否关闭成功
         if (this.listenerRecord[roomId].closed) {
             // 删除直播间监听器
             delete this.listenerRecord[roomId]
-            // 删除消息发送定时器
-            delete this.timerRecord[roomId]
             // 输出logger
             this.logger.info(`${roomId}直播间弹幕监听已关闭`)
             // 直接返回 
@@ -84,17 +67,6 @@ class BLive extends Service {
         // 未关闭成功
         this.logger.warn(`${roomId}直播间弹幕监听未成功关闭`)
     }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-namespace BLive {
-    export interface Config {
-        danmakuPushTime: number
-    }
-
-    export const Config: Schema<Config> = Schema.object({
-        danmakuPushTime: Schema.number().required()
-    })
 }
 
 export default BLive
