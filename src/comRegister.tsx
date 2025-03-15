@@ -14,7 +14,8 @@ import QRCode from "qrcode";
 import type { LoginBili } from "./database";
 import type { MsgHandler } from "blive-message-listener";
 // 弹幕词云
-import { Segment, useDefault } from "segmentit";
+// TODO:WorlCloud
+// import { Segment } from "segmentit";
 
 enum LiveType {
 	NotLiveBroadcast = 0,
@@ -52,7 +53,7 @@ type SubManager = Array<SubItem>;
 
 class ComRegister {
 	// 必须服务
-	static inject = ["ba", "gi", "database", "canvas", "bl", "sm"];
+	static inject = ["ba", "gi", "database", "bl", "sm"];
 	// 定义数组：QQ相关bot
 	qqRelatedBotList: Array<string> = [
 		"qq",
@@ -1918,8 +1919,7 @@ class ComRegister {
 			);
 		};
 
-
-        // TODO:WordCloud
+		// TODO:WordCloud
 		/* // 定义获取弹幕权重Record函数
 		const getDanmakuWeightRecord = (): Record<string, number> => {
 			// 创建segmentit
@@ -1937,7 +1937,6 @@ class ComRegister {
 			// 返回Record
 			return danmakuWeightRecord;
 		}; */
-
 
 		// 定义直播间信息获取函数
 		const useMasterAndLiveRoomInfo = async () => {
@@ -2043,7 +2042,7 @@ class ComRegister {
 				}
 			},
 			onLiveEnd: async () => {
-                // 将直播状态设置为false
+				// 将直播状态设置为false
 				liveStatus = false;
 				// 判断是否信息是否获取成功
 				if (!(await useMasterAndLiveRoomInfo())) {
