@@ -4,7 +4,6 @@ import {
 	type FlatPick,
 	type Logger,
 	Schema,
-	type Session,
 	h,
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
@@ -232,8 +231,6 @@ class ComRegister {
 							this.loginTimer();
 							// 订阅手动订阅中的订阅
 							await this.loadSubFromConfig(config.sub);
-							// 订阅之前的订阅
-							await this.loadSubFromDatabase();
 							// 清除控制台通知
 							ctx.ba.disposeNotifier();
 							// 发送成功登录推送
@@ -250,400 +247,12 @@ class ComRegister {
 			});
 
 		biliCom
-			.subcommand(".unsub <uid:string>", "取消订阅UP主动态、直播或全部")
-			.usage(
-				"取消订阅，加-l为取消直播订阅，加-d为取消动态订阅，什么都不加则为全部取消",
-			)
-			.option("live", "-l")
-			.option("dynamic", "-d")
-			.example("bili unsub 用户UID -ld")
-			.action(async ({ session, options }, uid) => {
-				this.logger.info("调用bili.unsub指令");
-				// 若用户UID为空则直接返回
-				if (!uid) return "用户UID不能为空";
-				// -d -l两个选项不能同时存在
-				if (options.dynamic && options.live)
-					return "需要取消订阅该UP主请直接使用指令bili unsub 用户UID";
-				// 定义是否存在
-				let exist: boolean;
-				await Promise.all(
-					this.subManager.map(async (sub, i) => {
-						if (sub.uid === uid) {
-							// 取消单个订阅
-							if (options.live || options.dynamic) {
-								if (options.live)
-									await session.send(
-										this.unsubSingle(sub.roomId, 0),
-									); /* 0为取消订阅Live */
-								if (options.dynamic)
-									await session.send(
-										this.unsubSingle(sub.uid, 1),
-									); /* 1为取消订阅Dynamic */
-								// 将存在flag设置为true
-								exist = true;
-								// 结束循环
-								return;
-							}
-							// 从数据库中删除订阅
-							await ctx.database.remove("bilibili", {
-								uid: this.subManager[i].uid,
-							});
-							// 将该订阅对象从订阅管理对象中移除
-							this.subManager.splice(i, 1);
-							// 将订阅对象移出订阅关注组
-							const removeUserFromGroupData = await ctx.ba.removeUserFromGroup(
-								sub.uid,
-							);
-							// 判断是否移出成功 22105关注对象为自己
-							if (
-								removeUserFromGroupData.code !== 0 &&
-								removeUserFromGroupData.code !== 22105
-							) {
-								// 移出失败
-								await session.send("取消订阅对象失败，请稍后重试");
-								// 将存在flag设置为true
-								exist = true;
-								// 结束循环
-								return;
-							}
-							// id--
-							this.num--;
-							// 判断是否还有动态订阅
-							this.checkIfUserIsTheLastOneWhoSubDyn();
-							// 发送成功通知
-							await session.send("已取消订阅该用户");
-							// 更新控制台提示
-							this.updateSubNotifier();
-							// 将存在flag设置为true
-							exist = true;
-						}
-					}),
-				);
-				// 未订阅该用户，无需取消订阅
-				if (!exist) await session.send("未订阅该用户，无需取消订阅");
-			});
-
-		biliCom
-			.subcommand(".show", "展示订阅对象")
+			.subcommand(".list", "展示订阅对象")
 			.usage("展示订阅对象")
-			.example("bili show")
+			.example("bili list")
 			.action(() => {
 				const subTable = this.subShow();
 				return subTable;
-			});
-
-		biliCom
-			.subcommand(
-				".sub <mid:string> [...groupId:string]",
-				"订阅用户动态和直播通知",
-			)
-			.option("multiplatform", "-m <value:string>", {
-				type: /^(?:-?[A-Za-z0-9]+@?(?:,-?[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+)(?:;(?:-?[A-Za-z0-9]+@?(?:,-?[A-Za-z0-9]+@?)*\.[A-Za-z0-9]+))*$/,
-			})
-			.option("live", "-l")
-			.option("dynamic", "-d")
-			.option("atAll", "-a")
-			.usage(
-				"订阅用户动态和直播通知，若需要订阅直播请加上-l，需要订阅动态则加上-d",
-			)
-			.example(
-				"bili sub 1194210119 目标群号或频道号 -l -d 订阅UID为1194210119的UP主的动态和直播",
-			)
-			.action(async ({ session, options }, mid, ...groupId) => {
-				this.logger.info("调用bili.sub指令");
-				// 先判断是否订阅直播，再判断是否解锁订阅限制，最后判断直播订阅是否已超三个
-				if (
-					options.live &&
-					!this.config.unlockSubLimits &&
-					this.subManager.reduce((acc, cur) => acc + (cur.live ? 1 : 0), 0) >= 3
-				) {
-					return "直播订阅已达上限，请取消部分直播订阅后再进行订阅";
-				}
-				// 检查是否登录
-				if (!(await this.checkIfIsLogin())) {
-					// 未登录直接返回
-					return "请使用指令bili login登录后再进行订阅操作";
-				}
-				// 检查必选参数是否已填
-				if (!mid) return "请输入用户uid";
-				// 订阅对象
-				const subUserData = await this.subUserInBili(mid);
-				// 判断是否订阅对象存在
-				if (!subUserData.flag) return "订阅对象失败，请稍后重试！";
-				// 定义目标变量
-				let target: Target = [];
-				// 判断是否使用了多群组推送
-				if (groupId.length > 0) {
-					// 定义channelIdArr
-					const channelIdArr: ChannelIdArr = [];
-					// 遍历输入的群组
-					for (const group of groupId) {
-						channelIdArr.push({
-							channelId: group,
-							dynamic: true,
-							live: true,
-							liveGuardBuy: false,
-							atAll: options.atAll,
-						});
-					}
-					target.push({
-						channelIdArr,
-						platform: session.event.platform,
-					});
-				} else {
-					// 判断是否使用多平台功能
-					if (options.multiplatform) {
-						// 分割字符串，赋值给target
-						target = this.splitMultiPlatformStr(options.multiplatform);
-					}
-					// 判断是否使用了多平台
-					if (target.length > 0) {
-						for (const [
-							index,
-							{ channelIdArr, platform },
-						] of target.entries()) {
-							if (channelIdArr.length > 0) {
-								// 输入了推送群号或频道号
-								// 拿到对应的bot
-								const bot = this.getBot(platform);
-								// 判断是否配置了对应平台的机器人
-								if (!ctx.bots.some((bot) => bot.platform === platform)) {
-									// 发送提示消息
-									await session.send(
-										"您未配置对应平台的机器人，不能在该平台进行订阅操作",
-									);
-									// 直接返回
-									return;
-								}
-								// 判断是否需要加入的群全部推送
-								if (channelIdArr[0].channelId !== "all") {
-									// 定义满足条件的群组数组
-									const targetArr: ChannelIdArr = [];
-									// 获取机器人加入的群组
-									const guildList = await bot.getGuildList();
-									// 遍历target数组
-									for (const channelId of channelIdArr) {
-										// 定义是否加入群组标志
-										let flag = false;
-										// 遍历群组
-										for (const guild of guildList.data) {
-											// 获取频道列表
-											const channelList = await bot.getChannelList(guild.id);
-											// 判断机器人是否加入群聊或频道
-											if (
-												channelList.data.some(
-													(channel) => channel.id === channelId.channelId,
-												)
-											) {
-												// 加入群聊或频道
-												targetArr.push(channelId);
-												// 设置标志位为true
-												flag = true;
-												// 结束循环
-												break;
-											}
-										}
-										if (!flag) {
-											// 不满足条件发送错误提示
-											await session.send(
-												`您的机器未加入${channelId.channelId}，无法对该群或频道进行推送`,
-											);
-										}
-									}
-									// 判断targetArr是否为空
-									if (target.length === 0) {
-										// 为空则默认为当前环境
-										target = [
-											{
-												channelIdArr: [
-													{
-														channelId: session.event.channel.id,
-														dynamic: true,
-														live: true,
-														liveGuardBuy: false,
-														atAll: options.atAll ? options.atAll : false,
-													},
-												],
-												platform: session.event.platform,
-											},
-										];
-										// 没有满足条件的群组或频道
-										await session.send(
-											"没有满足条件的群组或频道，默认订阅到当前聊天环境",
-										);
-									}
-									// 将符合条件的群组添加到target中
-									target[index].channelIdArr = targetArr;
-								}
-								// 如果为all则全部推送，不需要进行处理
-							} else {
-								// 未填写群号或频道号，默认为当前环境
-								target = [
-									{
-										channelIdArr: [
-											{
-												channelId: session.event.channel.id,
-												dynamic: true,
-												live: true,
-												liveGuardBuy: false,
-												atAll: options.atAll ? options.atAll : false,
-											},
-										],
-										platform: session.event.platform,
-									},
-								];
-								// 发送提示消息
-								await session.send(
-									"没有填写群号或频道号，默认订阅到当前聊天环境",
-								);
-							}
-						}
-					} else {
-						// 用户直接订阅，将当前环境赋值给target
-						target = [
-							{
-								channelIdArr: [
-									{
-										channelId: session.event.channel.id,
-										dynamic: true,
-										live: true,
-										liveGuardBuy: false,
-										atAll: options.atAll ? options.atAll : false,
-									},
-								],
-								platform: session.event.platform,
-							},
-						];
-					}
-				}
-				// 定义外围变量
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let content: any;
-				try {
-					// 获取用户信息
-					content = await ctx.ba.getUserInfo(mid);
-				} catch (e) {
-					// 返回错误信息
-					return `bili sub getUserInfo() 发生了错误，错误为：${e.message}`;
-				}
-				// 判断是否成功获取用户信息
-				if (content.code !== 0) {
-					// 定义错误消息
-					let msg: string;
-					// 判断错误代码
-					switch (content.code) {
-						case -400:
-							msg = "请求错误";
-							break;
-						case -403:
-							msg = "访问权限不足，请尝试重新登录";
-							break;
-						case -404:
-							msg = "用户不存在";
-							break;
-						case -352:
-							msg = "风控校验失败，请尝试更换UA";
-							break;
-						default:
-							msg = `未知错误，错误信息：${content.message}`;
-							break;
-					}
-					// 返回错误信息
-					return msg;
-				}
-				// 获取data
-				const { data } = content;
-				// 判断是否需要订阅直播和动态
-				const [liveMsg, dynamicMsg] = await this.checkIfNeedSub(
-					options.live,
-					options.dynamic,
-					session,
-					data.live_room,
-				);
-				// 判断是否未订阅任何消息
-				if (!liveMsg && !dynamicMsg) return "您未订阅该UP的任何消息";
-				// 获取到对应的订阅对象
-				const subUser = this.subManager.find((sub) => sub.uid === mid);
-				// 判断要订阅的用户是否已经存在于订阅管理对象中
-				if (subUser) {
-					// 已存在，判断是否重复订阅直播通知
-					if (liveMsg && subUser.live) {
-						return "已订阅该用户直播通知，请勿重复订阅";
-					}
-					// 已存在，判断是否重复订阅动态通知
-					if (dynamicMsg && subUser.dynamic) {
-						return "已订阅该用户动态通知，请勿重复订阅";
-					}
-				}
-				// 获取直播房间号
-				const roomId = data.live_room?.roomid.toString();
-				// 获取用户信息
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let userData: any;
-				try {
-					const { data } = await ctx.ba.getMasterInfo(mid);
-					userData = data;
-				} catch (e) {
-					this.logger.error(
-						`bili sub指令 getMasterInfo() 发生了错误，错误为：${e.message}`,
-					);
-					return "订阅出错啦，请重试";
-				}
-				const liveDetectModeSelector = {
-					API: async () => {
-						// 判断是否已开启直播检测
-						if (!this.liveDispose) {
-							// 未开启直播检测
-							// 开启直播检测并保存销毁函数
-							this.liveDispose = await this.liveDetectWithAPI();
-						}
-					},
-					WS: async () => {
-						// 连接到服务器
-						await this.liveDetectWithListener(roomId, target);
-					},
-				};
-				// 订阅直播
-				if (liveMsg) {
-					// 判断直播订阅方式
-					await liveDetectModeSelector[this.config.liveDetectMode]();
-					// 发送订阅消息通知
-					await session.send(`订阅${userData.info.uname}直播通知`);
-				}
-				// 订阅动态
-				if (dynamicMsg) {
-					// 判断是否开启动态监测
-					if (!this.dynamicDispose) {
-						// 开启动态监测
-						this.enableDynamicDetect();
-					}
-					// 发送订阅消息通知
-					await session.send(`订阅${userData.info.uname}动态通知`);
-				}
-				// 保存到数据库中
-				const sub = await ctx.database.create("bilibili", {
-					uid: mid,
-					room_id: roomId,
-					dynamic: dynamicMsg ? 1 : 0,
-					live: liveMsg ? 1 : 0,
-					target: JSON.stringify(target),
-					platform: session.event.platform,
-					time: new Date(),
-				});
-				// 订阅数+1
-				this.num++;
-				// 保存新订阅对象
-				this.subManager.push({
-					id: sub.id,
-					uid: mid,
-					roomId,
-					target,
-					platform: session.event.platform,
-					live: liveMsg,
-					dynamic: dynamicMsg,
-				});
-				// 新增订阅展示到控制台
-				this.updateSubNotifier();
 			});
 
 		biliCom
@@ -722,7 +331,6 @@ class ComRegister {
 			this.ctx.notifier.create({
 				content: "您未配置私人机器人，将无法向您推送机器人状态！",
 			});
-			this.logger.error("您未配置私人机器人，将无法向您推送机器人状态！");
 		}
 		// 判断消息发送方式
 		if (config.automaticResend) {
@@ -788,8 +396,6 @@ class ComRegister {
 		}
 		// 从配置获取订阅
 		config.sub && (await this.loadSubFromConfig(config.sub));
-		// 从数据库获取订阅
-		await this.loadSubFromDatabase();
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
@@ -813,26 +419,6 @@ class ComRegister {
 
 		const buffer = await this.ctx.gi.generateWordCloudImg();
 		this.sendMsg(testTarget, h.image(buffer, "image/png")); */
-	}
-
-	splitMultiPlatformStr(str: string): Target {
-		return str
-			.split(";")
-			.map((cv) => cv.split("."))
-			.map(([idStr, platform]) => {
-				const channelIdArr = idStr.split(",").map((id) => {
-					const atAll = /@$/.test(id); // 使用正则表达式检查 id 是否以 @ 结尾
-					const channelId = atAll ? id.slice(0, -1) : id; // 去除末尾的 @
-					return {
-						channelId,
-						dynamic: true,
-						live: true,
-						liveGuardBuy: false,
-						atAll,
-					};
-				});
-				return { channelIdArr, platform };
-			});
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -1975,12 +1561,6 @@ class ComRegister {
 		}
 		// 构建消息处理函数
 		const handler: MsgHandler = {
-			onOpen: () => {
-				this.logger.info("直播间连接成功");
-			},
-			onClose: () => {
-				this.logger.info("直播间连接已断开");
-			},
 			onIncomeDanmu: ({ body }) => {
 				// 保存消息到数组
 				currentLiveDanmakuArr.push(body.content);
@@ -2126,41 +1706,6 @@ class ComRegister {
 			table += `UID:${sub.uid}  ${sub.dynamic ? "已订阅动态" : ""}  ${sub.live ? "已订阅直播" : ""}\n`;
 		}
 		return table ? table : "没有订阅任何UP";
-	}
-
-	async checkIfNeedSub(
-		liveSub: boolean,
-		dynamicSub: boolean,
-		session: Session,
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		liveRoomData: any,
-	): Promise<Array<boolean>> {
-		// 定义方法：用户直播间是否存在
-		const liveRoom = async () => {
-			if (!liveRoomData) {
-				// 未开通直播间
-				await session.send("该用户未开通直播间，无法订阅直播");
-				// 返回false
-				return true;
-			}
-			return false;
-		};
-		// 如果两者都为true或者都为false则直接返回
-		if ((liveSub && dynamicSub) || (!liveSub && !dynamicSub)) {
-			// 判断是否存在直播间
-			if (await liveRoom()) return [false, true];
-			// 返回
-			return [true, true];
-		}
-		// 如果只订阅直播
-		if (liveSub) {
-			// 判断是否存在直播间
-			if (await liveRoom()) return [false, false];
-			// 返回
-			return [true, false];
-		}
-		// 只订阅动态
-		return [false, true];
 	}
 
 	updateSubNotifier() {
@@ -2400,160 +1945,6 @@ class ComRegister {
 		}
 	}
 
-	async loadSubFromDatabase() {
-		// 从数据库中获取数据
-		const subData = await this.ctx.database.get("bilibili", { id: { $gt: 0 } });
-		// 定义变量：订阅直播数
-		let liveSubNum = 0;
-		// 循环遍历
-		for (const sub of subData) {
-			// 判断是否存在没有任何订阅的数据
-			if (!sub.dynamic && !sub.live) {
-				// 存在未订阅任何项目的数据
-				// 删除该条数据
-				this.ctx.database.remove("bilibili", { id: sub.id });
-				// log
-				this.logger.warn(
-					`UID:${sub.uid} 该条数据没有任何订阅数据，自动取消订阅`,
-				);
-				// 跳过下面的步骤
-				continue;
-			}
-			// 判断用户是否在B站中订阅了
-			const subUserData = await this.subUserInBili(sub.uid);
-			// 判断是否订阅
-			if (!subUserData.flag) {
-				// log
-				this.logger.warn(`UID:${sub.uid} ${subUserData.msg}，自动取消订阅`);
-				// 发送私聊消息
-				await this.sendPrivateMsg(
-					`UID:${sub.uid} ${subUserData.msg}，自动取消订阅`,
-				);
-				// 删除该条数据
-				await this.ctx.database.remove("bilibili", { id: sub.id });
-				// 跳过下面的步骤
-				continue;
-			}
-			// 获取推送目标数组
-			const target = JSON.parse(sub.target);
-			/* 判断数据库是否被篡改 */
-			// 获取用户信息
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			let content: any;
-			const attempts = 3;
-			for (let i = 0; i < attempts; i++) {
-				try {
-					// 获取用户信息
-					content = await this.ctx.ba.getUserInfo(sub.uid);
-					// 成功则跳出循环
-					break;
-				} catch (e) {
-					this.logger.error(
-						`getSubFromDatabase() getUserInfo() 发生了错误，错误为：${e.message}`,
-					);
-					if (i === attempts - 1) {
-						// 已尝试三次
-						// 发送私聊消息并重启服务
-						return await this.sendPrivateMsgAndStopService();
-					}
-				}
-			}
-			// 获取data
-			const { data } = content;
-			// 定义函数删除数据和发送提示
-			const deleteSub = async () => {
-				// 从数据库删除该条数据
-				await this.ctx.database.remove("bilibili", { id: sub.id });
-				// 给用户发送提示
-				await this.sendPrivateMsg(
-					`UID:${sub.uid} 数据库内容被篡改，已取消对该UP主的订阅`,
-				);
-			};
-			// 判断是否有其他问题
-			if (content.code !== 0) {
-				switch (content.code) {
-					case -352:
-					case -403: {
-						await this.sendPrivateMsg("你的登录信息已过期，请重新登录Bilibili");
-						return;
-					}
-					default: {
-						await deleteSub();
-						// PrivateMsg
-						await this.sendPrivateMsg(
-							`UID:${sub.uid} 数据出现问题，自动取消订阅`,
-						);
-						// log
-						this.logger.info(`UID:${sub.uid} 数据出现问题，自动取消订阅`);
-						return;
-					}
-				}
-			}
-			// 检测房间号是否被篡改
-			if (
-				sub.live &&
-				// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-				(!data.live_room || data.live_room.roomid != sub.room_id)
-			) {
-				// 房间号被篡改，删除该订阅
-				await deleteSub();
-				// log
-				this.logger.info(`UID:${sub.uid} 房间号被篡改，自动取消订阅`);
-				// Send msg
-				await this.sendPrivateMsg(`UID:${sub.uid} 房间号被篡改，自动取消订阅`);
-				// 直接返回
-				return;
-			}
-			// 构建订阅对象
-			const subManagerItem = {
-				id: sub.id,
-				uid: sub.uid,
-				roomId: sub.room_id,
-				target,
-				platform: sub.platform,
-				live: sub.live === 1,
-				dynamic: sub.dynamic === 1,
-				liveDispose: null,
-			};
-			// 定义直播模式监测器
-			const liveDetectModeSelector = {
-				API: async () => {
-					// 判断是否已开启直播检测
-					if (!this.liveDispose) {
-						// 未开启直播检测
-						// 开启直播检测并保存销毁函数
-						this.liveDispose = await this.liveDetectWithAPI();
-					}
-				},
-				WS: async () => {
-					// 判断订阅直播数是否超过限制
-					if (!this.config.unlockSubLimits && liveSubNum >= 3) {
-						// 将live改为false
-						subManagerItem.live = false;
-						// log
-						this.logger.warn(`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`);
-						// 发送错误消息
-						await this.sendPrivateMsg(
-							`UID:${sub.uid} 订阅直播数超过限制，自动取消订阅`,
-						);
-					} else {
-						// 直播订阅数+1
-						liveSubNum++;
-						// 订阅直播，开始循环检测
-						await this.liveDetectWithListener(sub.room_id, target);
-					}
-				},
-			};
-			// 判断是否订阅直播
-			if (sub.live) {
-				// 启动直播监测
-				await liveDetectModeSelector[this.config.liveDetectMode]();
-			}
-			// 保存新订阅对象
-			this.subManager.push(subManagerItem);
-		}
-	}
-
 	checkIfDynamicDetectIsNeeded() {
 		// 检查是否有订阅对象需要动态监测
 		if (this.subManager.some((sub) => sub.dynamic)) this.enableDynamicDetect();
@@ -2572,142 +1963,6 @@ class ComRegister {
 				this.config.dynamicLoopTime * 1000,
 			);
 		}
-	}
-
-	unsubSingle(
-		id: string /* UID或RoomId */,
-		type: number /* 0取消Live订阅，1取消Dynamic订阅 */,
-	): string {
-		// 定义返回消息
-		let msg: string;
-		// 定义方法：检查是否没有任何订阅
-		const checkIfNoSubExist = (sub: SubItem) => !sub.dynamic && !sub.live;
-		// 定义方法：将订阅对象从订阅管理对象中移除
-		const removeSub = (index: number) => {
-			// 从管理对象中移除
-			this.subManager.splice(index, 1);
-			// 从数据库中删除
-			this.ctx.database.remove("bilibili", [this.subManager[index].id]);
-			// num--
-			this.num--;
-			// 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-			this.checkIfUserIsTheLastOneWhoSubDyn();
-		};
-
-		try {
-			switch (type) {
-				case 0: {
-					// 取消Live订阅
-					// 获取订阅对象所在的索引
-					const index = this.subManager.findIndex((sub) => sub.roomId === id);
-					// 获取订阅对象
-					const sub = this.subManager.find((sub) => sub.roomId === id);
-					// 判断是否存在订阅对象
-					if (!sub) {
-						msg = "未订阅该用户，无需取消订阅";
-						return msg;
-					}
-					// 取消订阅
-					sub.live = false;
-					// 判断直播检测方式
-					switch (this.config.liveDetectMode) {
-						case "API": {
-							msg = "请手动删除订阅，并重启插件";
-							break;
-						}
-						case "WS": {
-							// 取消直播监听
-							this.ctx.bl.closeListener(sub.roomId);
-						}
-					}
-					// 如果没有对这个UP的任何订阅，则移除
-					if (checkIfNoSubExist(sub)) {
-						// 从管理对象中移除
-						removeSub(index);
-						return "已取消订阅该用户";
-					}
-					// 更新数据库
-					this.ctx.database.upsert("bilibili", [
-						{
-							id: +`${sub.id}`,
-							live: 0,
-						},
-					]);
-					return "已取消订阅Live";
-				}
-				case 1: {
-					// 取消Dynamic订阅
-					// 获取订阅对象所在的索引
-					const index = this.subManager.findIndex((sub) => sub.uid === id);
-					// 获取订阅对象
-					const sub = this.subManager.find((sub) => sub.uid === id);
-					// 判断是否存在订阅对象
-					if (!sub) {
-						msg = "未订阅该用户，无需取消订阅";
-						return msg;
-					}
-					// 取消订阅
-					this.subManager[index].dynamic = false;
-					// 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-					this.checkIfUserIsTheLastOneWhoSubDyn();
-					// 如果没有对这个UP的任何订阅，则移除
-					if (checkIfNoSubExist(sub)) {
-						// 从管理对象中移除
-						removeSub(index);
-						return "已取消订阅该用户";
-					}
-					// 更新数据库
-					this.ctx.database.upsert("bilibili", [
-						{
-							id: sub.id,
-							dynamic: 0,
-						},
-					]);
-					return "已取消订阅Dynamic";
-				}
-			}
-		} finally {
-			// 执行完该方法后，保证执行一次updateSubNotifier()
-			this.updateSubNotifier();
-		}
-	}
-
-	checkIfUserIsTheLastOneWhoSubDyn() {
-		if (this.dynamicDispose && !this.subManager.some((sub) => sub.dynamic)) {
-			// 停止动态监测
-			this.dynamicDispose();
-			this.dynamicDispose = null;
-		}
-	}
-
-	unsubAll(uid: string) {
-		this.subManager
-			.filter((sub) => sub.uid === uid)
-			.map(async (sub, i) => {
-				// 判断是否还存在订阅了动态的对象，不存在则停止动态监测
-				this.checkIfUserIsTheLastOneWhoSubDyn();
-				switch (this.config.liveDetectMode) {
-					case "API": {
-						break;
-					}
-					case "WS": {
-						// 停止直播检测
-						this.ctx.bl.closeListener(sub.roomId);
-					}
-				}
-				// 从数据库中删除订阅
-				await this.ctx.database.remove("bilibili", {
-					uid: this.subManager[i].uid,
-				});
-				// 将该订阅对象从订阅管理对象中移除
-				this.subManager.splice(i, 1);
-				// id--
-				this.num--;
-				// 发送成功通知
-				this.sendPrivateMsg(`UID:${uid}，已取消订阅该用户`);
-				// 更新控制台提示
-				this.updateSubNotifier();
-			});
 	}
 
 	async checkIfIsLogin() {
@@ -2746,7 +2001,6 @@ namespace ComRegister {
 			masterAccount: string;
 			masterAccountGuildId: string;
 		};
-		unlockSubLimits: boolean;
 		automaticResend: boolean;
 		liveDetectMode: "API" | "WS";
 		restartPush: boolean;
@@ -2806,7 +2060,6 @@ namespace ComRegister {
 			masterAccount: Schema.string(),
 			masterAccountGuildId: Schema.string(),
 		}),
-		unlockSubLimits: Schema.boolean().required(),
 		automaticResend: Schema.boolean().required(),
 		liveDetectMode: Schema.union([
 			Schema.const("API"),

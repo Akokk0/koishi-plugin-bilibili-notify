@@ -140,7 +140,6 @@ class ServerManager extends Service {
 			const cr = this.ctx.plugin(ComRegister, {
 				sub: globalConfig.sub,
 				master: globalConfig.master,
-				unlockSubLimits: globalConfig.unlockSubLimits,
 				automaticResend: globalConfig.automaticResend,
 				liveDetectMode: globalConfig.liveDetectMode,
 				restartPush: globalConfig.restartPush,
@@ -211,20 +210,14 @@ export function apply(ctx: Context, config: Config) {
 	globalConfig = config;
 	// 设置提示
 	ctx.notifier.create({
-		content: "从3.0.0-alpha.10以前版本更新需重新订阅",
+		type: 'danger',
+		content: "3.0.0-alpha.16 全面从指令订阅转移到配置订阅，以前使用指令的订阅需要全部重新填写到订阅配置中",
 	});
 	ctx.notifier.create({
+		type: 'warning',
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。",
 	});
-	if (config.unlockSubLimits) {
-		// 用户允许订阅超过三个用户
-		// 设置警告
-		ctx.notifier.create({
-			type: "danger",
-			content: "过多的订阅可能会导致IP暂时被封禁！",
-		});
-	}
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -246,7 +239,6 @@ export interface Config {
 	master: {};
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	basicSettings: {};
-	unlockSubLimits: boolean;
 	automaticResend: boolean;
 	renderType: "render" | "page";
 	userAgent: string;
@@ -347,12 +339,6 @@ export const Config: Schema<Config> = Schema.object({
 
 	basicSettings: Schema.object({}).description("基本设置"),
 
-	unlockSubLimits: Schema.boolean()
-		.default(false)
-		.description(
-			"解锁3个直播订阅限制，默认只允许订阅3位UP主。订阅过多用户可能有导致IP暂时被封禁的风险",
-		),
-
 	automaticResend: Schema.boolean()
 		.default(true)
 		.description(
@@ -372,7 +358,7 @@ export const Config: Schema<Config> = Schema.object({
 			"设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111",
 		),
 
-	subTitle: Schema.object({}).description("手动订阅"),
+	subTitle: Schema.object({}).description("订阅配置"),
 
 	sub: Schema.array(
 		Schema.object({
@@ -395,15 +381,15 @@ export const Config: Schema<Config> = Schema.object({
 								"推送开播通知时是否艾特全体成员",
 							),
 						}),
-					).description("频道/群组信息"),
+					).description("需推送的频道/群组详细设置"),
 					platform: Schema.string().description("推送平台"),
 				}),
-			).description("订阅用户需要发送的频道/群组信息"),
+			).description("订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)"),
 		}),
 	)
 		.role("table")
 		.description(
-			"手动输入订阅信息，方便自定义订阅内容，这里的订阅内容不会存入数据库。uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播",
+			"输入订阅信息，自定义订阅内容； uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播",
 		),
 
 	dynamic: Schema.object({}).description("动态推送设置"),

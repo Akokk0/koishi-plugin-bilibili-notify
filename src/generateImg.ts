@@ -1562,9 +1562,9 @@ class GenerateImg extends Service {
 		if (days !== 0) parts.push(`${Math.abs(days)}天`);
 		if (hours !== 0) parts.push(`${Math.abs(hours)}小时`);
 		if (minutes !== 0) parts.push(`${Math.abs(minutes)}分`);
-		if (seconds !== 0) parts.push(`${Math.abs(seconds)}秒`);
+		if (seconds !== 0) parts.push(`${Math.round(Math.abs(seconds))}秒`);
 		// 处理负值
-		const sign = diff.as("seconds") < 0 ? "" : "-";
+		const sign = diff.as("seconds") < 0 ? "-" : "";
 		// 组合结果（如果无差值返回"0秒"）
 		return parts.length > 0 ? `${sign}${parts.join("")}` : "0秒";
 	}

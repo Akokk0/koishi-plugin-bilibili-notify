@@ -2,20 +2,8 @@ import type { Context } from "koishi";
 
 declare module "koishi" {
 	interface Tables {
-		bilibili: Bilibili;
 		loginBili: LoginBili;
 	}
-}
-
-export interface Bilibili {
-	id: number;
-	uid: string;
-	room_id: string;
-	dynamic: number;
-	live: number;
-	target: string;
-	platform: string;
-	time: Date;
 }
 
 export interface LoginBili {
@@ -28,22 +16,6 @@ export interface LoginBili {
 export const name = "Database";
 
 export function apply(ctx: Context) {
-	// 新增Bilibili表
-	ctx.model.extend(
-		"bilibili",
-		{
-			id: "unsigned",
-			uid: "string",
-			room_id: "string",
-			dynamic: "unsigned",
-			live: "unsigned",
-			target: "string",
-			platform: "string",
-			time: "timestamp",
-		},
-		{ autoInc: true },
-	);
-
 	// 新增LoginBili表
 	ctx.model.extend("loginBili", {
 		id: "unsigned",
