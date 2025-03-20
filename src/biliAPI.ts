@@ -6,7 +6,6 @@ import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
-import { DateTime } from "luxon";
 import Retry from "./utils/retry";
 
 declare module "koishi" {
@@ -575,10 +574,6 @@ class BiliAPI extends Service {
 				},
 			}),
 		);
-	}
-
-	getTimeOfUTC8() {
-		return Math.floor(DateTime.now().setZone("UTC+8").toSeconds());
 	}
 
 	getCookies() {

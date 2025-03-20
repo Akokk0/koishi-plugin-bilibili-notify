@@ -1,5 +1,6 @@
 import { type Context, Schema, Service } from "koishi";
 import {} from "koishi-plugin-puppeteer";
+import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -1539,24 +1540,33 @@ class GenerateImg extends Service {
 
 	async getTimeDifference(dateString: string) {
 		// 将日期字符串转换为Date对象
-		const date = new Date(dateString);
-		// 获取Unix时间戳（以毫秒为单位）
-		const unixTime = date.getTime() / 1000;
-		// 获取当前Unix时间戳
-		const now = this.ctx.ba.getTimeOfUTC8();
-		// 计算时间差（以秒为单位）
-		const differenceInSeconds = Math.floor(now - unixTime);
-		// 获取yyyy:MM:dd HH:mm:ss
-		const days = Math.floor(differenceInSeconds / (24 * 60 * 60));
-		const hours = Math.floor(
-			(differenceInSeconds % (24 * 60 * 60)) / (60 * 60),
-		);
-		const minutes = Math.floor((differenceInSeconds % (60 * 60)) / 60);
-		const seconds = differenceInSeconds % 60;
-		// 返回格式化的字符串
-		return days
-			? `${days}天${hours}小时${minutes.toString().padStart(2, "0")}分${seconds.toString().padStart(2, "0")}秒`
-			: `${hours}小时${minutes.toString().padStart(2, "0")}分${seconds.toString().padStart(2, "0")}秒`;
+		const apiDateTime = DateTime.fromFormat(dateString, "yyyy-MM-dd HH:mm:ss", {
+			zone: "UTC+8",
+		});
+		// 获取当前时间
+		const currentDateTime = DateTime.now();
+		// 计算时间差
+		const diff = currentDateTime.diff(apiDateTime, [
+			"years",
+			"months",
+			"days",
+			"hours",
+			"minutes",
+			"seconds",
+		]);
+		const { years, months, days, hours, minutes, seconds } = diff.toObject();
+		// 按单位生成可读字符串（过滤零值）
+		const parts = [];
+		if (years !== 0) parts.push(`${Math.abs(years)}年`);
+		if (months !== 0) parts.push(`${Math.abs(months)}个月`);
+		if (days !== 0) parts.push(`${Math.abs(days)}天`);
+		if (hours !== 0) parts.push(`${Math.abs(hours)}小时`);
+		if (minutes !== 0) parts.push(`${Math.abs(minutes)}分`);
+		if (seconds !== 0) parts.push(`${Math.abs(seconds)}秒`);
+		// 处理负值
+		const sign = diff.as("seconds") < 0 ? "" : "-";
+		// 组合结果（如果无差值返回"0秒"）
+		return parts.length > 0 ? `${sign}${parts.join("")}` : "0秒";
 	}
 
 	unixTimestampToString(timestamp: number) {

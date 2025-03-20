@@ -795,7 +795,7 @@ class ComRegister {
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 
-		// Test
+		/* // Test
 		const testTarget: Target = [
 			{
 				channelIdArr: [
@@ -812,7 +812,7 @@ class ComRegister {
 		];
 
 		const buffer = await this.ctx.gi.generateWordCloudImg();
-		this.sendMsg(testTarget, h.image(buffer, "image/png"));
+		this.sendMsg(testTarget, h.image(buffer, "image/png")); */
 	}
 
 	splitMultiPlatformStr(str: string): Target {
