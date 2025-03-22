@@ -134,6 +134,7 @@ class ServerManager extends Service {
 				hideDesc: globalConfig.hideDesc,
 				enableLargeFont: globalConfig.enableLargeFont,
 				font: globalConfig.font,
+				followerDisplay: globalConfig.followerDisplay
 			});
 
 			// CR = ComRegister
@@ -210,11 +211,12 @@ export function apply(ctx: Context, config: Config) {
 	globalConfig = config;
 	// 设置提示
 	ctx.notifier.create({
-		type: 'danger',
-		content: "3.0.0-alpha.16 全面从指令订阅转移到配置订阅，以前使用指令的订阅需要全部重新填写到订阅配置中",
+		type: "danger",
+		content:
+			"3.0.0-alpha.16 全面从指令订阅迁移到配置订阅，以前使用指令的订阅需要全部重新填写到订阅配置中",
 	});
 	ctx.notifier.create({
-		type: 'warning',
+		type: "warning",
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。",
 	});
@@ -271,6 +273,7 @@ export interface Config {
 	customLiveStart: string;
 	customLive: string;
 	customLiveEnd: string;
+	followerDisplay: boolean;
 	hideDesc: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	style: {};
@@ -384,7 +387,9 @@ export const Config: Schema<Config> = Schema.object({
 					).description("需推送的频道/群组详细设置"),
 					platform: Schema.string().description("推送平台"),
 				}),
-			).description("订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)"),
+			).description(
+				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
+			),
 		}),
 	)
 		.role("table")
@@ -444,20 +449,26 @@ export const Config: Schema<Config> = Schema.object({
 		.description("设定间隔多长时间推送一次直播状态，单位为小时，默认为一小时"),
 
 	customLiveStart: Schema.string()
-		.default("-name开播啦 -link")
+		.default("-name开播啦，当前粉丝数为-follower -link")
 		.description(
-			"自定义开播提示语，-name代表UP昵称，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦",
+			"自定义开播提示语，-name代表UP昵称，-follower代表当前粉丝数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦",
 		),
 
-	customLive: Schema.string().description(
-		"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx",
-	),
+	customLive: Schema.string()
+		.default("-name正在直播，目前已播-time，直播间累计看过人数为-watched，-link")
+		.description(
+			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx",
+		),
 
 	customLiveEnd: Schema.string()
-		.default("-name下播啦，本次直播了-time")
+		.default("-name下播啦，本次直播了-time，粉丝数的变化-follower_change")
 		.description(
-			"自定义下播提示语，-name代表UP昵称，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
+			"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
 		),
+	
+	followerDisplay: Schema.boolean()
+		.default(true)
+		.description("粉丝数变化和看过本场直播的人数是否显示在推送卡片中"),
 
 	hideDesc: Schema.boolean()
 		.default(false)

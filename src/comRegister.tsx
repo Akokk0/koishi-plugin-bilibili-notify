@@ -12,43 +12,16 @@ import {} from "@koishijs/plugin-help";
 import QRCode from "qrcode";
 import type { LoginBili } from "./database";
 import type { MsgHandler } from "blive-message-listener";
+import {
+	type ChannelIdArr,
+	LiveType,
+	type MasterInfo,
+	type SubManager,
+	type Target,
+} from "./type";
 // 弹幕词云
 // TODO:WorlCloud
 // import { Segment } from "segmentit";
-
-enum LiveType {
-	NotLiveBroadcast = 0,
-	StartBroadcasting = 1,
-	LiveBroadcast = 2,
-	StopBroadcast = 3,
-}
-
-type ChannelIdArr = Array<{
-	channelId: string;
-	dynamic: boolean;
-	live: boolean;
-	liveGuardBuy: boolean;
-	atAll: boolean;
-}>;
-
-type TargetItem = {
-	channelIdArr: ChannelIdArr;
-	platform: string;
-};
-
-type Target = Array<TargetItem>;
-
-type SubItem = {
-	id: number;
-	uid: string;
-	roomId: string;
-	target: Target;
-	platform: string;
-	live: boolean;
-	dynamic: boolean;
-};
-
-type SubManager = Array<SubItem>;
 
 class ComRegister {
 	// 必须服务
@@ -253,55 +226,6 @@ class ComRegister {
 			.action(() => {
 				const subTable = this.subShow();
 				return subTable;
-			});
-
-		biliCom
-			.subcommand(".status <roomId:string>", "查询主播当前直播状态", {
-				hidden: true,
-			})
-			.usage("查询主播当前直播状态")
-			.example("bili status 732")
-			.action(async ({ session }, roomId) => {
-				this.logger.info("调用bili.status指令");
-				if (!roomId) return session.send("请输入房间号!");
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let content: any;
-				try {
-					content = await ctx.ba.getLiveRoomInfo(roomId);
-				} catch (e) {
-					return `bili status指令 getLiveRoomInfo() 发生了错误，错误为：${e.message}`;
-				}
-				const { data } = content;
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let userData: any;
-				try {
-					const { data: userInfo } = await ctx.ba.getMasterInfo(data.uid);
-					userData = userInfo;
-				} catch (e) {
-					return `bili status指令 getMasterInfo() 发生了错误，错误为：${e.message}`;
-				}
-				// B站出问题了
-				if (content.code !== 0) {
-					if (content.msg === "未找到该房间") {
-						session.send("未找到该房间");
-					} else {
-						session.send(`未知错误，错误信息为：${content.message}`);
-					}
-					return;
-				}
-
-				const { pic, buffer } = await ctx.gi.generateLiveImg(
-					data,
-					userData.info.uname,
-					userData.info.face,
-					data.live_status !== 1
-						? LiveType.NotLiveBroadcast
-						: LiveType.LiveBroadcast,
-				);
-				// pic 存在，使用的是render模式
-				if (pic) return pic;
-				// pic不存在，说明使用的是page模式
-				await session.send(h.image(buffer, "image/png"));
 			});
 
 		biliCom
@@ -1040,6 +964,7 @@ class ComRegister {
 			data: any;
 		},
 		liveType: LiveType,
+		followerDisplay: string,
 		liveNotifyMsg?: string,
 	) {
 		// 定义变量
@@ -1055,6 +980,7 @@ class ComRegister {
 						info.data,
 						info.username,
 						info.userface,
+						followerDisplay,
 						liveType,
 					);
 				// 赋值
@@ -1105,12 +1031,46 @@ class ComRegister {
 	// 定义获取主播信息方法
 	async useMasterInfo(
 		uid: string,
-	): Promise<{ username: string; userface: string; roomId: number }> {
+		masterInfo: MasterInfo,
+		liveType: LiveType,
+	): Promise<MasterInfo> {
+		// 获取主播信息
 		const { data } = await this.ctx.ba.getMasterInfo(uid);
+		// 定义粉丝数变量
+		let liveOpenFollowerNum: number;
+		let liveEndFollowerNum: number;
+		let liveFollowerChange: number;
+		// 判断直播状态
+		if (
+			liveType === LiveType.StartBroadcasting ||
+			liveType === LiveType.FirstLiveBroadcast
+		) {
+			// 第一次启动或刚开播
+			// 将当前粉丝数赋值给liveOpenFollowerNum、liveEndFollowerNum
+			liveOpenFollowerNum = data.follower_num;
+			liveEndFollowerNum = data.follower_num;
+			// 将粉丝数变化赋值为0
+			liveFollowerChange = 0;
+		}
+		if (
+			liveType === LiveType.StopBroadcast ||
+			liveType === LiveType.LiveBroadcast
+		) {
+			// 将上一次的liveOpenFollowerNum赋值给本次的liveOpenFollowerNum
+			liveOpenFollowerNum = masterInfo.liveOpenFollowerNum;
+			// 将当前粉丝数赋值给liveEndFollowerNum
+			liveEndFollowerNum = data.follower_num;
+			// 计算粉丝数变化量
+			liveFollowerChange = liveEndFollowerNum - masterInfo.liveOpenFollowerNum;
+		}
+		// 返回值
 		return {
 			username: data.info.uname,
 			userface: data.info.face,
 			roomId: data.room_id,
+			liveOpenFollowerNum,
+			liveEndFollowerNum,
+			liveFollowerChange,
 		};
 	}
 
@@ -1139,7 +1099,7 @@ class ComRegister {
 		return content.data;
 	}
 
-	async liveDetectWithAPI() {
+	/* async liveDetectWithAPI() {
 		// 定义变量：第一次订阅
 		let liveDetectSetup = true;
 		// 定义变量：timer计时器
@@ -1437,76 +1397,10 @@ class ComRegister {
 				flag = true;
 			}
 		};
-	}
+	} */
 
-	async liveDetectWithListener(roomId: string, target: Target) {
-		// 定义开播时间
-		let liveTime: string;
-		// 定义定时推送定时器
-		let pushAtTimeTimer: () => void;
-		// 定义弹幕存放数组
-		const currentLiveDanmakuArr: Array<string> = [];
-		// 定义开播状态
-		let liveStatus = false;
-		// 处理target
-		// 定义channelIdArr总长度
-		let channelIdArrLen = 0;
-		// 定义数据
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		let liveRoomInfo: any;
-		let masterInfo: {
-			username: string;
-			userface: string;
-			roomId: number;
-		};
-		// 找到频道/群组对应的
-		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
-			// 获取符合条件的target
-			const liveGuardBuyArr = channel.channelIdArr.filter(
-				(channelId) => channelId.liveGuardBuy,
-			);
-			// 将当前liveDanmakuArr的长度+到channelIdArrLen中
-			channelIdArrLen += liveGuardBuyArr.length;
-			// 返回符合的target
-			return {
-				channelIdArr: liveGuardBuyArr,
-				platform: channel.platform,
-			};
-		});
-		// 定义定时推送函数
-		const pushAtTimeFunc = async () => {
-			// 判断是否信息是否获取成功
-			if (!(await useMasterAndLiveRoomInfo())) {
-				// 未获取成功，直接返回
-				return this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
-			}
-			// 设置开播时间
-			liveTime = liveRoomInfo.live_time;
-			// 设置直播中消息
-			const liveMsg = this.config.customLive
-				? this.config.customLive
-						.replace("-name", masterInfo.username)
-						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-						.replace(
-							"-link",
-							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
-						)
-				: null;
-			// 发送直播通知卡片
-			await this.sendLiveNotifyCard(
-				{
-					username: masterInfo.username,
-					userface: masterInfo.userface,
-					target,
-					data: liveRoomInfo,
-				},
-				LiveType.LiveBroadcast,
-				liveMsg,
-			);
-		};
-
-		// TODO:WordCloud
-		/* // 定义获取弹幕权重Record函数
+	// TODO:WordCloud
+	/* // 定义获取弹幕权重Record函数
 		const getDanmakuWeightRecord = (): Record<string, number> => {
 			// 创建segmentit
 			const segmentit = useDefault(new Segment());
@@ -1524,8 +1418,74 @@ class ComRegister {
 			return danmakuWeightRecord;
 		}; */
 
+	async liveDetectWithListener(roomId: string, target: Target) {
+		// 定义开播时间
+		let liveTime: string;
+		// 定义定时推送定时器
+		let pushAtTimeTimer: () => void;
+		// 定义弹幕存放数组
+		const currentLiveDanmakuArr: Array<string> = [];
+		// 定义开播状态
+		let liveStatus = false;
+		// 处理target
+		// 定义channelIdArr总长度
+		let channelIdArrLen = 0;
+		// 定义数据
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		let liveRoomInfo: any;
+		let masterInfo: MasterInfo;
+		let watchedNum: number;
+		// 找到频道/群组对应的
+		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
+			// 获取符合条件的target
+			const liveGuardBuyArr = channel.channelIdArr.filter(
+				(channelId) => channelId.liveGuardBuy,
+			);
+			// 将当前liveDanmakuArr的长度+到channelIdArrLen中
+			channelIdArrLen += liveGuardBuyArr.length;
+			// 返回符合的target
+			return {
+				channelIdArr: liveGuardBuyArr,
+				platform: channel.platform,
+			};
+		});
+		// 定义定时推送函数
+		const pushAtTimeFunc = async () => {
+			// 判断是否信息是否获取成功
+			if (!(await useMasterAndLiveRoomInfo(LiveType.LiveBroadcast))) {
+				// 未获取成功，直接返回
+				return this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
+			}
+			// 设置开播时间
+			liveTime = liveRoomInfo.live_time;
+			// 获取watched
+			const watched = watchedNum?.toString() || '暂未获取到'
+			// 设置直播中消息
+			const liveMsg = this.config.customLive
+				? this.config.customLive
+						.replace("-name", masterInfo.username)
+						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+						.replace("-watched", watched)
+						.replace(
+							"-link",
+							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+						)
+				: null;
+			// 发送直播通知卡片
+			await this.sendLiveNotifyCard(
+				{
+					username: masterInfo.username,
+					userface: masterInfo.userface,
+					target,
+					data: liveRoomInfo,
+				},
+				LiveType.LiveBroadcast,
+				watched,
+				liveMsg,
+			);
+		};
 		// 定义直播间信息获取函数
-		const useMasterAndLiveRoomInfo = async () => {
+		const useMasterAndLiveRoomInfo = async (liveType: LiveType) => {
 			// 定义函数是否执行成功flag
 			let flag = true;
 			// 获取直播间信息
@@ -1543,7 +1503,11 @@ class ComRegister {
 				return flag;
 			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			masterInfo = await this.useMasterInfo(liveRoomInfo.uid).catch(() => {
+			masterInfo = await this.useMasterInfo(
+				liveRoomInfo.uid,
+				masterInfo,
+				liveType,
+			).catch(() => {
 				// 设置flag为false
 				flag = false;
 				// 返回空
@@ -1552,13 +1516,6 @@ class ComRegister {
 			// 返回信息
 			return flag;
 		};
-		// 判断是否信息是否获取成功
-		if (!(await useMasterAndLiveRoomInfo())) {
-			// 未获取成功，直接返回
-			return this.sendPrivateMsg(
-				"获取直播间信息失败，启动直播间弹幕检测失败！",
-			);
-		}
 		// 构建消息处理函数
 		const handler: MsgHandler = {
 			onIncomeDanmu: ({ body }) => {
@@ -1568,6 +1525,10 @@ class ComRegister {
 			onIncomeSuperChat: ({ body }) => {
 				// 保存消息到数组
 				currentLiveDanmakuArr.push(body.content);
+			},
+			onWatchedChange: ({ body }) => {
+				// 保存观看人数到变量
+				watchedNum = body.num;
 			},
 			onGuardBuy: ({ body }) => {
 				// 定义消息
@@ -1581,7 +1542,7 @@ class ComRegister {
 				// 设置开播状态为true
 				liveStatus = true;
 				// 判断是否信息是否获取成功
-				if (!(await useMasterAndLiveRoomInfo())) {
+				if (!(await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting))) {
 					// 设置开播状态为false
 					liveStatus = false;
 					// 未获取成功，直接返回
@@ -1591,11 +1552,14 @@ class ComRegister {
 				}
 				// 设置开播时间
 				liveTime = liveRoomInfo.live_time;
+				// 获取当前粉丝数
+				const follower = masterInfo.liveOpenFollowerNum.toString()
 				// 定义开播通知语
 				const liveStartMsg = this.config.customLiveStart
 					? this.config.customLiveStart
 							.replace("-name", masterInfo.username)
 							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+							.replace("-follower", follower)
 							.replace(
 								"-link",
 								`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1610,6 +1574,7 @@ class ComRegister {
 						data: liveRoomInfo,
 					},
 					LiveType.StartBroadcasting,
+					follower,
 					liveStartMsg,
 				);
 				// 判断定时器是否已开启
@@ -1625,7 +1590,7 @@ class ComRegister {
 				// 将直播状态设置为false
 				liveStatus = false;
 				// 判断是否信息是否获取成功
-				if (!(await useMasterAndLiveRoomInfo())) {
+				if (!(await useMasterAndLiveRoomInfo(LiveType.StopBroadcast))) {
 					// 未获取成功，直接返回
 					return this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播下播卡片失败！",
@@ -1633,11 +1598,17 @@ class ComRegister {
 				}
 				// 更改直播时长
 				liveRoomInfo.live_time = liveTime;
+				// 获取粉丝数变化
+				const followerChange = masterInfo.liveFollowerChange.toString()
 				// 定义下播播通知语
 				const liveEndMsg = this.config.customLiveEnd
 					? this.config.customLiveEnd
 							.replace("-name", masterInfo.username)
 							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+							.replace(
+								"-follower_change",
+								followerChange,
+							)
 					: null;
 				// 推送通知卡片
 				await this.sendLiveNotifyCard(
@@ -1648,6 +1619,7 @@ class ComRegister {
 						data: liveRoomInfo,
 					},
 					LiveType.StopBroadcast,
+					followerChange,
 					liveEndMsg,
 				);
 				// 关闭定时推送定时器
@@ -1658,15 +1630,25 @@ class ComRegister {
 		};
 		// 启动直播间弹幕监测
 		await this.ctx.bl.startLiveRoomListener(roomId, handler);
+		// 第一次启动获取信息并判信息是否获取成功
+		if (!(await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast))) {
+			// 未获取成功，直接返回
+			return this.sendPrivateMsg(
+				"获取直播间信息失败，启动直播间弹幕检测失败！",
+			);
+		}
 		// 判断直播状态
 		if (liveRoomInfo.live_status === 1) {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
+			// 获取当前累计观看人数
+			const watched = watchedNum?.toString() || '暂未获取到'
 			// 定义直播中通知消息
 			const liveMsg = this.config.customLive
 				? this.config.customLive
 						.replace("-name", masterInfo.username)
 						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+						.replace("-watched", watched)
 						.replace(
 							"-link",
 							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1682,6 +1664,7 @@ class ComRegister {
 						data: liveRoomInfo,
 					},
 					LiveType.LiveBroadcast,
+					watched,
 					liveMsg,
 				);
 			}
@@ -1904,14 +1887,15 @@ class ComRegister {
 					// 发送提示
 					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
 				}
-				//
+				// 直播类型模式匹配
 				const liveDetectModeSelector = {
 					API: async () => {
 						// 判断是否已开启直播检测
 						if (!this.liveDispose) {
 							// 未开启直播检测
 							// 开启直播检测并保存销毁函数
-							this.liveDispose = await this.liveDetectWithAPI();
+							// this.liveDispose = await this.liveDetectWithAPI();
+							this.logger.warn("API模式暂时不可用");
 						}
 					},
 					WS: async () => {

@@ -15,24 +15,16 @@ const DYNAMIC_TYPE_NONE = "DYNAMIC_TYPE_NONE";
 const DYNAMIC_TYPE_FORWARD = "DYNAMIC_TYPE_FORWARD";
 const DYNAMIC_TYPE_AV = "DYNAMIC_TYPE_AV";
 const DYNAMIC_TYPE_PGC = "DYNAMIC_TYPE_PGC";
-const DYNAMIC_TYPE_COURSES = "DYNAMIC_TYPE_COURSES";
 const DYNAMIC_TYPE_WORD = "DYNAMIC_TYPE_WORD";
 const DYNAMIC_TYPE_DRAW = "DYNAMIC_TYPE_DRAW";
 const DYNAMIC_TYPE_ARTICLE = "DYNAMIC_TYPE_ARTICLE";
 const DYNAMIC_TYPE_MUSIC = "DYNAMIC_TYPE_MUSIC";
 const DYNAMIC_TYPE_COMMON_SQUARE = "DYNAMIC_TYPE_COMMON_SQUARE";
-const DYNAMIC_TYPE_COMMON_VERTICAL = "DYNAMIC_TYPE_COMMON_VERTICAL";
 const DYNAMIC_TYPE_LIVE = "DYNAMIC_TYPE_LIVE";
 const DYNAMIC_TYPE_MEDIALIST = "DYNAMIC_TYPE_MEDIALIST";
 const DYNAMIC_TYPE_COURSES_SEASON = "DYNAMIC_TYPE_COURSES_SEASON";
-const DYNAMIC_TYPE_COURSES_BATCH = "DYNAMIC_TYPE_COURSES_BATCH";
-const DYNAMIC_TYPE_AD = "DYNAMIC_TYPE_AD";
-const DYNAMIC_TYPE_APPLET = "DYNAMIC_TYPE_APPLET";
-const DYNAMIC_TYPE_SUBSCRIPTION = "DYNAMIC_TYPE_SUBSCRIPTION";
 const DYNAMIC_TYPE_LIVE_RCMD = "DYNAMIC_TYPE_LIVE_RCMD";
-const DYNAMIC_TYPE_BANNER = "DYNAMIC_TYPE_BANNER";
 const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
-const DYNAMIC_TYPE_SUBSCRIPTION_NEW = "DYNAMIC_TYPE_SUBSCRIPTION_NEW";
 // 内容卡片类型
 const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
 
@@ -50,6 +42,7 @@ class GenerateImg extends Service {
 		data: any,
 		username: string,
 		userface: string,
+		followerDisplay: string,
 		liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/,
 	) {
 		const [titleStatus, liveTime, cover] = await this.getLiveStatus(
@@ -61,7 +54,7 @@ class GenerateImg extends Service {
 			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
 		);
 		// 卡片内容
-		const html = `
+		const html = /* html */ `
             <!DOCTYPE html>
             <html>
             <head>
@@ -193,6 +186,22 @@ class GenerateImg extends Service {
                                 </p>
                                 <p class="card-link">
                                     <span>${liveTime}</span>
+                                    ${
+																			this.giConfig.followerDisplay
+																				? /* html */ `
+                                        <span>
+                                        ${
+																					liveStatus === 1
+																						? `当前粉丝数为${followerDisplay}`
+																						: liveStatus === 2
+																							? `本场直播累计观看人数：${followerDisplay}`
+																							: liveStatus === 3
+																								? `本场直播粉丝数变化：${followerDisplay}`
+																								: ""
+																				}
+                                        </span>`
+																				: ""
+																		}
                                 </p>
                             </div>
                         </div>
@@ -283,7 +292,7 @@ class GenerateImg extends Service {
 					const richText = module_dynamic.desc.rich_text_nodes.reduce(
 						(accumulator, currentValue) => {
 							if (currentValue.emoji) {
-								return `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
+								return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
 							}
 							return accumulator + currentValue.text;
 						},
@@ -310,7 +319,7 @@ class GenerateImg extends Service {
 					const text = richText.replace(/\n/g, "<br>");
 					// 拼接字符串
 					if (text) {
-						main += `
+						main += /* html */ `
                             <div class="card-details">
                                 ${text}
                             </div>
@@ -327,7 +336,7 @@ class GenerateImg extends Service {
 						const height = module_dynamic.major.draw.items[0].height;
 						console.log(height);
 						if (height > 3000) {
-							major += `
+							major += /* html */ `
                                 <div class="single-photo-container">
                                     <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
                                     <div class="single-photo-mask">
@@ -337,7 +346,7 @@ class GenerateImg extends Service {
                                 </div>
                             `;
 						} else {
-							major += `
+							major += /* html */ `
                                 <div class="single-photo-container">
                                     <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
                                 </div>
@@ -345,15 +354,15 @@ class GenerateImg extends Service {
 						}
 					} else if (module_dynamic.major.draw.items.length === 4) {
 						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-							return `${acc}<img class="four-photo-item" src="${cV.src}"/>`;
+							return /* html */ `${acc}<img class="four-photo-item" src="${cV.src}"/>`;
 						}, "");
 					} else {
 						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-							return `${acc}<img class="photo-item" src="${cV.src}"/>`;
+							return /* html */ `${acc}<img class="photo-item" src="${cV.src}"/>`;
 						}, "");
 					}
 
-					main += `
+					main += /* html */ `
                         <div class="card-major">
                             ${major}
                         </div>
@@ -386,7 +395,7 @@ class GenerateImg extends Service {
 							true,
 						);
 						// 拼接main
-						main += `
+						main += /* html */ `
                         <div class="card-forward">
                             <div class="forward-userinfo">
                                 <img class="forward-avatar" src="${forwardUserAvatarUrl}" alt="avatar">
@@ -411,13 +420,13 @@ class GenerateImg extends Service {
 								let button: string;
 								// 判断按钮类型
 								if (reserve.button.uncheck.text === "已结束") {
-									button = `
+									button = /* html */ `
                                         <button class="reserve-button-end">
                                             <span>${reserve.button.uncheck.text}</span>
                                         </button>
                                     `;
 								} else {
-									button = `
+									button = /* html */ `
                                         <button class="reserve-button-ing">
                                             <svg class="bili-dyn-card-reserve__action__icon" style="width: 16px; height: 16px;"
                                                 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -437,7 +446,7 @@ class GenerateImg extends Service {
                                     `;
 								}
 
-								main += `
+								main += /* html */ `
                                 <div class="card-reserve">
                                     <div class="reserve-main">
                                         <div class="reserve-title">
@@ -509,7 +518,7 @@ class GenerateImg extends Service {
 						}
 					}
 
-					main += `
+					main += /* html */ `
                     <div class="card-video">
                         <div class="video-cover">
                             <img src="${archive.cover}"
@@ -1342,7 +1351,7 @@ class GenerateImg extends Service {
             `;
 		}
 		// 定义卡片内容
-		const html = `
+		const html = /* html */ `
             <!DOCTYPE html>
             <html>
             <head>
@@ -1473,7 +1482,7 @@ class GenerateImg extends Service {
 		const page = await this.ctx.puppeteer.page();
 
 		// 创建HTML内容
-		const htmlContent = `
+		const htmlContent = /* html */ `
             <!DOCTYPE html>
             <html>
                 <head>
@@ -1597,6 +1606,7 @@ namespace GenerateImg {
 		enableLargeFont: boolean;
 		font: string;
 		hideDesc: boolean;
+		followerDisplay: boolean;
 	}
 
 	export const Config: Schema<Config> = Schema.object({
@@ -1614,6 +1624,7 @@ namespace GenerateImg {
 		enableLargeFont: Schema.boolean(),
 		font: Schema.string(),
 		hideDesc: Schema.boolean(),
+		followerDisplay: Schema.boolean(),
 	});
 }
 
