@@ -429,7 +429,7 @@ export const Config: Schema<Config> = Schema.object({
 			.description(
 				"API模式：请求对应直播间API，无法获取弹幕消息，开播下播响应慢，理论可无限订阅",
 			)
-			.experimental(),
+			.deprecated(),
 	])
 		.role("radio")
 		.description("直播检测模式")
@@ -455,13 +455,13 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	customLive: Schema.string()
-		.default("-name正在直播，目前已播-time，直播间累计看过人数为-watched，-link")
+		.default("-name正在直播，目前已播-time。累计看过人数：-watched，-link")
 		.description(
 			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx",
 		),
 
 	customLiveEnd: Schema.string()
-		.default("-name下播啦，本次直播了-time，粉丝数的变化-follower_change")
+		.default("-name下播啦，本次直播了-time。粉丝数变化-follower_change")
 		.description(
 			"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
 		),

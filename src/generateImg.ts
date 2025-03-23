@@ -192,11 +192,11 @@ class GenerateImg extends Service {
                                         <span>
                                         ${
 																					liveStatus === 1
-																						? `当前粉丝数为${followerDisplay}`
+																						? `当前粉丝数：${followerDisplay}`
 																						: liveStatus === 2
-																							? `本场直播累计观看人数：${followerDisplay}`
+																							? `累计观看人数：${followerDisplay}`
 																							: liveStatus === 3
-																								? `本场直播粉丝数变化：${followerDisplay}`
+																								? `粉丝数变化：${followerDisplay}`
 																								: ""
 																				}
                                         </span>`

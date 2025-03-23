@@ -1099,306 +1099,6 @@ class ComRegister {
 		return content.data;
 	}
 
-	/* async liveDetectWithAPI() {
-		// 定义变量：第一次订阅
-		let liveDetectSetup = true;
-		// 定义变量：timer计时器
-		let timer = 0;
-		// 相当于锁的作用，防止上一个循环没处理完
-		let flag = true;
-		// 定义订阅对象Record 0未开播 1正在直播 2轮播中
-		const liveRecord: Record<
-			number,
-			{
-				liveStatus: number;
-				liveTime: string;
-				target: Target;
-			}
-		> = {};
-
-		// 定义函数: 发送请求获取直播状态
-		const useLiveStatus = async (roomId: string) => {
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			let content: any;
-			const attempts = 3;
-			for (let i = 0; i < attempts; i++) {
-				try {
-					// 发送请求获取room信息
-					content = await this.ctx.ba.getLiveRoomInfo(roomId);
-					// 成功则跳出循环
-					break;
-				} catch (e) {
-					this.logger.error(
-						`liveDetect getLiveRoomInfo 发生了错误，错误为：${e.message}`,
-					);
-					if (i === attempts - 1) {
-						// 已尝试三次
-						// 发送私聊消息并重启服务
-						return await this.sendPrivateMsgAndStopService();
-					}
-				}
-			}
-			// 返回data
-			return content.data;
-		};
-
-		return async () => {
-			// 如果flag为false则说明前面的代码还未执行完，则直接返回
-			if (!flag) return;
-			// 将标志位置为false
-			flag = false;
-			try {
-				// 获取正在直播对象
-				const liveUsers = await this.ctx.ba.getTheUserWhoIsLiveStreaming();
-				// 判断是否是初始化直播监测
-				if (liveDetectSetup) {
-					// 将第一次订阅置为false
-					liveDetectSetup = false;
-					// 初始化subRecord
-					for (const sub of this.subManager) {
-						// 判断是否订阅直播
-						if (sub.live) {
-							// 将该订阅添加到subRecord中
-							liveRecord[sub.uid] = {
-								liveStatus: 0,
-								liveTime: "",
-								target: sub.target,
-							};
-						}
-					}
-					// 先判断是否有UP主正在直播
-					if (liveUsers.count > 0) {
-						// 遍历liveUsers
-						for (const item of liveUsers.items) {
-							// 判断是否有订阅对象正在直播
-							if (liveRecord[item.mid]) {
-								// 获取当前用户直播间信息
-								const data = await useLiveStatus(item.room_id.toString());
-								// 设置开播时间
-								liveRecord[item.mid].liveTime = data.live_time;
-								// 改变开播状态
-								liveRecord[item.mid].liveStatus = 1;
-								// 设置直播中消息
-								const liveMsg = this.config.customLive
-									? this.config.customLive
-											.replace("-name", item.uname)
-											.replace(
-												"-time",
-												await this.ctx.gi.getTimeDifference(
-													liveRecord[item.mid].liveTime,
-												),
-											)
-											.replace(
-												"-link",
-												`https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`,
-											)
-									: null;
-								// 发送直播通知卡片
-								if (this.config.restartPush)
-									this.sendLiveNotifyCard(
-										{
-											username: item.uname,
-											userface: item.face,
-											target: liveRecord[item.mid].target,
-											data,
-										},
-										LiveType.LiveBroadcast,
-										liveMsg,
-									);
-							}
-						}
-					}
-					// 没有正在直播的订阅对象，直接返回
-					return;
-				}
-				// 获取当前订阅直播的数量
-				const currentLiveSubs = this.subManager.filter((sub) => sub.live);
-				// 获取当前liveRecord里的订阅数量
-				const currentLiveRecordKeys = Object.keys(liveRecord);
-				// 判断是否能匹配双方数量
-				if (currentLiveRecordKeys.length < currentLiveSubs.length) {
-					// 遍历currentLiveSubs
-					for (const sub of currentLiveSubs) {
-						// 判断liveRecord中缺少了哪些订阅
-						if (!liveRecord[sub.uid]) {
-							// 获取当前用户直播间信息
-							const data = await useLiveStatus(sub.roomId.toString());
-							switch (data.live_status) {
-								case 0:
-								case 2: {
-									// 未开播
-									// 添加到liveRecord中
-									liveRecord[sub.uid] = {
-										liveStatus: 0,
-										liveTime: "",
-										target: sub.target,
-									};
-									// break
-									break;
-								}
-								case 1: {
-									//正在直播
-									// 添加到liveRecord中
-									liveRecord[sub.uid] = {
-										liveStatus: 1,
-										liveTime: data.live_time,
-										target: sub.target,
-									};
-								}
-							}
-						}
-					}
-				}
-				if (currentLiveRecordKeys.length > currentLiveSubs.length) {
-					// 创建Set
-					const setCurrentLiveSubs = new Set(
-						currentLiveSubs.map((sub) => sub.uid),
-					);
-					// 找出 currentLiveRecordKeys中比currentLiveSubs 多的元素
-					const extraInCurrentLiveSubs = currentLiveRecordKeys.filter(
-						(key) => !setCurrentLiveSubs.has(key),
-					);
-					// 遍历 extraInCurrentLiveSubs
-					for (const subUID of extraInCurrentLiveSubs) {
-						// 删除记录
-						delete liveRecord[subUID];
-					}
-				}
-				// 数量没有差异，则不进行其他操作
-				// 遍历liveUsers
-				for (const item of liveUsers.items) {
-					// 判断是否有正在直播的订阅对象
-					if (liveRecord[item.mid]) {
-						// 有正在直播的订阅对象
-						// 获取当前用户直播间信息
-						const data = await useLiveStatus(item.room_id.toString());
-						// 判断开播状态
-						switch (liveRecord[item.mid].liveStatus) {
-							case 0: {
-								// 之前未开播，现在开播了
-								// 设置开播时间
-								liveRecord[item.mid].liveTime = data.live_time;
-								// 定义开播通知语
-								const liveStartMsg = this.config.customLiveStart
-									? this.config.customLiveStart
-											.replace("-name", item.uname)
-											.replace(
-												"-time",
-												await this.ctx.gi.getTimeDifference(
-													liveRecord[item.mid].liveTime,
-												),
-											)
-											.replace(
-												"-link",
-												`https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`,
-											)
-									: null;
-								// 发送直播通知卡片
-								await this.sendLiveNotifyCard(
-									{
-										username: item.uname,
-										userface: item.face,
-										target: liveRecord[item.mid].target,
-										data,
-									},
-									LiveType.LiveBroadcast,
-									liveStartMsg,
-								);
-								// 改变开播状态
-								liveRecord[item.mid].liveStatus = 1;
-								// 结束
-								break;
-							}
-							case 1: {
-								// 仍在直播
-								if (this.config.pushTime > 0) {
-									timer++;
-									// 开始记录时间
-									if (timer >= 6 * 60 * this.config.pushTime) {
-										// 到时间推送直播消息
-										// 到时间重新计时
-										timer = 0;
-										// 定义直播中通知消息
-										const liveMsg = this.config.customLive
-											? this.config.customLive
-													.replace("-name", item.uname)
-													.replace(
-														"-time",
-														await this.ctx.gi.getTimeDifference(
-															liveRecord[item.mid].liveTime,
-														),
-													)
-													.replace(
-														"-link",
-														`https://live.bilibili.com/${data.short_id === 0 ? data.room_id : data.short_id}`,
-													)
-											: null;
-										// 发送直播通知卡片
-										this.sendLiveNotifyCard(
-											{
-												username: item.uname,
-												userface: item.face,
-												target: liveRecord[item.mid].target,
-												data,
-											},
-											LiveType.LiveBroadcast,
-											liveMsg,
-										);
-									}
-								}
-							}
-						}
-					}
-				}
-				// 找出liveRecord中liveStatus为1但liveUsers中没有的元素
-				const extraInLiveRecord = currentLiveRecordKeys.filter(
-					(key) => !liveUsers.items.some((item) => item.mid === Number(key)),
-				);
-				// 遍历 extraInLiveRecord
-				for (const subUID of extraInLiveRecord) {
-					// 下播的主播
-					// 获取主播信息
-					const masterInfo = await this.useMasterInfo(subUID);
-					// 获取直播间消息
-					const liveRoomInfo = await this.useLiveRoomInfo(
-						masterInfo.roomId.toString(),
-					);
-					// 设置开播时间
-					liveRoomInfo.live_time = liveRecord[subUID].liveTime;
-					// 定义下播播通知语
-					const liveEndMsg = this.config.customLiveEnd
-						? this.config.customLiveEnd
-								.replace("-name", masterInfo.username)
-								.replace(
-									"-time",
-									await this.ctx.gi.getTimeDifference(
-										liveRecord[subUID].liveTime,
-									),
-								)
-								.replace(
-									"-link",
-									`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
-								)
-						: null;
-					// 发送下播通知
-					this.sendLiveNotifyCard(
-						{
-							username: masterInfo.username,
-							userface: masterInfo.userface,
-							target: liveRecord[subUID].target,
-							data: liveRoomInfo,
-						},
-						LiveType.StopBroadcast,
-						liveEndMsg,
-					);
-				}
-			} finally {
-				// 执行完方法体不论如何都把flag设置为true
-				flag = true;
-			}
-		};
-	} */
-
 	// TODO:WordCloud
 	/* // 定义获取弹幕权重Record函数
 		const getDanmakuWeightRecord = (): Record<string, number> => {
@@ -1434,7 +1134,7 @@ class ComRegister {
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
-		let watchedNum: number;
+		let watchedNum: string;
 		// 找到频道/群组对应的
 		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
 			// 获取符合条件的target
@@ -1459,7 +1159,7 @@ class ComRegister {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取watched
-			const watched = watchedNum?.toString() || '暂未获取到'
+			const watched = watchedNum || "暂未获取到";
 			// 设置直播中消息
 			const liveMsg = this.config.customLive
 				? this.config.customLive
@@ -1528,7 +1228,7 @@ class ComRegister {
 			},
 			onWatchedChange: ({ body }) => {
 				// 保存观看人数到变量
-				watchedNum = body.num;
+				watchedNum = body.text_small;
 			},
 			onGuardBuy: ({ body }) => {
 				// 定义消息
@@ -1553,7 +1253,7 @@ class ComRegister {
 				// 设置开播时间
 				liveTime = liveRoomInfo.live_time;
 				// 获取当前粉丝数
-				const follower = masterInfo.liveOpenFollowerNum.toString()
+				const follower = masterInfo.liveOpenFollowerNum >= 10_000 ? `${masterInfo.liveOpenFollowerNum.toFixed(1)}万` : masterInfo.liveOpenFollowerNum.toString()
 				// 定义开播通知语
 				const liveStartMsg = this.config.customLiveStart
 					? this.config.customLiveStart
@@ -1599,16 +1299,23 @@ class ComRegister {
 				// 更改直播时长
 				liveRoomInfo.live_time = liveTime;
 				// 获取粉丝数变化
-				const followerChange = masterInfo.liveFollowerChange.toString()
+				const followerChange = (() => {
+					// 获取直播关注变化值
+					const liveFollowerChangeNum = masterInfo.liveFollowerChange
+					// 判断是否大于0
+					if (liveFollowerChangeNum > 0) {
+						// 大于0则加+
+						return liveFollowerChangeNum >= 10_000 ? `+${liveFollowerChangeNum.toFixed(1)}万` : `+${liveFollowerChangeNum}`
+					}
+					// 小于0
+					return liveFollowerChangeNum <= -10_000 ? `${liveFollowerChangeNum.toFixed(1)}万` : liveFollowerChangeNum.toString()
+				})();
 				// 定义下播播通知语
 				const liveEndMsg = this.config.customLiveEnd
 					? this.config.customLiveEnd
 							.replace("-name", masterInfo.username)
 							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-							.replace(
-								"-follower_change",
-								followerChange,
-							)
+							.replace("-follower_change", followerChange)
 					: null;
 				// 推送通知卡片
 				await this.sendLiveNotifyCard(
@@ -1642,7 +1349,7 @@ class ComRegister {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取当前累计观看人数
-			const watched = watchedNum?.toString() || '暂未获取到'
+			const watched = watchedNum || "暂未获取到";
 			// 定义直播中通知消息
 			const liveMsg = this.config.customLive
 				? this.config.customLive
@@ -1887,29 +1594,10 @@ class ComRegister {
 					// 发送提示
 					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
 				}
-				// 直播类型模式匹配
-				const liveDetectModeSelector = {
-					API: async () => {
-						// 判断是否已开启直播检测
-						if (!this.liveDispose) {
-							// 未开启直播检测
-							// 开启直播检测并保存销毁函数
-							// this.liveDispose = await this.liveDetectWithAPI();
-							this.logger.warn("API模式暂时不可用");
-						}
-					},
-					WS: async () => {
-						// 连接到服务器
-						await this.liveDetectWithListener(
-							data.live_room.roomid,
-							sub.target,
-						);
-					},
-				};
 				// 判断是否订阅直播
 				if (sub.live) {
 					// 启动直播监测
-					await liveDetectModeSelector[this.config.liveDetectMode]();
+					await this.liveDetectWithListener(data.live_room.roomid, sub.target);
 				}
 			}
 			// 在B站中订阅该对象
