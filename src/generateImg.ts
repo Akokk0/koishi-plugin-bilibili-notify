@@ -1478,39 +1478,6 @@ class GenerateImg extends Service {
 		}
 	}
 
-	async generateWordCloudImg() {
-		const page = await this.ctx.puppeteer.page();
-
-		// 创建HTML内容
-		const htmlContent = /* html */ `
-            <!DOCTYPE html>
-            <html>
-                <head>
-                <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
-                </head>
-                <body>
-                <div id="chart" style="width:800px;height:600px;"></div>
-                <script>
-                    const chart = echarts.init(document.getElementById('chart'));
-                    chart.setOption({
-                    title: { text: 'Node.js ECharts示例' },
-                    tooltip: {},
-                    xAxis: { data: ['A', 'B', 'C', 'D', 'E'] },
-                    yAxis: {},
-                    series: [{ name: '数据', type: 'bar', data: [5, 20, 36, 10, 15] }]
-                    });
-                </script>
-                </body>
-            </html>
-        `;
-
-		// 加载HTML并截图
-		await page.setContent(htmlContent);
-		const buffer = await page.screenshot({ path: "output.png" });
-
-		return buffer;
-	}
-
 	async getLiveStatus(
 		time: string,
 		liveStatus: number,

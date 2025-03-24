@@ -218,7 +218,7 @@ export function apply(ctx: Context, config: Config) {
 	ctx.notifier.create({
 		type: "warning",
 		content:
-			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令。",
+			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
 	// load database
 	ctx.plugin(Database);
@@ -365,27 +365,27 @@ export const Config: Schema<Config> = Schema.object({
 
 	sub: Schema.array(
 		Schema.object({
-			uid: Schema.string().description("订阅用户UID"),
-			dynamic: Schema.boolean().description("是否订阅用户动态"),
-			live: Schema.boolean().description("是否订阅用户直播"),
+			uid: Schema.string().required().description("订阅用户UID"),
+			dynamic: Schema.boolean().required().description("是否订阅用户动态"),
+			live: Schema.boolean().required().description("是否订阅用户直播"),
 			target: Schema.array(
 				Schema.object({
 					channelIdArr: Schema.array(
 						Schema.object({
-							channelId: Schema.string().description("频道/群组号"),
-							dynamic: Schema.boolean().description(
+							channelId: Schema.string().required().description("频道/群组号"),
+							dynamic: Schema.boolean().required().description(
 								"该频道/群组是否推送动态信息",
 							),
-							live: Schema.boolean().description("该频道/群组是否推送直播通知"),
-							liveGuardBuy: Schema.boolean().description(
+							live: Schema.boolean().required().description("该频道/群组是否推送直播通知"),
+							liveGuardBuy: Schema.boolean().required().description(
 								"该频道/群组是否推送上舰消息",
 							),
-							atAll: Schema.boolean().description(
+							atAll: Schema.boolean().required().description(
 								"推送开播通知时是否艾特全体成员",
 							),
 						}),
-					).description("需推送的频道/群组详细设置"),
-					platform: Schema.string().description("推送平台"),
+					).required().description("需推送的频道/群组详细设置"),
+					platform: Schema.string().required().description("推送平台"),
 				}),
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",

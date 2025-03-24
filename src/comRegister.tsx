@@ -1,3 +1,4 @@
+// Koishi核心依赖
 import {
 	type Bot,
 	type Context,
@@ -8,10 +9,13 @@ import {
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
-// 导入qrcode
-import QRCode from "qrcode";
+// 数据库
 import type { LoginBili } from "./database";
+// 外部依赖：B站直播监听
 import type { MsgHandler } from "blive-message-listener";
+// 外部依赖：qrcode
+import QRCode from "qrcode";
+// Types
 import {
 	type ChannelIdArr,
 	LiveType,
@@ -19,9 +23,8 @@ import {
 	type SubManager,
 	type Target,
 } from "./type";
-// 弹幕词云
 // TODO:WorlCloud
-// import { Segment } from "segmentit";
+import { Segment, useDefault } from "segmentit";
 
 class ComRegister {
 	// 必须服务
@@ -324,8 +327,35 @@ class ComRegister {
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
+	}
 
-		/* // Test
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	getBot(pf: string): Bot<Context, any> {
+		return this.ctx.bots.find((bot) => bot.platform === pf);
+	}
+
+	// TODO:WordCloud
+	async test_wordCloud() {
+		/* const currentLiveDanmakuArr = []
+		// 定义获取弹幕权重Record函数
+		const getDanmakuWeightRecord = (): Record<string, number> => {
+			// 创建segmentit
+			const segmentit = useDefault(new Segment());
+			// 创建Record
+			const danmakuWeightRecord: Record<string, number> = {};
+			// 循环遍历currentLiveDanmakuArr
+			for (const danmaku of currentLiveDanmakuArr) {
+				// 遍历结果
+				segmentit.doSegment(danmaku).map((word: { w: string; p: number }) => {
+					// 定义权重
+					danmakuWeightRecord[word.w] = (danmakuWeightRecord[word.w] || 0) + 1;
+				});
+			}
+			// 返回Record
+			return danmakuWeightRecord;
+		}; */
+
+		// Test
 		const testTarget: Target = [
 			{
 				channelIdArr: [
@@ -340,14 +370,6 @@ class ComRegister {
 				platform: "qqguild",
 			},
 		];
-
-		const buffer = await this.ctx.gi.generateWordCloudImg();
-		this.sendMsg(testTarget, h.image(buffer, "image/png")); */
-	}
-
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	getBot(pf: string): Bot<Context, any> {
-		return this.ctx.bots.find((bot) => bot.platform === pf);
 	}
 
 	async sendPrivateMsg(content: string) {
@@ -1099,25 +1121,6 @@ class ComRegister {
 		return content.data;
 	}
 
-	// TODO:WordCloud
-	/* // 定义获取弹幕权重Record函数
-		const getDanmakuWeightRecord = (): Record<string, number> => {
-			// 创建segmentit
-			const segmentit = useDefault(new Segment());
-			// 创建Record
-			const danmakuWeightRecord: Record<string, number> = {};
-			// 循环遍历currentLiveDanmakuArr
-			for (const danmaku of currentLiveDanmakuArr) {
-				// 遍历结果
-				segmentit.doSegment(danmaku).map((word: { w: string; p: number }) => {
-					// 定义权重
-					danmakuWeightRecord[word.w] = (danmakuWeightRecord[word.w] || 0) + 1;
-				});
-			}
-			// 返回Record
-			return danmakuWeightRecord;
-		}; */
-
 	async liveDetectWithListener(roomId: string, target: Target) {
 		// 定义开播时间
 		let liveTime: string;
@@ -1253,7 +1256,10 @@ class ComRegister {
 				// 设置开播时间
 				liveTime = liveRoomInfo.live_time;
 				// 获取当前粉丝数
-				const follower = masterInfo.liveOpenFollowerNum >= 10_000 ? `${masterInfo.liveOpenFollowerNum.toFixed(1)}万` : masterInfo.liveOpenFollowerNum.toString()
+				const follower =
+					masterInfo.liveOpenFollowerNum >= 10_000
+						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
+						: masterInfo.liveOpenFollowerNum.toString();
 				// 定义开播通知语
 				const liveStartMsg = this.config.customLiveStart
 					? this.config.customLiveStart
@@ -1301,14 +1307,18 @@ class ComRegister {
 				// 获取粉丝数变化
 				const followerChange = (() => {
 					// 获取直播关注变化值
-					const liveFollowerChangeNum = masterInfo.liveFollowerChange
+					const liveFollowerChangeNum = masterInfo.liveFollowerChange;
 					// 判断是否大于0
 					if (liveFollowerChangeNum > 0) {
 						// 大于0则加+
-						return liveFollowerChangeNum >= 10_000 ? `+${liveFollowerChangeNum.toFixed(1)}万` : `+${liveFollowerChangeNum}`
+						return liveFollowerChangeNum >= 10_000
+							? `+${liveFollowerChangeNum.toFixed(1)}万`
+							: `+${liveFollowerChangeNum}`;
 					}
 					// 小于0
-					return liveFollowerChangeNum <= -10_000 ? `${liveFollowerChangeNum.toFixed(1)}万` : liveFollowerChangeNum.toString()
+					return liveFollowerChangeNum <= -10_000
+						? `${liveFollowerChangeNum.toFixed(1)}万`
+						: liveFollowerChangeNum.toString();
 				})();
 				// 定义下播播通知语
 				const liveEndMsg = this.config.customLiveEnd

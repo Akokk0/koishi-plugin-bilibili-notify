@@ -198,6 +198,7 @@
 - ver 3.0.0-alpha.16 重大更新：订阅不再依赖数据库，从指令订阅全面迁移到配置订阅； 修复：直播时长有误； 优化：`bili show` 指令更改为 `bili list`
 - ver 3.0.0-alpha.17 新增：更多的提示语变量，开播，当前粉丝数。正在直播，累计观看人数。下播，粉丝数变化。选项，新增的提示语变量是否展示到推送卡片中
 - ver 3.0.0-alpha.18 移除：直播检测API模式已被废弃； 优化：更多提示语数据显示优化
+- ver 3.0.0-alpha.19 修复：开播提示语粉丝数单位错误； 优化：订阅配置中所有配置项改为必填项
 
 ## 交流群
 
@@ -205,7 +206,9 @@
 
 ## 感谢
 
-感谢 [koishijs](https://github.com/koishijs/koishi) 官方提供的插件开发框架, 以及技术指导
+[koishijs](https://github.com/koishijs/koishi) 感谢官方提供的插件开发框架, 以及技术指导
+[blive-message-listener](https://github.com/ddiu8081/blive-message-listener) 感谢 `ddiu8081` 提供简单方便的B站直播监听依赖
+[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 感谢 `SocialSisterYi` 提供B站API参考
 
 ## License
 
