@@ -366,21 +366,21 @@ export const Config: Schema<Config> = Schema.object({
 	sub: Schema.array(
 		Schema.object({
 			uid: Schema.string().required().description("订阅用户UID"),
-			dynamic: Schema.boolean().required().description("是否订阅用户动态"),
-			live: Schema.boolean().required().description("是否订阅用户直播"),
+			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
+			live: Schema.boolean().default(false).description("是否订阅用户直播"),
 			target: Schema.array(
 				Schema.object({
 					channelIdArr: Schema.array(
 						Schema.object({
 							channelId: Schema.string().required().description("频道/群组号"),
-							dynamic: Schema.boolean().required().description(
+							dynamic: Schema.boolean().default(false).description(
 								"该频道/群组是否推送动态信息",
 							),
-							live: Schema.boolean().required().description("该频道/群组是否推送直播通知"),
-							liveGuardBuy: Schema.boolean().required().description(
+							live: Schema.boolean().default(false).description("该频道/群组是否推送直播通知"),
+							liveGuardBuy: Schema.boolean().default(false).description(
 								"该频道/群组是否推送上舰消息",
 							),
-							atAll: Schema.boolean().required().description(
+							atAll: Schema.boolean().default(false).description(
 								"推送开播通知时是否艾特全体成员",
 							),
 						}),
