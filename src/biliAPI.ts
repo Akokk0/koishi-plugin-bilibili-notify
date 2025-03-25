@@ -6,7 +6,7 @@ import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
-import Retry from "./utils/retry";
+import { Retry } from "./utils";
 
 declare module "koishi" {
 	interface Context {

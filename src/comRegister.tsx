@@ -15,6 +15,8 @@ import type { LoginBili } from "./database";
 import type { MsgHandler } from "blive-message-listener";
 // 外部依赖：qrcode
 import QRCode from "qrcode";
+// Utils
+import { withRetry } from "./utils";
 // Types
 import {
 	type ChannelIdArr,
@@ -24,7 +26,7 @@ import {
 	type Target,
 } from "./type";
 // TODO:WorlCloud
-import { Segment, useDefault } from "segmentit";
+// import { Segment, useDefault } from "segmentit";
 
 class ComRegister {
 	// 必须服务
@@ -248,6 +250,8 @@ class ComRegister {
 	async init(config: ComRegister.Config) {
 		// 设置logger
 		this.logger = this.ctx.logger("cr");
+		// logger
+		this.logger.info("加载订阅中...");
 		// 将config设置给类属性
 		this.config = config;
 		// 拿到私人机器人实例
@@ -268,44 +272,53 @@ class ComRegister {
 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 				content: any,
 			) => {
-				// 多次尝试发送消息
-				const attempts = 3;
-				for (let i = 0; i < attempts; i++) {
-					try {
-						// 发送消息
-						await bot.sendMessage(channelId, content);
-						// 防止消息发送速度过快被忽略
-						await this.ctx.sleep(500);
-						// 成功发送消息，跳出循环
-						break;
-					} catch (e) {
-						if (i === attempts - 1) {
-							// 已尝试三次
-							this.logger.error(
-								`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
-							);
-							console.log(e);
-							this.sendPrivateMsg(
-								`发送群组ID:${channelId}消息失败，请查看日志`,
-							);
+				withRetry(async () => await bot.sendMessage(channelId, content)).catch(
+					async (e: Error) => {
+						if (e.message === "this._request is not a function") {
+							// 2S之后重新发送消息
+							this.ctx.setTimeout(async () => {
+								await this.sendMsgFunc(bot, channelId, content);
+							}, 2000);
+							// 返回
+							return;
 						}
-					}
-				}
+						// 打印错误信息
+						this.logger.error(
+							`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
+						);
+						await this.sendPrivateMsg(
+							`发送群组ID:${channelId}消息失败，请查看日志`,
+						);
+					},
+				);
 			};
 		} else {
 			this.sendMsgFunc = async (
 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 				bot: Bot<Context, any>,
-				guild: string,
+				channelId: string,
 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 				content: any,
 			) => {
 				try {
 					// 发送消息
-					await bot.sendMessage(guild, content);
+					await bot.sendMessage(channelId, content);
 				} catch (e) {
-					this.logger.error(`发送群组ID:${guild}消息失败！原因: ${e.message}`);
-					await this.sendPrivateMsg(`发送群组ID:${guild}消息失败，请查看日志`);
+					if (e.message === "this._request is not a function") {
+						// 2S之后重新发送消息
+						this.ctx.setTimeout(async () => {
+							await this.sendMsgFunc(bot, channelId, content);
+						}, 2000);
+						// 返回
+						return;
+					}
+					// 打印错误信息
+					this.logger.error(
+						`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
+					);
+					await this.sendPrivateMsg(
+						`发送群组ID:${channelId}消息失败，请查看日志`,
+					);
 				}
 			};
 		}
@@ -327,6 +340,8 @@ class ComRegister {
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
+		// logger
+		this.logger.info("订阅加载完毕！");
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -482,7 +497,7 @@ class ComRegister {
 				}
 			} else {
 				for (const channel of sendArr) {
-					// 判断是否需要推送动态消息和直播消息
+					// 判断是否需要推送动态消息
 					if (channel.dynamic || channel.live) {
 						await this.sendMsgFunc(bot, channel.channelId, content);
 					}

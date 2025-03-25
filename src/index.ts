@@ -106,9 +106,7 @@ class ServerManager extends Service {
 				break;
 		}
 		// 注册插件
-		if (this.registerPlugin()) {
-			this.logger.info("插件启动成功");
-		} else {
+		if (!this.registerPlugin()) {
 			this.logger.error("插件启动失败");
 		}
 	}
@@ -384,8 +382,8 @@ export const Config: Schema<Config> = Schema.object({
 								"推送开播通知时是否艾特全体成员",
 							),
 						}),
-					).required().description("需推送的频道/群组详细设置"),
-					platform: Schema.string().required().description("推送平台"),
+					).description("需推送的频道/群组详细设置"),
+					platform: Schema.string().required().description("推送平台，例如onebot、qq、discord"),
 				}),
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
