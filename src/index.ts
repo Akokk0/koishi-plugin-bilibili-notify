@@ -132,7 +132,7 @@ class ServerManager extends Service {
 				hideDesc: globalConfig.hideDesc,
 				enableLargeFont: globalConfig.enableLargeFont,
 				font: globalConfig.font,
-				followerDisplay: globalConfig.followerDisplay
+				followerDisplay: globalConfig.followerDisplay,
 			});
 
 			// CR = ComRegister
@@ -368,29 +368,36 @@ export const Config: Schema<Config> = Schema.object({
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
 			target: Schema.array(
 				Schema.object({
+					platform: Schema.string()
+						.required()
+						.description("推送平台，例如onebot、qq、discord"),
 					channelIdArr: Schema.array(
 						Schema.object({
 							channelId: Schema.string().required().description("频道/群组号"),
-							dynamic: Schema.boolean().default(false).description(
-								"该频道/群组是否推送动态信息",
-							),
-							live: Schema.boolean().default(false).description("该频道/群组是否推送直播通知"),
-							liveGuardBuy: Schema.boolean().default(false).description(
-								"该频道/群组是否推送上舰消息",
-							),
-							atAll: Schema.boolean().default(false).description(
-								"推送开播通知时是否艾特全体成员",
-							),
+							dynamic: Schema.boolean()
+								.default(false)
+								.description("该频道/群组是否推送动态信息"),
+							live: Schema.boolean()
+								.default(false)
+								.description("该频道/群组是否推送直播通知"),
+							liveGuardBuy: Schema.boolean()
+								.default(false)
+								.description("该频道/群组是否推送上舰消息"),
+							atAll: Schema.boolean()
+								.default(false)
+								.description("推送开播通知时是否艾特全体成员"),
 						}),
-					).description("需推送的频道/群组详细设置"),
-					platform: Schema.string().required().description("推送平台，例如onebot、qq、discord"),
+					)
+						.role("table")
+						.required()
+						.description("需推送的频道/群组详细设置"),
 				}),
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
 			),
-		}),
+		}).collapse(),
 	)
-		.role("table")
+		.collapse()
 		.description(
 			"输入订阅信息，自定义订阅内容； uid: 订阅用户UID，dynamic: 是否需要订阅动态，live: 是否需要订阅直播",
 		),
@@ -463,7 +470,7 @@ export const Config: Schema<Config> = Schema.object({
 		.description(
 			"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
 		),
-	
+
 	followerDisplay: Schema.boolean()
 		.default(true)
 		.description("粉丝数变化和看过本场直播的人数是否显示在推送卡片中"),
