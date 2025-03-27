@@ -21,6 +21,7 @@ import { withRetry } from "./utils";
 import {
 	type ChannelIdArr,
 	LiveType,
+	type LiveUsers,
 	type MasterInfo,
 	type SubManager,
 	type Target,
@@ -244,6 +245,49 @@ class ComRegister {
 				await session.send(
 					"已发送消息，如未收到则说明您的机器人不支持发送私聊消息或您的信息填写有误",
 				);
+			});
+
+		biliCom
+			.subcommand(".ll")
+			.usage("展示当前正在直播的订阅对象")
+			.example("bili ll")
+			.action(async () => {
+				// 获取liveUsers
+				const {
+					data: { live_users },
+				} = (await ctx.ba.getTheUserWhoIsLiveStreaming()) as {
+					data: { live_users: LiveUsers };
+				};
+				// 定义当前正在直播且订阅的UP主列表
+				const subLiveUsers: Array<{
+					uid: number;
+					uname: string;
+					onLive: boolean;
+				}> = [];
+				// 获取当前订阅的UP主
+				for (const sub of this.subManager) {
+					// 定义开播标志位
+					let onLive = false;
+					// 遍历liveUsers
+					for (const user of live_users.items) {
+						// 判断是否是订阅直播的UP
+						if (user.mid.toString() === sub.uid && sub.live) {
+							// 设置标志位为true
+							onLive = true;
+							// break
+							break
+						}
+					}
+					// 判断是否未开播
+					subLiveUsers.push({uid: Number.parseInt(sub.uid), uname: sub.uname, onLive})
+				}
+				// 定义table字符串
+				let table = "";
+				// 遍历liveUsers
+				for (const user of subLiveUsers) {
+					table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? '正在直播' : '未开播'}\n`;
+				}
+				return table
 			});
 	}
 
@@ -1633,6 +1677,7 @@ class ComRegister {
 			this.subManager.push({
 				id: +sub.uid,
 				uid: sub.uid,
+				uname: data.name,
 				roomId: sub.live ? data.live_room.roomid : "",
 				target: sub.target,
 				platform: "",

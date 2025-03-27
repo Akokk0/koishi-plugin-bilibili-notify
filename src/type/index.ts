@@ -24,6 +24,7 @@ export type Target = Array<TargetItem>;
 export type SubItem = {
 	id: number;
 	uid: string;
+	uname: string;
 	roomId: string;
 	target: Target;
 	platform: string;
@@ -40,4 +41,20 @@ export type MasterInfo = {
 	liveOpenFollowerNum: number;
 	liveEndFollowerNum: number;
 	liveFollowerChange: number;
+};
+
+export type LiveUsersItem = {
+	face: string;
+	is_reserve_recall: boolean;
+	jump_url: string;
+	mid: number;
+	room_id: number;
+	title: string;
+	uname: string;
+};
+
+export type LiveUsers = {
+	count: number;
+	group: string;
+	items: Array<LiveUsersItem>;
 };

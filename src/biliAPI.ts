@@ -164,27 +164,11 @@ class BiliAPI extends Service {
 			);
 		},
 	})
-	async getTheUserWhoIsLiveStreaming(): Promise<{
-		count: number;
-		group: string;
-		items: [
-			{
-				face: string;
-				is_reserve_recall: boolean;
-				jump_url: string;
-				mid: number;
-				room_id: number;
-				title: string;
-				uname: string;
-			},
-		];
-	}> {
+	async getTheUserWhoIsLiveStreaming() {
 		// 获取直播间信息流密钥
-		const {
-			data: { live_users },
-		} = await this.client.get(GET_LATEST_UPDATED_UPS);
+		const { data } = await this.client.get(GET_LATEST_UPDATED_UPS);
 		// 返回data
-		return live_users;
+		return data;
 	}
 
 	@Retry({

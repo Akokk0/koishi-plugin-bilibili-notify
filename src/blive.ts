@@ -36,16 +36,20 @@ class BLive extends Service {
 		// 获取自身信息
 		const mySelfInfo = await this.ctx.ba.getMyselfInfo();
 		// 创建实例并保存到Record中
-		this.listenerRecord[roomId] = startListen(Number.parseInt(roomId), handler, {
-			ws: {
-				headers: {
-					Cookie: cookiesStr,
+		this.listenerRecord[roomId] = startListen(
+			Number.parseInt(roomId),
+			handler,
+			{
+				ws: {
+					headers: {
+						Cookie: cookiesStr,
+					},
+					uid: mySelfInfo.data.mid,
 				},
-				uid: mySelfInfo.data.mid,
 			},
-		});
+		);
 		// logger
-		this.logger.info(`${roomId}直播间弹幕监听已开启`);
+		this.logger.info(`${roomId}直播间监听已开启`);
 	}
 
 	closeListener(roomId: string) {
