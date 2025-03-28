@@ -89,9 +89,9 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: auto;
                         box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                        padding: 15px;
+                        padding: ${this.giConfig.cardBasePlateBorder};
                         border-radius: 10px;
-                        background-color: #FFF5EE;
+                        background-color: ${this.giConfig.cardBasePlateColor};
                     }
         
                     .card {
@@ -621,7 +621,7 @@ class GenerateImg extends Service {
 		// 判断是否开启大字体模式
 		let style: string;
 		if (this.giConfig.enableLargeFont) {
-			style = `
+			style = /* css */ `
             @font-face {
                 font-family: "Custom Font";
                 src: url(${fontURL});
@@ -651,9 +651,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: 15px;
+                padding: ${this.giConfig.cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: #FFF5EE;
+                background-color: ${this.giConfig.cardBasePlateColor};
             }
 
             .card {
@@ -985,7 +985,7 @@ class GenerateImg extends Service {
             }
             `;
 		} else {
-			style = `
+			style = /* css */ `
             @font-face {
                 font-family: "Custom Font";
                 src: url(${fontURL});
@@ -1015,9 +1015,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: 15px;
+                padding: ${this.giConfig.cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: #FFF5EE;
+                background-color: ${this.giConfig.cardBasePlateColor};
             }
     
             .card {
@@ -1570,6 +1570,8 @@ namespace GenerateImg {
 		removeBorder: boolean;
 		cardColorStart: string;
 		cardColorEnd: string;
+		cardBasePlateColor: string;
+		cardBasePlateBorder: string;
 		enableLargeFont: boolean;
 		font: string;
 		hideDesc: boolean;
@@ -1588,6 +1590,8 @@ namespace GenerateImg {
 		removeBorder: Schema.boolean(),
 		cardColorStart: Schema.string(),
 		cardColorEnd: Schema.string(),
+		cardBasePlateColor: Schema.string(),
+		cardBasePlateBorder: Schema.string(),
 		enableLargeFont: Schema.boolean(),
 		font: Schema.string(),
 		hideDesc: Schema.boolean(),

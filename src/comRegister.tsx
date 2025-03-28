@@ -16,7 +16,7 @@ import type { MsgHandler } from "blive-message-listener";
 // 外部依赖：qrcode
 import QRCode from "qrcode";
 // Utils
-import { withRetry } from "./utils";
+import { withLock, withRetry } from "./utils";
 // Types
 import {
 	type ChannelIdArr,
@@ -275,19 +275,23 @@ class ComRegister {
 							// 设置标志位为true
 							onLive = true;
 							// break
-							break
+							break;
 						}
 					}
 					// 判断是否未开播
-					subLiveUsers.push({uid: Number.parseInt(sub.uid), uname: sub.uname, onLive})
+					subLiveUsers.push({
+						uid: Number.parseInt(sub.uid),
+						uname: sub.uname,
+						onLive,
+					});
 				}
 				// 定义table字符串
 				let table = "";
 				// 遍历liveUsers
 				for (const user of subLiveUsers) {
-					table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? '正在直播' : '未开播'}\n`;
+					table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? "正在直播" : "未开播"}\n`;
 				}
-				return table
+				return table;
 			});
 	}
 
@@ -344,10 +348,10 @@ class ComRegister {
 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 				content: any,
 			) => {
-				try {
-					// 发送消息
-					await bot.sendMessage(channelId, content);
-				} catch (e) {
+				withRetry(
+					async () => await bot.sendMessage(channelId, content),
+					0,
+				).catch(async (e: Error) => {
 					if (e.message === "this._request is not a function") {
 						// 2S之后重新发送消息
 						this.ctx.setTimeout(async () => {
@@ -363,7 +367,7 @@ class ComRegister {
 					await this.sendPrivateMsg(
 						`发送群组ID:${channelId}消息失败，请查看日志`,
 					);
-				}
+				});
 			};
 		}
 		// 检查登录数据库是否有数据
@@ -557,231 +561,223 @@ class ComRegister {
 		let updateBaseline: string;
 		// 第一条动态的动态ID
 		let dynamicIdStr: string;
-		// 相当于锁的作用，防止上一个循环没处理完
-		let flag = true;
-		// 返回一个闭包函数
-		return async () => {
-			// 判断上一个循环是否完成
-			if (!flag) return;
-			flag = false;
-			// 无论是否执行成功都要释放锁
+		// 定义handler
+		const handler = async () => {
+			// 检测启动初始化
+			if (detectSetup) {
+				// 获取动态信息
+				const data = (await this.ctx.ba.getAllDynamic()) as {
+					code: number;
+					data: {
+						has_more: boolean;
+						items: [];
+						offset: string;
+						update_baseline: string;
+						update_num: number;
+					};
+				};
+				// 判断获取动态信息是否成功
+				if (data.code !== 0) return;
+				// 设置更新基线
+				updateBaseline = data.data.update_baseline;
+				// 设置初始化为false
+				detectSetup = false;
+				// 初始化完成
+				return;
+			}
+			// 获取用户所有动态数据
+			let updateNum: number;
+			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			let content: any;
 			try {
-				// 检测启动初始化
-				if (detectSetup) {
-					// 获取动态信息
-					const data = (await this.ctx.ba.getAllDynamic()) as {
-						code: number;
-						data: {
-							has_more: boolean;
-							items: [];
-							offset: string;
-							update_baseline: string;
-							update_num: number;
-						};
+				// 查询是否有新动态
+				const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
+				updateNum = data.data.update_num;
+				// 没有新动态或获取动态信息失败直接返回
+				if (updateNum <= 0 || data.code !== 0) return;
+				// 获取动态内容
+				content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
+					code: number;
+					data: {
+						has_more: boolean;
+						items: [];
+						offset: string;
+						update_baseline: string;
+						update_num: number;
 					};
-					// 判断获取动态信息是否成功
-					if (data.code !== 0) return;
-					// 设置更新基线
-					updateBaseline = data.data.update_baseline;
-					// 设置初始化为false
-					detectSetup = false;
-					// 初始化完成
-					return;
-				}
-				// 获取用户所有动态数据
-				let updateNum: number;
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let content: any;
-				try {
-					// 查询是否有新动态
-					const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
-					updateNum = data.data.update_num;
-					// 没有新动态或获取动态信息失败直接返回
-					if (updateNum <= 0 || data.code !== 0) return;
-					// 获取动态内容
-					content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
-						code: number;
-						data: {
-							has_more: boolean;
-							items: [];
-							offset: string;
-							update_baseline: string;
-							update_num: number;
-						};
-					};
-				} catch (e) {
-					return this.logger.error(
-						`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
-					);
-				}
-				// 判断获取动态内容是否成功
-				if (content.code !== 0) {
-					switch (content.code) {
-						case -101: {
-							// 账号未登录
-							// 输出日志
-							this.logger.error(
-								"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
-							);
-							// 停止服务
-							await this.ctx.sm.disposePlugin();
-							// 结束循环
-							break;
-						}
-						case -352: {
-							// 风控
-							// 输出日志
-							this.logger.error(
-								"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
-							);
-							// 停止服务
-							await this.ctx.sm.disposePlugin();
-							// 结束循环
-							break;
-						}
-						case 4101128:
-						case 4101129: {
-							// 获取动态信息错误
-							// 输出日志
-							this.logger.error(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							); // 未知错误
-							// 结束循环
-							break;
-						}
-						default: {
-							// 未知错误
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							); // 未知错误
-							// 结束循环
-							break;
-						}
+				};
+			} catch (e) {
+				return this.logger.error(
+					`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
+				);
+			}
+			// 判断获取动态内容是否成功
+			if (content.code !== 0) {
+				switch (content.code) {
+					case -101: {
+						// 账号未登录
+						// 输出日志
+						this.logger.error(
+							"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
+						);
+						// 停止服务
+						await this.ctx.sm.disposePlugin();
+						// 结束循环
+						break;
+					}
+					case -352: {
+						// 风控
+						// 输出日志
+						this.logger.error(
+							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
+						);
+						// 停止服务
+						await this.ctx.sm.disposePlugin();
+						// 结束循环
+						break;
+					}
+					case 4101128:
+					case 4101129: {
+						// 获取动态信息错误
+						// 输出日志
+						this.logger.error(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						); // 未知错误
+						// 结束循环
+						break;
+					}
+					default: {
+						// 未知错误
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						); // 未知错误
+						// 结束循环
+						break;
 					}
 				}
-				// 获取数据内容
-				const data = content.data;
-				// 更新基线
-				updateBaseline = data.update_baseline;
-				// 有新动态内容
-				const items = data.items;
-				// 检查更新的动态
-				for (let num = updateNum - 1; num >= 0; num--) {
-					// 没有动态内容则直接跳过
-					if (!items[num]) continue;
-					// 从动态数据中取出UP主名称、UID和动态ID
-					const upUID = items[num].modules.module_author.mid;
-					// 寻找关注的UP主的动态
-					for (const sub of this.subManager) {
-						// 判断是否是订阅的UP主
-						// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-						if (sub.dynamic && sub.uid == upUID) {
-							// 订阅该UP主，推送该动态
-							// 判断更新动态是否为1条
-							if (updateNum === 1) {
-								// 判断dynamicIdStr是否有值，是否与当前动态ID一致
-								if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
-									// 重复动态，不再推送，直接返回
+			}
+			// 获取数据内容
+			const data = content.data;
+			// 更新基线
+			updateBaseline = data.update_baseline;
+			// 有新动态内容
+			const items = data.items;
+			// 检查更新的动态
+			for (let num = updateNum - 1; num >= 0; num--) {
+				// 没有动态内容则直接跳过
+				if (!items[num]) continue;
+				// 从动态数据中取出UP主名称、UID和动态ID
+				const upUID = items[num].modules.module_author.mid;
+				// 寻找关注的UP主的动态
+				for (const sub of this.subManager) {
+					// 判断是否是订阅的UP主
+					// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
+					if (sub.dynamic && sub.uid == upUID) {
+						// 订阅该UP主，推送该动态
+						// 判断更新动态是否为1条
+						if (updateNum === 1) {
+							// 判断dynamicIdStr是否有值，是否与当前动态ID一致
+							if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
+								// 重复动态，不再推送，直接返回
+								return;
+							}
+							// 存储该动态ID
+							dynamicIdStr = items[num].id_str;
+						}
+						// 定义变量
+						let pic: string;
+						let buffer: Buffer;
+						// 从动态数据中取出UP主名称和动态ID
+						const upName = items[num].modules.module_author.name;
+						const dynamicId = items[num].id_str;
+						// 推送该条动态
+						const attempts = 3;
+						for (let i = 0; i < attempts; i++) {
+							// 获取动态推送图片
+							try {
+								// 渲染图片
+								const { pic: gimgPic, buffer: gimgBuffer } =
+									await this.ctx.gi.generateDynamicImg(items[num]);
+								// 赋值
+								pic = gimgPic;
+								buffer = gimgBuffer;
+								// 成功则跳出循环
+								break;
+							} catch (e) {
+								// 直播开播动态，不做处理
+								if (e.message === "直播开播动态，不做处理") return;
+								if (e.message === "出现关键词，屏蔽该动态") {
+									// 如果需要发送才发送
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条含有屏蔽关键字的动态`,
+										);
+									}
 									return;
 								}
-								// 存储该动态ID
-								dynamicIdStr = items[num].id_str;
-							}
-							// 定义变量
-							let pic: string;
-							let buffer: Buffer;
-							// 从动态数据中取出UP主名称和动态ID
-							const upName = items[num].modules.module_author.name;
-							const dynamicId = items[num].id_str;
-							// 推送该条动态
-							const attempts = 3;
-							for (let i = 0; i < attempts; i++) {
-								// 获取动态推送图片
-								try {
-									// 渲染图片
-									const { pic: gimgPic, buffer: gimgBuffer } =
-										await this.ctx.gi.generateDynamicImg(items[num]);
-									// 赋值
-									pic = gimgPic;
-									buffer = gimgBuffer;
-									// 成功则跳出循环
-									break;
-								} catch (e) {
-									// 直播开播动态，不做处理
-									if (e.message === "直播开播动态，不做处理") return;
-									if (e.message === "出现关键词，屏蔽该动态") {
-										// 如果需要发送才发送
-										if (this.config.filter.notify) {
-											await this.sendMsg(
-												sub.target,
-												`${upName}发布了一条含有屏蔽关键字的动态`,
-											);
-										}
-										return;
-									}
-									if (e.message === "已屏蔽转发动态") {
-										if (this.config.filter.notify) {
-											await this.sendMsg(
-												sub.target,
-												`${upName}发布了一条转发动态，已屏蔽`,
-											);
-										}
-										return;
-									}
-									// 未知错误
-									if (i === attempts - 1) {
-										this.logger.error(
-											`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								if (e.message === "已屏蔽转发动态") {
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条转发动态，已屏蔽`,
 										);
-										// 发送私聊消息并重启服务
-										return await this.sendPrivateMsgAndStopService();
 									}
+									return;
+								}
+								// 未知错误
+								if (i === attempts - 1) {
+									this.logger.error(
+										`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+									);
+									// 发送私聊消息并重启服务
+									return await this.sendPrivateMsgAndStopService();
 								}
 							}
-							// 判断是否需要发送URL
-							const dUrl = this.config.dynamicUrl
-								? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
-								: "";
-							// 如果pic存在，则直接返回pic
-							if (pic) {
-								this.logger.info("推送动态中，使用render模式");
-								// pic存在，使用的是render模式
-								await this.sendMsg(sub.target, pic + dUrl);
-							} else if (buffer) {
-								this.logger.info("推送动态中，使用page模式");
-								// pic不存在，说明使用的是page模式
-								await this.sendMsg(
-									sub.target,
-									<>
-										{h.image(buffer, "image/png")}
-										{dUrl}
-									</>,
-								);
-							} else {
-								this.logger.info(
-									`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
-								);
-							}
+						}
+						// 判断是否需要发送URL
+						const dUrl = this.config.dynamicUrl
+							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
+							: "";
+						// 如果pic存在，则直接返回pic
+						if (pic) {
+							this.logger.info("推送动态中，使用render模式");
+							// pic存在，使用的是render模式
+							await this.sendMsg(sub.target, pic + dUrl);
+						} else if (buffer) {
+							this.logger.info("推送动态中，使用page模式");
+							// pic不存在，说明使用的是page模式
+							await this.sendMsg(
+								sub.target,
+								<>
+									{h.image(buffer, "image/png")}
+									{dUrl}
+								</>,
+							);
+						} else {
+							this.logger.info(
+								`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
+							);
 						}
 					}
 				}
-			} finally {
-				flag = true;
 			}
 		};
+		// 返回一个闭包函数
+		return withLock(handler);
 	}
 
 	debug_dynamicDetect() {
@@ -791,248 +787,240 @@ class ComRegister {
 		let updateBaseline: string;
 		// 第一条动态的动态ID
 		let dynamicIdStr: string;
-		// 相当于锁的作用，防止上一个循环没处理完
-		let flag = true;
-		// 返回一个闭包函数
-		return async () => {
-			// 判断上一个循环是否完成
-			if (!flag) return;
-			flag = false;
-			// 无论是否执行成功都要释放锁
+		// 定义处理逻辑
+		const handler = async () => {
+			console.log(`初始化状态：${detectSetup}`);
+			// 检测启动初始化
+			if (detectSetup) {
+				// 获取动态信息
+				const data = (await this.ctx.ba.getAllDynamic()) as {
+					code: number;
+					data: {
+						has_more: boolean;
+						items: [];
+						offset: string;
+						update_baseline: string;
+						update_num: number;
+					};
+				};
+				// 判断获取动态信息是否成功
+				if (data.code !== 0) return;
+				console.log(`更新基线：${data.data.update_baseline}`);
+				// 设置更新基线
+				updateBaseline = data.data.update_baseline;
+				// 设置初始化为false
+				detectSetup = false;
+				// 初始化完成
+				return;
+			}
+			// 获取用户所有动态数据
+			let updateNum: number;
+			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			let content: any;
 			try {
-				console.log(`初始化状态：${detectSetup}`);
-				// 检测启动初始化
-				if (detectSetup) {
-					// 获取动态信息
-					const data = (await this.ctx.ba.getAllDynamic()) as {
-						code: number;
-						data: {
-							has_more: boolean;
-							items: [];
-							offset: string;
-							update_baseline: string;
-							update_num: number;
-						};
+				// 查询是否有新动态
+				const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
+				updateNum = data.data.update_num;
+				// biome-ignore lint/style/noUnusedTemplateLiteral: <explanation>
+				console.log(`获取是否有新动态：`);
+				console.log(data);
+				// 没有新动态或获取动态信息失败直接返回
+				if (updateNum <= 0 || data.code !== 0) return;
+				// 获取动态内容
+				content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
+					code: number;
+					data: {
+						has_more: boolean;
+						items: [];
+						offset: string;
+						update_baseline: string;
+						update_num: number;
 					};
-					// 判断获取动态信息是否成功
-					if (data.code !== 0) return;
-					console.log(`更新基线：${data.data.update_baseline}`);
-					// 设置更新基线
-					updateBaseline = data.data.update_baseline;
-					// 设置初始化为false
-					detectSetup = false;
-					// 初始化完成
-					return;
-				}
-				// 获取用户所有动态数据
-				let updateNum: number;
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let content: any;
-				try {
-					// 查询是否有新动态
-					const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
-					updateNum = data.data.update_num;
-					// biome-ignore lint/style/noUnusedTemplateLiteral: <explanation>
-					console.log(`获取是否有新动态：`);
-					console.log(data);
-					// 没有新动态或获取动态信息失败直接返回
-					if (updateNum <= 0 || data.code !== 0) return;
-					// 获取动态内容
-					content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
-						code: number;
-						data: {
-							has_more: boolean;
-							items: [];
-							offset: string;
-							update_baseline: string;
-							update_num: number;
-						};
-					};
-					console.log("获取动态内容：");
-					console.log(content.data.items[0]);
-				} catch (e) {
-					return this.logger.error(
-						`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
-					);
-				}
-				// 判断获取动态内容是否成功
-				if (content.code !== 0) {
-					switch (content.code) {
-						case -101: {
-							// 账号未登录
-							// 输出日志
-							this.logger.error(
-								"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
-							);
-							// 停止服务
-							await this.ctx.sm.disposePlugin();
-							// 结束循环
-							break;
-						}
-						case -352: {
-							// 风控
-							// 输出日志
-							this.logger.error(
-								"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
-							);
-							// 停止服务
-							await this.ctx.sm.disposePlugin();
-							// 结束循环
-							break;
-						}
-						case 4101128:
-						case 4101129: {
-							// 获取动态信息错误
-							// 输出日志
-							this.logger.error(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							);
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							); // 未知错误
-							// 结束循环
-							break;
-						}
-						default: {
-							// 未知错误
-							// 发送私聊消息
-							await this.sendPrivateMsg(
-								`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
-							); // 未知错误
-							// 结束循环
-							break;
-						}
+				};
+				console.log("获取动态内容：");
+				console.log(content.data.items[0]);
+			} catch (e) {
+				return this.logger.error(
+					`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
+				);
+			}
+			// 判断获取动态内容是否成功
+			if (content.code !== 0) {
+				switch (content.code) {
+					case -101: {
+						// 账号未登录
+						// 输出日志
+						this.logger.error(
+							"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							"账号未登录，插件已停止工作，请登录后，输入指令 sys start 启动插件",
+						);
+						// 停止服务
+						await this.ctx.sm.disposePlugin();
+						// 结束循环
+						break;
+					}
+					case -352: {
+						// 风控
+						// 输出日志
+						this.logger.error(
+							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 sys start 启动插件",
+						);
+						// 停止服务
+						await this.ctx.sm.disposePlugin();
+						// 结束循环
+						break;
+					}
+					case 4101128:
+					case 4101129: {
+						// 获取动态信息错误
+						// 输出日志
+						this.logger.error(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						); // 未知错误
+						// 结束循环
+						break;
+					}
+					default: {
+						// 未知错误
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}`,
+						); // 未知错误
+						// 结束循环
+						break;
 					}
 				}
-				// 获取数据内容
-				const data = content.data;
-				// 更新基线
-				updateBaseline = data.update_baseline;
-				console.log(`更新基线：${updateBaseline}`);
-				// 有新动态内容
-				const items = data.items;
-				// 检查更新的动态
-				for (let num = updateNum - 1; num >= 0; num--) {
-					// 有更新动态
-					console.log("有更新动态");
-					// 没有动态内容则直接跳过
-					if (!items[num]) continue;
-					// 从动态数据中取出UP主名称、UID和动态ID
-					const upName = content.data.items[num].modules.module_author.name;
-					const upUID = items[num].modules.module_author.mid;
-					const dynamicId = content.data.items[num].id_str;
-					console.log(
-						`寻找关注的UP主，当前动态UP主：${upName}，UID：${upUID}，动态ID：${dynamicId}`,
-					);
-					// 寻找关注的UP主的动态
-					for (const sub of this.subManager) {
-						console.log(`当前订阅UP主：${sub.uid}`);
-						// 判断是否是订阅的UP主
-						// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-						if (sub.dynamic && sub.uid == upUID) {
-							// 订阅该UP主，推送该动态
-							// 判断更新动态是否为1条
-							if (updateNum === 1) {
-								// 判断dynamicIdStr是否有值，是否与当前动态ID一致
-								if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
-									// 重复动态，不再推送，直接返回
+			}
+			// 获取数据内容
+			const data = content.data;
+			// 更新基线
+			updateBaseline = data.update_baseline;
+			console.log(`更新基线：${updateBaseline}`);
+			// 有新动态内容
+			const items = data.items;
+			// 检查更新的动态
+			for (let num = updateNum - 1; num >= 0; num--) {
+				// 有更新动态
+				console.log("有更新动态");
+				// 没有动态内容则直接跳过
+				if (!items[num]) continue;
+				// 从动态数据中取出UP主名称、UID和动态ID
+				const upName = content.data.items[num].modules.module_author.name;
+				const upUID = items[num].modules.module_author.mid;
+				const dynamicId = content.data.items[num].id_str;
+				console.log(
+					`寻找关注的UP主，当前动态UP主：${upName}，UID：${upUID}，动态ID：${dynamicId}`,
+				);
+				// 寻找关注的UP主的动态
+				for (const sub of this.subManager) {
+					console.log(`当前订阅UP主：${sub.uid}`);
+					// 判断是否是订阅的UP主
+					// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
+					if (sub.dynamic && sub.uid == upUID) {
+						// 订阅该UP主，推送该动态
+						// 判断更新动态是否为1条
+						if (updateNum === 1) {
+							// 判断dynamicIdStr是否有值，是否与当前动态ID一致
+							if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
+								// 重复动态，不再推送，直接返回
+								return;
+							}
+							// 存储该动态ID
+							dynamicIdStr = items[num].id_str;
+						}
+						// 定义变量
+						let pic: string;
+						let buffer: Buffer;
+						// 从动态数据中取出UP主名称和动态ID
+						const upName = items[num].modules.module_author.name;
+						const dynamicId = items[num].id_str;
+						console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
+						// 推送该条动态
+						const attempts = 3;
+						for (let i = 0; i < attempts; i++) {
+							// 获取动态推送图片
+							try {
+								// 渲染图片
+								const { pic: gimgPic, buffer: gimgBuffer } =
+									await this.ctx.gi.generateDynamicImg(items[num]);
+								// 赋值
+								pic = gimgPic;
+								buffer = gimgBuffer;
+								// 成功则跳出循环
+								break;
+							} catch (e) {
+								// 直播开播动态，不做处理
+								if (e.message === "直播开播动态，不做处理") return;
+								if (e.message === "出现关键词，屏蔽该动态") {
+									// 如果需要发送才发送
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条含有屏蔽关键字的动态`,
+										);
+									}
 									return;
 								}
-								// 存储该动态ID
-								dynamicIdStr = items[num].id_str;
-							}
-							// 定义变量
-							let pic: string;
-							let buffer: Buffer;
-							// 从动态数据中取出UP主名称和动态ID
-							const upName = items[num].modules.module_author.name;
-							const dynamicId = items[num].id_str;
-							console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
-							// 推送该条动态
-							const attempts = 3;
-							for (let i = 0; i < attempts; i++) {
-								// 获取动态推送图片
-								try {
-									// 渲染图片
-									const { pic: gimgPic, buffer: gimgBuffer } =
-										await this.ctx.gi.generateDynamicImg(items[num]);
-									// 赋值
-									pic = gimgPic;
-									buffer = gimgBuffer;
-									// 成功则跳出循环
-									break;
-								} catch (e) {
-									// 直播开播动态，不做处理
-									if (e.message === "直播开播动态，不做处理") return;
-									if (e.message === "出现关键词，屏蔽该动态") {
-										// 如果需要发送才发送
-										if (this.config.filter.notify) {
-											await this.sendMsg(
-												sub.target,
-												`${upName}发布了一条含有屏蔽关键字的动态`,
-											);
-										}
-										return;
-									}
-									if (e.message === "已屏蔽转发动态") {
-										if (this.config.filter.notify) {
-											await this.sendMsg(
-												sub.target,
-												`${upName}发布了一条转发动态，已屏蔽`,
-											);
-										}
-										return;
-									}
-									// 未知错误
-									if (i === attempts - 1) {
-										this.logger.error(
-											`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								if (e.message === "已屏蔽转发动态") {
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条转发动态，已屏蔽`,
 										);
-										// 发送私聊消息并重启服务
-										return await this.sendPrivateMsgAndStopService();
 									}
+									return;
+								}
+								// 未知错误
+								if (i === attempts - 1) {
+									this.logger.error(
+										`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+									);
+									// 发送私聊消息并重启服务
+									return await this.sendPrivateMsgAndStopService();
 								}
 							}
-							// 判断是否需要发送URL
-							const dUrl = this.config.dynamicUrl
-								? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
-								: "";
-							// 如果pic存在，则直接返回pic
-							if (pic) {
-								this.logger.info("推送动态中，使用render模式");
-								// pic存在，使用的是render模式
-								await this.sendMsg(sub.target, pic + dUrl);
-							} else if (buffer) {
-								this.logger.info("推送动态中，使用page模式");
-								// pic不存在，说明使用的是page模式
-								await this.sendMsg(
-									sub.target,
-									<>
-										{h.image(buffer, "image/png")}
-										{dUrl}
-									</>,
-								);
-							} else {
-								this.logger.info(
-									`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
-								);
-							}
+						}
+						// 判断是否需要发送URL
+						const dUrl = this.config.dynamicUrl
+							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
+							: "";
+						// 如果pic存在，则直接返回pic
+						if (pic) {
+							this.logger.info("推送动态中，使用render模式");
+							// pic存在，使用的是render模式
+							await this.sendMsg(sub.target, pic + dUrl);
+						} else if (buffer) {
+							this.logger.info("推送动态中，使用page模式");
+							// pic不存在，说明使用的是page模式
+							await this.sendMsg(
+								sub.target,
+								<>
+									{h.image(buffer, "image/png")}
+									{dUrl}
+								</>,
+							);
+						} else {
+							this.logger.info(
+								`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
+							);
 						}
 					}
 				}
-			} finally {
-				flag = true;
 			}
 		};
+		// 加工handler并返回
+		return withLock(handler);
 	}
 
 	// 定义发送直播通知卡片方法

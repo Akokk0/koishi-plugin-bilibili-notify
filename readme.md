@@ -207,6 +207,7 @@
 - ver 3.0.0-alpha.21 优化：部分代码； 新增：更新插件后，由于机器人还未启动，已开始发送消息报错 `this._request is not a function` ，新增报错后自动重新发送消息的功能
 - ver 3.0.0-alpha.22 优化：订阅配置展示优化
 - ver 3.0.0-alpha.23 新增：指令 `bili ll` 可以查看当前订阅直播的UP主们的开播情况
+- ver 3.0.0-alpha.24 新增：配置项，`cardBasePlateColor` 和 `cardBasePlateBorder`，分别设置卡片底板颜色和底板边框宽度； 优化：部分代码结构
 
 ## 交流群
 

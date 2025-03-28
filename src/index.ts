@@ -27,6 +27,20 @@ class ServerManager extends Service {
 	renderType: number;
 	// 动态循环时间
 	dynamicLoopTime: number;
+	// 定义渲染类型模式匹配
+	renderTypePatternMatching = {
+		render: 0,
+		page: 1,
+	};
+	// 定义具体时间模式匹配
+	dynamicLoopTimePatternMatching = {
+		"1分钟": 60,
+		"2分钟": 120,
+		"3分钟": 180,
+		"5分钟": 300,
+		"10分钟": 600,
+		"20分钟": 1200,
+	};
 
 	constructor(ctx: Context) {
 		super(ctx, "sm");
@@ -76,35 +90,10 @@ class ServerManager extends Service {
 	protected start(): void | Promise<void> {
 		// 加载配置
 		// 根据用户设置的渲染模式设置
-		switch (globalConfig.renderType) {
-			case "render":
-				this.renderType = 0;
-				break;
-			case "page":
-				this.renderType = 1;
-				break;
-		}
+		this.renderType = this.renderTypePatternMatching[globalConfig.renderType];
 		// 转换为具体时间
-		switch (globalConfig.dynamicLoopTime) {
-			case "1分钟":
-				this.dynamicLoopTime = 60;
-				break;
-			case "2分钟":
-				this.dynamicLoopTime = 120;
-				break;
-			case "3分钟":
-				this.dynamicLoopTime = 180;
-				break;
-			case "5分钟":
-				this.dynamicLoopTime = 300;
-				break;
-			case "10分钟":
-				this.dynamicLoopTime = 600;
-				break;
-			case "20分钟":
-				this.dynamicLoopTime = 1200;
-				break;
-		}
+		this.dynamicLoopTime =
+			this.dynamicLoopTimePatternMatching[globalConfig.dynamicLoopTime];
 		// 注册插件
 		if (!this.registerPlugin()) {
 			this.logger.error("插件启动失败");
@@ -129,6 +118,8 @@ class ServerManager extends Service {
 				removeBorder: globalConfig.removeBorder,
 				cardColorStart: globalConfig.cardColorStart,
 				cardColorEnd: globalConfig.cardColorEnd,
+				cardBasePlateColor: globalConfig.cardBasePlateColor,
+				cardBasePlateBorder: globalConfig.cardBasePlateBorder,
 				hideDesc: globalConfig.hideDesc,
 				enableLargeFont: globalConfig.enableLargeFont,
 				font: globalConfig.font,
@@ -278,6 +269,8 @@ export interface Config {
 	removeBorder: boolean;
 	cardColorStart: string;
 	cardColorEnd: string;
+	cardBasePlateColor: string;
+	cardBasePlateBorder: string;
 	enableLargeFont: boolean;
 	font: string;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
@@ -496,6 +489,16 @@ export const Config: Schema<Config> = Schema.object({
 		.description(
 			"推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/",
 		),
+
+	cardBasePlateColor: Schema.string()
+		.pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+		.default("#FFF5EE")
+		.description("推送卡片底板颜色，请填入16进制颜色代码"),
+
+	cardBasePlateBorder: Schema.string()
+		.pattern(/\d*\.?\d+(?:px|em|rem|%|vh|vw|vmin|vmax)/)
+		.default("15px")
+		.description("推送卡片底板边框宽度，请填入css单位，例如1px，12.5rem，100%"),
 
 	enableLargeFont: Schema.boolean()
 		.default(false)
