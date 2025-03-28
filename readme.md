@@ -208,6 +208,7 @@
 - ver 3.0.0-alpha.22 优化：订阅配置展示优化
 - ver 3.0.0-alpha.23 新增：指令 `bili ll` 可以查看当前订阅直播的UP主们的开播情况
 - ver 3.0.0-alpha.24 新增：配置项，`cardBasePlateColor` 和 `cardBasePlateBorder`，分别设置卡片底板颜色和底板边框宽度； 优化：部分代码结构
+- ver 3.0.0-alpha.25 修复：输入指令 `bili ll` 时报错 `TypeError: Cannot read properties of null (reading 'items')`，当某个订阅只订阅动态时无法成功订阅且后续订阅都无法加载； 优化：部分代码结构
 
 ## 交流群
 

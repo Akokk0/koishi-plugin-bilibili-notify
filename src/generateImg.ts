@@ -179,7 +179,7 @@ class GenerateImg extends Service {
                                         <span class="broadcast-message">${username}${titleStatus}</span>
                                     </div>
                                 </div>
-                                ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么都简介都没写"}</p>`}
+                                ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
                                 <p class="card-link">
                                     <span>人气：${data.online > 10000 ? `${(data.online / 10000).toFixed(1)}万` : data.online}</span>
                                     <span>分区名称：${data.area_name}</span>

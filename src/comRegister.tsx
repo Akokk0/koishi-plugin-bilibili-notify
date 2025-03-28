@@ -268,14 +268,17 @@ class ComRegister {
 				for (const sub of this.subManager) {
 					// 定义开播标志位
 					let onLive = false;
-					// 遍历liveUsers
-					for (const user of live_users.items) {
-						// 判断是否是订阅直播的UP
-						if (user.mid.toString() === sub.uid && sub.live) {
-							// 设置标志位为true
-							onLive = true;
-							// break
-							break;
+					// 判断items是否存在
+					if (live_users.items) {
+						// 遍历liveUsers
+						for (const user of live_users.items) {
+							// 判断是否是订阅直播的UP
+							if (user.mid.toString() === sub.uid && sub.live) {
+								// 设置标志位为true
+								onLive = true;
+								// break
+								break;
+							}
 						}
 					}
 					// 判断是否未开播
@@ -299,7 +302,7 @@ class ComRegister {
 		// 设置logger
 		this.logger = this.ctx.logger("cr");
 		// logger
-		this.logger.info("加载订阅中...");
+		this.logger.info("初始化插件中...");
 		// 将config设置给类属性
 		this.config = config;
 		// 拿到私人机器人实例
@@ -389,7 +392,7 @@ class ComRegister {
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// logger
-		this.logger.info("订阅加载完毕！");
+		this.logger.info("插件初始化完毕！");
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -704,19 +707,16 @@ class ComRegister {
 						const upName = items[num].modules.module_author.name;
 						const dynamicId = items[num].id_str;
 						// 推送该条动态
-						const attempts = 3;
-						for (let i = 0; i < attempts; i++) {
-							// 获取动态推送图片
-							try {
-								// 渲染图片
-								const { pic: gimgPic, buffer: gimgBuffer } =
-									await this.ctx.gi.generateDynamicImg(items[num]);
-								// 赋值
-								pic = gimgPic;
-								buffer = gimgBuffer;
-								// 成功则跳出循环
-								break;
-							} catch (e) {
+						const flag = await withRetry(async () => {
+							// 渲染图片
+							const { pic: gimgPic, buffer: gimgBuffer } =
+								await this.ctx.gi.generateDynamicImg(items[num]);
+							// 赋值
+							pic = gimgPic;
+							buffer = gimgBuffer;
+						})
+							.then(() => true)
+							.catch(async (e) => {
 								// 直播开播动态，不做处理
 								if (e.message === "直播开播动态，不做处理") return;
 								if (e.message === "出现关键词，屏蔽该动态") {
@@ -739,15 +739,12 @@ class ComRegister {
 									return;
 								}
 								// 未知错误
-								if (i === attempts - 1) {
-									this.logger.error(
-										`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
-									);
-									// 发送私聊消息并重启服务
-									return await this.sendPrivateMsgAndStopService();
-								}
-							}
-						}
+								this.logger.error(
+									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								);
+							});
+						// 判断是否执行成功，未执行成功直接返回
+						if (!flag) return;
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
@@ -947,19 +944,16 @@ class ComRegister {
 						const dynamicId = items[num].id_str;
 						console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
 						// 推送该条动态
-						const attempts = 3;
-						for (let i = 0; i < attempts; i++) {
-							// 获取动态推送图片
-							try {
-								// 渲染图片
-								const { pic: gimgPic, buffer: gimgBuffer } =
-									await this.ctx.gi.generateDynamicImg(items[num]);
-								// 赋值
-								pic = gimgPic;
-								buffer = gimgBuffer;
-								// 成功则跳出循环
-								break;
-							} catch (e) {
+						const flag = await withRetry(async () => {
+							// 渲染图片
+							const { pic: gimgPic, buffer: gimgBuffer } =
+								await this.ctx.gi.generateDynamicImg(items[num]);
+							// 赋值
+							pic = gimgPic;
+							buffer = gimgBuffer;
+						})
+							.then(() => true)
+							.catch(async (e) => {
 								// 直播开播动态，不做处理
 								if (e.message === "直播开播动态，不做处理") return;
 								if (e.message === "出现关键词，屏蔽该动态") {
@@ -982,15 +976,12 @@ class ComRegister {
 									return;
 								}
 								// 未知错误
-								if (i === attempts - 1) {
-									this.logger.error(
-										`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
-									);
-									// 发送私聊消息并重启服务
-									return await this.sendPrivateMsgAndStopService();
-								}
-							}
-						}
+								this.logger.error(
+									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								);
+							});
+						// 发送私聊消息并重启服务
+						if (!flag) return await this.sendPrivateMsgAndStopService();
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
@@ -1040,34 +1031,28 @@ class ComRegister {
 		let pic: string;
 		let buffer: Buffer;
 		// 多次尝试生成图片
-		const attempts = 3;
-		for (let i = 0; i < attempts; i++) {
-			try {
-				// 获取直播通知卡片
-				const { pic: picv, buffer: bufferv } =
-					await this.ctx.gi.generateLiveImg(
-						info.data,
-						info.username,
-						info.userface,
-						followerDisplay,
-						liveType,
-					);
-				// 赋值
-				pic = picv;
-				buffer = bufferv;
-				// 成功则跳出循环
-				break;
-			} catch (e) {
-				if (i === attempts - 1) {
-					// 已尝试三次
-					this.logger.error(
-						`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
-					);
-					// 发送私聊消息并重启服务
-					return await this.sendPrivateMsgAndStopService();
-				}
-			}
-		}
+		const flag = await withRetry(async () => {
+			// 获取直播通知卡片
+			const { pic: picv, buffer: bufferv } = await this.ctx.gi.generateLiveImg(
+				info.data,
+				info.username,
+				info.userface,
+				followerDisplay,
+				liveType,
+			);
+			// 赋值
+			pic = picv;
+			buffer = bufferv;
+		})
+			.then(() => true)
+			.catch((e) => {
+				this.logger.error(
+					`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
+				);
+				return false;
+			});
+		// 发送私聊消息并重启服务
+		if (!flag) return await this.sendPrivateMsgAndStopService();
 		// 推送直播信息
 		// pic 存在，使用的是render模式
 		if (pic) {
@@ -1145,27 +1130,21 @@ class ComRegister {
 
 	async useLiveRoomInfo(roomId: string) {
 		// 发送请求获取直播间信息
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		let content: any;
-		const attempts = 3;
-		for (let i = 0; i < attempts; i++) {
-			try {
-				// 发送请求获取room信息
-				content = await this.ctx.ba.getLiveRoomInfo(roomId);
-				// 成功则跳出循环
-				break;
-			} catch (e) {
+		const data = await withRetry(
+			async () => await this.ctx.ba.getLiveRoomInfo(roomId),
+		)
+			.then((content) => content.data)
+			.catch((e) => {
 				this.logger.error(
 					`liveDetect getLiveRoomInfo 发生了错误，错误为：${e.message}`,
 				);
-				if (i === attempts - 1) {
-					// 已尝试三次
-					// 发送私聊消息并重启服务
-					return await this.sendPrivateMsgAndStopService();
-				}
-			}
-		}
-		return content.data;
+				// 返回错误
+				return false;
+			});
+		// 发送私聊消息并重启服务
+		if (!data) return await this.sendPrivateMsgAndStopService();
+		// 返回
+		return data;
 	}
 
 	async liveDetectWithListener(roomId: string, target: Target) {
@@ -1615,35 +1594,22 @@ class ComRegister {
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]) {
 		for (const sub of subs) {
+			// logger
+			this.logger.info(`加载订阅UID:${sub.uid}中...`);
 			// 定义Data
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			let data: any;
+			const data = await withRetry(
+				async () => await this.ctx.ba.getUserInfo(sub.uid),
+			)
+				.then((content) => content.data)
+				.catch((e) => {
+					this.logger.error(
+						`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
+					);
+					// logger
+					this.logger.info(`加载订阅UID:${sub.uid}失败！`);
+				});
 			// 判断是否需要订阅直播
 			if (sub.live) {
-				// 获取用户信息
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				let content: any;
-				// 设置重试次数
-				const attempts = 3;
-				for (let i = 0; i < attempts; i++) {
-					try {
-						// 获取用户信息
-						content = await this.ctx.ba.getUserInfo(sub.uid);
-						// 成功则跳出循环
-						break;
-					} catch (e) {
-						this.logger.error(
-							`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
-						);
-						if (i === attempts - 1) {
-							// 已尝试三次
-							// 发送私聊消息并重启服务
-							return await this.sendPrivateMsgAndStopService();
-						}
-					}
-				}
-				// 获取data
-				data = content.data;
 				// 检查roomid是否存在
 				if (!data.live_room) {
 					// 用户没有开通直播间，无法订阅直播
@@ -1672,6 +1638,7 @@ class ComRegister {
 				live: sub.live,
 				dynamic: sub.dynamic,
 			});
+			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
 		}
 	}
 
