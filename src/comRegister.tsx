@@ -353,7 +353,7 @@ class ComRegister {
 			) => {
 				withRetry(
 					async () => await bot.sendMessage(channelId, content),
-					0,
+					1,
 				).catch(async (e: Error) => {
 					if (e.message === "this._request is not a function") {
 						// 2S之后重新发送消息
@@ -700,75 +700,56 @@ class ComRegister {
 							// 存储该动态ID
 							dynamicIdStr = items[num].id_str;
 						}
-						// 定义变量
-						let pic: string;
-						let buffer: Buffer;
 						// 从动态数据中取出UP主名称和动态ID
 						const upName = items[num].modules.module_author.name;
 						const dynamicId = items[num].id_str;
 						// 推送该条动态
-						const flag = await withRetry(async () => {
+						const buffer = await withRetry(async () => {
 							// 渲染图片
-							const { pic: gimgPic, buffer: gimgBuffer } =
-								await this.ctx.gi.generateDynamicImg(items[num]);
-							// 赋值
-							pic = gimgPic;
-							buffer = gimgBuffer;
-						})
-							.then(() => true)
-							.catch(async (e) => {
-								// 直播开播动态，不做处理
-								if (e.message === "直播开播动态，不做处理") return;
-								if (e.message === "出现关键词，屏蔽该动态") {
-									// 如果需要发送才发送
-									if (this.config.filter.notify) {
-										await this.sendMsg(
-											sub.target,
-											`${upName}发布了一条含有屏蔽关键字的动态`,
-										);
-									}
-									return;
+							return await this.ctx.gi.generateDynamicImg(items[num]);
+						}, 1).catch(async (e) => {
+							// 直播开播动态，不做处理
+							if (e.message === "直播开播动态，不做处理") return;
+							if (e.message === "出现关键词，屏蔽该动态") {
+								// 如果需要发送才发送
+								if (this.config.filter.notify) {
+									await this.sendMsg(
+										sub.target,
+										`${upName}发布了一条含有屏蔽关键字的动态`,
+									);
 								}
-								if (e.message === "已屏蔽转发动态") {
-									if (this.config.filter.notify) {
-										await this.sendMsg(
-											sub.target,
-											`${upName}发布了一条转发动态，已屏蔽`,
-										);
-									}
-									return;
+								return;
+							}
+							if (e.message === "已屏蔽转发动态") {
+								if (this.config.filter.notify) {
+									await this.sendMsg(
+										sub.target,
+										`${upName}发布了一条转发动态，已屏蔽`,
+									);
 								}
-								// 未知错误
-								this.logger.error(
-									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
-								);
-							});
+								return;
+							}
+							// 未知错误
+							this.logger.error(
+								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+							);
+						});
 						// 判断是否执行成功，未执行成功直接返回
-						if (!flag) return;
+						if (!buffer) return;
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
 							: "";
-						// 如果pic存在，则直接返回pic
-						if (pic) {
-							this.logger.info("推送动态中，使用render模式");
-							// pic存在，使用的是render模式
-							await this.sendMsg(sub.target, pic + dUrl);
-						} else if (buffer) {
-							this.logger.info("推送动态中，使用page模式");
-							// pic不存在，说明使用的是page模式
-							await this.sendMsg(
-								sub.target,
-								<>
-									{h.image(buffer, "image/png")}
-									{dUrl}
-								</>,
-							);
-						} else {
-							this.logger.info(
-								`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
-							);
-						}
+						// logger
+						this.logger.info("推送动态中...");
+						// 发送推送卡片
+						await this.sendMsg(
+							sub.target,
+							<>
+								{h.image(buffer, "image/png")}
+								{dUrl}
+							</>,
+						);
 					}
 				}
 			}
@@ -936,76 +917,57 @@ class ComRegister {
 							// 存储该动态ID
 							dynamicIdStr = items[num].id_str;
 						}
-						// 定义变量
-						let pic: string;
-						let buffer: Buffer;
 						// 从动态数据中取出UP主名称和动态ID
 						const upName = items[num].modules.module_author.name;
 						const dynamicId = items[num].id_str;
 						console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
 						// 推送该条动态
-						const flag = await withRetry(async () => {
+						const buffer = await withRetry(async () => {
 							// 渲染图片
-							const { pic: gimgPic, buffer: gimgBuffer } =
-								await this.ctx.gi.generateDynamicImg(items[num]);
-							// 赋值
-							pic = gimgPic;
-							buffer = gimgBuffer;
-						})
-							.then(() => true)
-							.catch(async (e) => {
-								// 直播开播动态，不做处理
-								if (e.message === "直播开播动态，不做处理") return;
-								if (e.message === "出现关键词，屏蔽该动态") {
-									// 如果需要发送才发送
-									if (this.config.filter.notify) {
-										await this.sendMsg(
-											sub.target,
-											`${upName}发布了一条含有屏蔽关键字的动态`,
-										);
-									}
-									return;
+							return await this.ctx.gi.generateDynamicImg(items[num]);
+						}, 1).catch(async (e) => {
+							// 直播开播动态，不做处理
+							if (e.message === "直播开播动态，不做处理") return;
+							if (e.message === "出现关键词，屏蔽该动态") {
+								// 如果需要发送才发送
+								if (this.config.filter.notify) {
+									await this.sendMsg(
+										sub.target,
+										`${upName}发布了一条含有屏蔽关键字的动态`,
+									);
 								}
-								if (e.message === "已屏蔽转发动态") {
-									if (this.config.filter.notify) {
-										await this.sendMsg(
-											sub.target,
-											`${upName}发布了一条转发动态，已屏蔽`,
-										);
-									}
-									return;
+								return;
+							}
+							if (e.message === "已屏蔽转发动态") {
+								if (this.config.filter.notify) {
+									await this.sendMsg(
+										sub.target,
+										`${upName}发布了一条转发动态，已屏蔽`,
+									);
 								}
-								// 未知错误
-								this.logger.error(
-									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
-								);
-							});
+								return;
+							}
+							// 未知错误
+							this.logger.error(
+								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+							);
+						});
 						// 发送私聊消息并重启服务
-						if (!flag) return await this.sendPrivateMsgAndStopService();
+						if (!buffer) return await this.sendPrivateMsgAndStopService();
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
 							: "";
 						// 如果pic存在，则直接返回pic
-						if (pic) {
-							this.logger.info("推送动态中，使用render模式");
-							// pic存在，使用的是render模式
-							await this.sendMsg(sub.target, pic + dUrl);
-						} else if (buffer) {
-							this.logger.info("推送动态中，使用page模式");
-							// pic不存在，说明使用的是page模式
-							await this.sendMsg(
-								sub.target,
-								<>
-									{h.image(buffer, "image/png")}
-									{dUrl}
-								</>,
-							);
-						} else {
-							this.logger.info(
-								`${items[num].modules.module_author.name}发布了一条动态，但是推送失败`,
-							);
-						}
+						this.logger.info("推送动态中...");
+						// pic不存在，说明使用的是page模式
+						await this.sendMsg(
+							sub.target,
+							<>
+								{h.image(buffer, "image/png")}
+								{dUrl}
+							</>,
+						);
 					}
 				}
 			}
@@ -1027,47 +989,24 @@ class ComRegister {
 		followerDisplay: string,
 		liveNotifyMsg?: string,
 	) {
-		// 定义变量
-		let pic: string;
-		let buffer: Buffer;
-		// 多次尝试生成图片
-		const flag = await withRetry(async () => {
+		// 生成图片
+		const buffer = await withRetry(async () => {
 			// 获取直播通知卡片
-			const { pic: picv, buffer: bufferv } = await this.ctx.gi.generateLiveImg(
+			return await this.ctx.gi.generateLiveImg(
 				info.data,
 				info.username,
 				info.userface,
 				followerDisplay,
 				liveType,
 			);
-			// 赋值
-			pic = picv;
-			buffer = bufferv;
-		})
-			.then(() => true)
-			.catch((e) => {
-				this.logger.error(
-					`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
-				);
-				return false;
-			});
+		}, 1).catch((e) => {
+			this.logger.error(
+				`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
+			);
+		});
 		// 发送私聊消息并重启服务
-		if (!flag) return await this.sendPrivateMsgAndStopService();
+		if (!buffer) return await this.sendPrivateMsgAndStopService();
 		// 推送直播信息
-		// pic 存在，使用的是render模式
-		if (pic) {
-			// 只有在开播时才艾特全体成员
-			if (liveType === LiveType.StartBroadcasting) {
-				return await this.sendMsg(
-					info.target,
-					pic + (liveNotifyMsg ?? ""),
-					true,
-				);
-			}
-			// 正常不需要艾特全体成员
-			return await this.sendMsg(info.target, pic + (liveNotifyMsg ?? ""));
-		}
-		// pic不存在，说明使用的是page模式
 		const msg = (
 			<>
 				{h.image(buffer, "image/png")}
@@ -1075,11 +1014,11 @@ class ComRegister {
 			</>
 		);
 		// 只有在开播时才艾特全体成员
-		if (liveType === LiveType.StartBroadcasting) {
-			return await this.sendMsg(info.target, msg, true);
-		}
-		// 正常不需要艾特全体成员
-		return await this.sendMsg(info.target, msg);
+		return await this.sendMsg(
+			info.target,
+			msg,
+			liveType === LiveType.StartBroadcasting,
+		);
 	}
 
 	// 定义获取主播信息方法
@@ -1411,8 +1350,7 @@ class ComRegister {
 					liveMsg,
 				);
 			}
-			// 正在直播，开启定时器
-			// 判断定时器是否已开启
+			// 正在直播，开启定时器，判断定时器是否已开启
 			if (!pushAtTimeTimer) {
 				// 开始直播，开启定时器
 				pushAtTimeTimer = this.ctx.setInterval(

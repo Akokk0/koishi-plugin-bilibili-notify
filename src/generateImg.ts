@@ -3,6 +3,7 @@ import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { withRetry } from "./utils";
 
 declare module "koishi" {
 	interface Context {
@@ -37,6 +38,27 @@ class GenerateImg extends Service {
 		this.giConfig = config;
 	}
 
+	async imgHandler(html: string) {
+		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
+		const page = await this.ctx.puppeteer.page();
+		await page.goto(htmlPath);
+		await page.setContent(html, { waitUntil: "networkidle0" });
+		const elementHandle = await page.$("html");
+		const boundingBox = await elementHandle.boundingBox();
+		const buffer = await page.screenshot({
+			type: "png",
+			clip: {
+				x: boundingBox.x,
+				y: boundingBox.y,
+				width: boundingBox.width,
+				height: boundingBox.height,
+			},
+		});
+		await elementHandle.dispose();
+		await page.close();
+		return buffer;
+	}
+
 	async generateLiveImg(
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		data: any,
@@ -69,7 +91,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -211,41 +233,10 @@ class GenerateImg extends Service {
             </html>
         `;
 		// 多次尝试生成图片
-		const attempts = 3;
-		for (let i = 0; i < attempts; i++) {
-			try {
-				// 判断渲染方式
-				if (this.giConfig.renderType) {
-					// 为1则为真，进入page模式
-					const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
-					const page = await this.ctx.puppeteer.page();
-					await page.goto(htmlPath);
-					await page.setContent(html, { waitUntil: "networkidle0" });
-					const elementHandle = await page.$("html");
-					const boundingBox = await elementHandle.boundingBox();
-					const buffer = await page.screenshot({
-						type: "png",
-						clip: {
-							x: boundingBox.x,
-							y: boundingBox.y,
-							width: boundingBox.width,
-							height: boundingBox.height,
-						},
-					});
-					await elementHandle.dispose();
-					await page.close();
-					return { buffer };
-				}
-				// 使用render模式渲染
-				const pic = await this.ctx.puppeteer.render(html);
-				return { pic };
-			} catch (e) {
-				if (i === attempts - 1) {
-					// 已尝试三次
-					throw new Error(`生成图片失败！错误: ${e.toString()}`);
-				}
-			}
-		}
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -631,7 +622,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -995,7 +986,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -1441,41 +1432,10 @@ class GenerateImg extends Service {
             </html>
         `;
 		// 多次尝试生成图片
-		const attempts = 3;
-		for (let i = 0; i < attempts; i++) {
-			try {
-				// 判断渲染方式
-				if (this.giConfig.renderType) {
-					// 为1则为真，进入page模式
-					const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
-					const page = await this.ctx.puppeteer.page();
-					await page.goto(htmlPath);
-					await page.setContent(html, { waitUntil: "networkidle0" });
-					const elementHandle = await page.$("html");
-					const boundingBox = await elementHandle.boundingBox();
-					const buffer = await page.screenshot({
-						type: "png",
-						clip: {
-							x: boundingBox.x,
-							y: boundingBox.y,
-							width: boundingBox.width,
-							height: boundingBox.height,
-						},
-					});
-					await elementHandle.dispose();
-					await page.close();
-					return { buffer, link };
-				}
-				// 使用render模式渲染
-				const pic = await this.ctx.puppeteer.render(html);
-				return { pic, link };
-			} catch (e) {
-				if (i === attempts - 1) {
-					// 已尝试三次
-					throw new Error(`生成图片失败！错误: ${e.toString()}`);
-				}
-			}
-		}
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
 	}
 
 	async getLiveStatus(
@@ -1559,7 +1519,6 @@ class GenerateImg extends Service {
 
 namespace GenerateImg {
 	export interface Config {
-		renderType: number;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -1579,7 +1538,6 @@ namespace GenerateImg {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
-		renderType: Schema.number(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

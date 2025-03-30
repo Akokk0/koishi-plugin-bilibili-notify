@@ -97,7 +97,11 @@ export function withLock(fn) {
 	};
 }
 
-export async function withRetry(fn, maxAttempts = 3, delayMs = 1000) {
+export async function withRetry<T>(
+	fn: (...args: unknown[]) => T | Promise<T>,
+	maxAttempts = 3,
+	delayMs = 1000,
+) {
 	let attempt = 0;
 	while (attempt < maxAttempts) {
 		try {
