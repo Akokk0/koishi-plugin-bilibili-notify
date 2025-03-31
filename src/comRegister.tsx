@@ -724,7 +724,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.sendMsg(
 										sub.target,
-										`${upName}发布了一条转发动态，已屏蔽`,
+										`${upName}转发了一条动态，已屏蔽`,
 									);
 								}
 								return;
@@ -733,6 +733,8 @@ class ComRegister {
 							this.logger.error(
 								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
 							);
+							// 发送私聊消息并重启服务
+							await this.sendPrivateMsgAndStopService();
 						});
 						// 判断是否执行成功，未执行成功直接返回
 						if (!buffer) return;
@@ -750,6 +752,24 @@ class ComRegister {
 								{dUrl}
 							</>,
 						);
+						// 判断是否需要发送动态中的图片
+						if (this.config.pushImgsInDynamic) {
+							// 判断是否为图文动态，且存在draw
+							if (
+								items[num].type === "DYNAMIC_TYPE_DRAW" &&
+								items[num].modules.module_dynamic.major?.draw
+							) {
+								for (const img of items[num].modules.module_dynamic.major.draw
+									.items) {
+									await this.sendMsg(
+										sub.target,
+										<img src={img.src} alt="动态图片" />,
+									);
+								}
+							}
+						}
+						// logger
+						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
@@ -951,16 +971,18 @@ class ComRegister {
 							this.logger.error(
 								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
 							);
+							// 发送私聊消息并重启服务
+							await this.sendPrivateMsgAndStopService();
 						});
-						// 发送私聊消息并重启服务
-						if (!buffer) return await this.sendPrivateMsgAndStopService();
+						// 屏蔽动态直接返回
+						if (!buffer) return;
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
 							: "";
-						// 如果pic存在，则直接返回pic
+						// logger
 						this.logger.info("推送动态中...");
-						// pic不存在，说明使用的是page模式
+						// 推送动态卡片
 						await this.sendMsg(
 							sub.target,
 							<>
@@ -968,6 +990,29 @@ class ComRegister {
 								{dUrl}
 							</>,
 						);
+						// 判断是否需要发送动态中的图片
+						if (this.config.pushImgsInDynamic) {
+							// 判断是否为图文动态，且存在draw
+							if (
+								items[num].type === "DYNAMIC_TYPE_DRAW" &&
+								items[num].modules.module_dynamic.major?.draw
+							) {
+								// logger
+								this.logger.info("推送动态图片中...");
+								// 循环遍历图片
+								for (const img of items[num].modules.module_dynamic.major.draw
+									.items) {
+									await this.sendMsg(
+										sub.target,
+										<img src={img.src} alt="动态图片" />,
+									);
+								}
+								// logger
+								this.logger.info("推送动态图片完毕！");
+							}
+						}
+						// logger
+						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
@@ -1200,7 +1245,7 @@ class ComRegister {
 			},
 			onGuardBuy: ({ body }) => {
 				// 定义消息
-				const content = `${body.user.uname}加入了大航海（${body.gift_name}）`;
+				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
 				// 直接发送消息
 				channelIdArrLen > 0 && this.sendMsg(liveGuardBuyPushTargetArr, content);
 			},
@@ -1640,6 +1685,7 @@ namespace ComRegister {
 		liveDetectMode: "API" | "WS";
 		restartPush: boolean;
 		pushTime: number;
+		pushImgsInDynamic: boolean;
 		liveLoopTime: number;
 		customLiveStart: string;
 		customLive: string;
@@ -1702,6 +1748,7 @@ namespace ComRegister {
 		]).required(),
 		restartPush: Schema.boolean().required(),
 		pushTime: Schema.number().required(),
+		pushImgsInDynamic: Schema.boolean().required(),
 		liveLoopTime: Schema.number().default(10),
 		customLiveStart: Schema.string().required(),
 		customLive: Schema.string(),

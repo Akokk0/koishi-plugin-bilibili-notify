@@ -124,6 +124,7 @@ class ServerManager extends Service {
 				liveDetectMode: globalConfig.liveDetectMode,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
+				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
 				customLiveStart: globalConfig.customLiveStart,
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
@@ -243,6 +244,7 @@ export interface Config {
 	dynamic: {};
 	dynamicUrl: boolean;
 	dynamicLoopTime: "1分钟" | "2分钟" | "3分钟" | "5分钟" | "10分钟" | "20分钟";
+	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
 	liveDetectMode: "API" | "WS";
@@ -397,6 +399,12 @@ export const Config: Schema<Config> = Schema.object({
 		.default("2分钟")
 		.description(
 			"设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟",
+		),
+
+	pushImgsInDynamic: Schema.boolean()
+		.default(false)
+		.description(
+			"是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片",
 		),
 
 	live: Schema.object({}).description("直播推送设置"),
