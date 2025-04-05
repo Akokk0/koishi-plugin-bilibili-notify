@@ -23,6 +23,7 @@ import {
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
+	type SubItem,
 	type SubManager,
 	type Target,
 } from "./type";
@@ -706,7 +707,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(items[num]);
+							return await this.ctx.gi.generateDynamicImg(items[num], sub.card);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -944,7 +945,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(items[num]);
+							return await this.ctx.gi.generateDynamicImg(items[num], sub.card);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -1021,51 +1022,6 @@ class ComRegister {
 		return withLock(handler);
 	}
 
-	// 定义发送直播通知卡片方法
-	async sendLiveNotifyCard(
-		info: {
-			username: string;
-			userface: string;
-			target: Target;
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			data: any;
-		},
-		liveType: LiveType,
-		followerDisplay: string,
-		liveNotifyMsg?: string,
-	) {
-		// 生成图片
-		const buffer = await withRetry(async () => {
-			// 获取直播通知卡片
-			return await this.ctx.gi.generateLiveImg(
-				info.data,
-				info.username,
-				info.userface,
-				followerDisplay,
-				liveType,
-			);
-		}, 1).catch((e) => {
-			this.logger.error(
-				`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
-			);
-		});
-		// 发送私聊消息并重启服务
-		if (!buffer) return await this.sendPrivateMsgAndStopService();
-		// 推送直播信息
-		const msg = (
-			<>
-				{h.image(buffer, "image/png")}
-				{liveNotifyMsg || ""}
-			</>
-		);
-		// 只有在开播时才艾特全体成员
-		return await this.sendMsg(
-			info.target,
-			msg,
-			liveType === LiveType.StartBroadcasting,
-		);
-	}
-
 	// 定义获取主播信息方法
 	async useMasterInfo(
 		uid: string,
@@ -1131,7 +1087,7 @@ class ComRegister {
 		return data;
 	}
 
-	async liveDetectWithListener(roomId: string, target: Target) {
+	async liveDetectWithListener(roomId: string, target: Target, cardStyle: SubItem["card"]) {
 		// 定义开播时间
 		let liveTime: string;
 		// 定义定时推送定时器
@@ -1148,6 +1104,44 @@ class ComRegister {
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
+		// 定义发送直播通知卡片方法
+		const sendLiveNotifyCard = async (
+			liveType: LiveType,
+			followerDisplay: string,
+			liveNotifyMsg?: string,
+		) => {
+			// 生成图片
+			const buffer = await withRetry(async () => {
+				// 获取直播通知卡片
+				return await this.ctx.gi.generateLiveImg(
+					liveRoomInfo,
+					masterInfo.username,
+					masterInfo.userface,
+					followerDisplay,
+					liveType,
+					cardStyle,
+				);
+			}, 1).catch((e) => {
+				this.logger.error(
+					`liveDetect generateLiveImg() 推送卡片生成失败，原因：${e.message}`,
+				);
+			});
+			// 发送私聊消息并重启服务
+			if (!buffer) return await this.sendPrivateMsgAndStopService();
+			// 推送直播信息
+			const msg = (
+				<>
+					{h.image(buffer, "image/png")}
+					{liveNotifyMsg || ""}
+				</>
+			);
+			// 只有在开播时才艾特全体成员
+			return await this.sendMsg(
+				target,
+				msg,
+				liveType === LiveType.StartBroadcasting,
+			);
+		};
 		// 找到频道/群组对应的
 		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
 			// 获取符合条件的target
@@ -1185,13 +1179,7 @@ class ComRegister {
 						)
 				: null;
 			// 发送直播通知卡片
-			await this.sendLiveNotifyCard(
-				{
-					username: masterInfo.username,
-					userface: masterInfo.userface,
-					target,
-					data: liveRoomInfo,
-				},
+			await sendLiveNotifyCard(
 				LiveType.LiveBroadcast,
 				watched,
 				liveMsg,
@@ -1282,13 +1270,7 @@ class ComRegister {
 							)
 					: null;
 				// 推送开播通知
-				await this.sendLiveNotifyCard(
-					{
-						username: masterInfo.username,
-						userface: masterInfo.userface,
-						target,
-						data: liveRoomInfo,
-					},
+				await sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
 					follower,
 					liveStartMsg,
@@ -1338,13 +1320,7 @@ class ComRegister {
 							.replace("-follower_change", followerChange)
 					: null;
 				// 推送通知卡片
-				await this.sendLiveNotifyCard(
-					{
-						username: masterInfo.username,
-						userface: masterInfo.userface,
-						target,
-						data: liveRoomInfo,
-					},
+				await sendLiveNotifyCard(
 					LiveType.StopBroadcast,
 					followerChange,
 					liveEndMsg,
@@ -1383,13 +1359,7 @@ class ComRegister {
 				: null;
 			// 发送直播通知卡片
 			if (this.config.restartPush) {
-				await this.sendLiveNotifyCard(
-					{
-						username: masterInfo.username,
-						userface: masterInfo.userface,
-						target,
-						data: liveRoomInfo,
-					},
+				await sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
 					watched,
 					liveMsg,
@@ -1603,7 +1573,7 @@ class ComRegister {
 				// 判断是否订阅直播
 				if (sub.live) {
 					// 启动直播监测
-					await this.liveDetectWithListener(data.live_room.roomid, sub.target);
+					await this.liveDetectWithListener(data.live_room.roomid, sub.target, sub.card);
 				}
 			}
 			// 在B站中订阅该对象
@@ -1620,6 +1590,7 @@ class ComRegister {
 				platform: "",
 				live: sub.live,
 				dynamic: sub.dynamic,
+				card: sub.card,
 			});
 			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
 		}
@@ -1674,6 +1645,13 @@ namespace ComRegister {
 				}>;
 				platform: string;
 			}>;
+			card: {
+				enable: boolean;
+				cardColorStart: string;
+				cardColorEnd: string;
+				cardBasePlateColor: string;
+				cardBasePlateBorder: string;
+			};
 		}>;
 		master: {
 			enable: boolean;
@@ -1729,6 +1707,15 @@ namespace ComRegister {
 						platform: Schema.string().description("推送平台"),
 					}),
 				).description("订阅用户需要发送的频道/群组信息"),
+				card: Schema.object({
+					enable: Schema.boolean(),
+					cardColorStart: Schema.string(),
+					cardColorEnd: Schema.string(),
+					cardBasePlateColor: Schema.string(),
+					cardBasePlateBorder: Schema.string(),
+				}).description(
+					"自定义推送卡片颜色，默认使用插件内置的颜色，设置后会覆盖插件内置的颜色",
+				),
 			}),
 		)
 			.role("table")

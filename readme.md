@@ -211,6 +211,7 @@
 - ver 3.0.0-alpha.25 修复：输入指令 `bili ll` 时报错 `TypeError: Cannot read properties of null (reading 'items')`，当某个订阅只订阅动态时无法成功订阅且后续订阅都无法加载； 优化：部分代码结构
 - ver 3.0.0-beta.0 移除：配置项 `renderType`，推送卡片渲染模式 `render`，现默认为 `page` 渲染模式； 优化：部分代码结构
 - ver 3.0.0-beta.1 修复：使用动态屏蔽时，同时开启动态debug模式，当检测到屏蔽动态时会直接报错关闭插件； 新增：配置项 `pushImgsInDynamic` 是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片，上舰信息直播间提示
+- ver 3.0.0-beta.2 新增：配置项 `sub.card`，能更改每个订阅的推送卡片样式，未更改的样式与全局样式保持一致
 
 ## 交流群
 

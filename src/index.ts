@@ -229,6 +229,8 @@ export interface Config {
 		uid: string;
 		dynamic: boolean;
 		live: boolean;
+		// biome-ignore lint/complexity/noBannedTypes: <explanation>
+		card: {};
 		target: Array<{
 			channelIdArr: Array<{
 				channelId: string;
@@ -372,6 +374,37 @@ export const Config: Schema<Config> = Schema.object({
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
 			),
+			card: Schema.intersect([
+				Schema.object({
+					enable: Schema.boolean()
+						.default(false)
+						.description("是否开启自定义卡片颜色"),
+				}),
+				Schema.union([
+					Schema.object({
+						enable: Schema.const(true).required(),
+						cardColorStart: Schema.string()
+							.pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+							.description(
+								"推送卡片的开始渐变背景色，请填入16进制颜色代码，参考网站：https://webkul.github.io/coolhue/",
+							),
+						cardColorEnd: Schema.string()
+							.pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+							.description(
+								"推送卡片的结束渐变背景色，请填入16进制颜色代码，参考网站：https://colorate.azurewebsites.net/",
+							),
+						cardBasePlateColor: Schema.string()
+							.pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+							.description("推送卡片底板颜色，请填入16进制颜色代码"),
+						cardBasePlateBorder: Schema.string()
+							.pattern(/\d*\.?\d+(?:px|em|rem|%|vh|vw|vmin|vmax)/)
+							.description(
+								"推送卡片底板边框宽度，请填入css单位，例如1px，12.5rem，100%",
+							),
+					}),
+					Schema.object({}),
+				]),
+			]),
 		}).collapse(),
 	)
 		.collapse()

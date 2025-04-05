@@ -30,6 +30,13 @@ export type SubItem = {
 	platform: string;
 	live: boolean;
 	dynamic: boolean;
+	card: {
+		enable: boolean;
+		cardColorStart: string;
+		cardColorEnd: string;
+		cardBasePlateColor: string;
+		cardBasePlateBorder: string;
+	};
 };
 
 export type SubManager = Array<SubItem>;

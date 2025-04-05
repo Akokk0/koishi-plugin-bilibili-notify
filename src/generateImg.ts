@@ -66,6 +66,12 @@ class GenerateImg extends Service {
 		userface: string,
 		followerDisplay: string,
 		liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/,
+		{
+			cardColorStart = this.giConfig.cardColorStart,
+			cardColorEnd = this.giConfig.cardColorEnd,
+			cardBasePlateColor = this.giConfig.cardBasePlateColor,
+			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+		},
 	) {
 		const [titleStatus, liveTime, cover] = await this.getLiveStatus(
 			data.live_time,
@@ -103,7 +109,7 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: auto;
                         padding: 15px;
-                        background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                        background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                         overflow: hidden;
                     }
         
@@ -111,11 +117,11 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: auto;
                         box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                        padding: ${this.giConfig.cardBasePlateBorder};
+                        padding: ${cardBasePlateBorder};
                         border-radius: 10px;
-                        background-color: ${this.giConfig.cardBasePlateColor};
+                        background-color: ${cardBasePlateColor};
                     }
-        
+
                     .card {
                         width: 100%;
                         height: auto;
@@ -239,8 +245,16 @@ class GenerateImg extends Service {
 		});
 	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async generateDynamicImg(data: any) {
+	async generateDynamicImg(
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		data: any,
+		{
+			cardColorStart = this.giConfig.cardColorStart,
+			cardColorEnd = this.giConfig.cardColorEnd,
+			cardBasePlateColor = this.giConfig.cardBasePlateColor,
+			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+		},
+	) {
 		// module_author
 		const module_author = data.modules.module_author;
 		const avatarUrl = module_author.face;
@@ -325,7 +339,6 @@ class GenerateImg extends Service {
 				if (module_dynamic.major?.draw) {
 					if (module_dynamic.major.draw.items.length === 1) {
 						const height = module_dynamic.major.draw.items[0].height;
-						console.log(height);
 						if (height > 3000) {
 							major += /* html */ `
                                 <div class="single-photo-container">
@@ -634,7 +647,7 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 padding: 15px;
-                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                 overflow: hidden;
             }
 
@@ -642,9 +655,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: ${this.giConfig.cardBasePlateBorder};
+                padding: ${cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: ${this.giConfig.cardBasePlateColor};
+                background-color: ${cardBasePlateColor};
             }
 
             .card {
@@ -998,7 +1011,7 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 padding: 15px;
-                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                 overflow: hidden;
             }
 
@@ -1006,9 +1019,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: ${this.giConfig.cardBasePlateBorder};
+                padding: ${cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: ${this.giConfig.cardBasePlateColor};
+                background-color: ${cardBasePlateColor};
             }
     
             .card {
