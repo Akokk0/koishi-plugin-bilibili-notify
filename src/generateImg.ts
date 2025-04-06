@@ -1,64 +1,88 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { Context, Schema, Service } from "koishi";
-import { } from 'koishi-plugin-puppeteer'
-import { resolve } from "path";
-import { pathToFileURL } from "url";
+import { type Context, Schema, Service } from "koishi";
+import {} from "koishi-plugin-puppeteer";
+import { DateTime } from "luxon";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { withRetry } from "./utils";
 
-declare module 'koishi' {
-    interface Context {
-        gi: GenerateImg
-    }
+declare module "koishi" {
+	interface Context {
+		gi: GenerateImg;
+	}
 }
 
 // 动态类型
-const DYNAMIC_TYPE_NONE = 'DYNAMIC_TYPE_NONE'
-const DYNAMIC_TYPE_FORWARD = 'DYNAMIC_TYPE_FORWARD'
-const DYNAMIC_TYPE_AV = 'DYNAMIC_TYPE_AV'
-const DYNAMIC_TYPE_PGC = 'DYNAMIC_TYPE_PGC'
-const DYNAMIC_TYPE_COURSES = 'DYNAMIC_TYPE_COURSES'
-const DYNAMIC_TYPE_WORD = 'DYNAMIC_TYPE_WORD'
-const DYNAMIC_TYPE_DRAW = 'DYNAMIC_TYPE_DRAW'
-const DYNAMIC_TYPE_ARTICLE = 'DYNAMIC_TYPE_ARTICLE'
-const DYNAMIC_TYPE_MUSIC = 'DYNAMIC_TYPE_MUSIC'
-const DYNAMIC_TYPE_COMMON_SQUARE = 'DYNAMIC_TYPE_COMMON_SQUARE'
-const DYNAMIC_TYPE_COMMON_VERTICAL = 'DYNAMIC_TYPE_COMMON_VERTICAL'
-const DYNAMIC_TYPE_LIVE = 'DYNAMIC_TYPE_LIVE'
-const DYNAMIC_TYPE_MEDIALIST = 'DYNAMIC_TYPE_MEDIALIST'
-const DYNAMIC_TYPE_COURSES_SEASON = 'DYNAMIC_TYPE_COURSES_SEASON'
-const DYNAMIC_TYPE_COURSES_BATCH = 'DYNAMIC_TYPE_COURSES_BATCH'
-const DYNAMIC_TYPE_AD = 'DYNAMIC_TYPE_AD'
-const DYNAMIC_TYPE_APPLET = 'DYNAMIC_TYPE_APPLET'
-const DYNAMIC_TYPE_SUBSCRIPTION = 'DYNAMIC_TYPE_SUBSCRIPTION'
-const DYNAMIC_TYPE_LIVE_RCMD = 'DYNAMIC_TYPE_LIVE_RCMD'
-const DYNAMIC_TYPE_BANNER = 'DYNAMIC_TYPE_BANNER'
-const DYNAMIC_TYPE_UGC_SEASON = 'DYNAMIC_TYPE_UGC_SEASON'
-const DYNAMIC_TYPE_SUBSCRIPTION_NEW = 'DYNAMIC_TYPE_SUBSCRIPTION_NEW'
+const DYNAMIC_TYPE_NONE = "DYNAMIC_TYPE_NONE";
+const DYNAMIC_TYPE_FORWARD = "DYNAMIC_TYPE_FORWARD";
+const DYNAMIC_TYPE_AV = "DYNAMIC_TYPE_AV";
+const DYNAMIC_TYPE_PGC = "DYNAMIC_TYPE_PGC";
+const DYNAMIC_TYPE_WORD = "DYNAMIC_TYPE_WORD";
+const DYNAMIC_TYPE_DRAW = "DYNAMIC_TYPE_DRAW";
+const DYNAMIC_TYPE_ARTICLE = "DYNAMIC_TYPE_ARTICLE";
+const DYNAMIC_TYPE_MUSIC = "DYNAMIC_TYPE_MUSIC";
+const DYNAMIC_TYPE_COMMON_SQUARE = "DYNAMIC_TYPE_COMMON_SQUARE";
+const DYNAMIC_TYPE_LIVE = "DYNAMIC_TYPE_LIVE";
+const DYNAMIC_TYPE_MEDIALIST = "DYNAMIC_TYPE_MEDIALIST";
+const DYNAMIC_TYPE_COURSES_SEASON = "DYNAMIC_TYPE_COURSES_SEASON";
+const DYNAMIC_TYPE_LIVE_RCMD = "DYNAMIC_TYPE_LIVE_RCMD";
+const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
 // 内容卡片类型
-/* const ADDITIONAL_TYPE_NONE = 'ADDITIONAL_TYPE_NONE'
-const ADDITIONAL_TYPE_PGC = 'ADDITIONAL_TYPE_PGC'
-const ADDITIONAL_TYPE_GOODS = 'ADDITIONAL_TYPE_GOODS'
-const ADDITIONAL_TYPE_VOTE = 'ADDITIONAL_TYPE_VOTE'
-const ADDITIONAL_TYPE_COMMON = 'ADDITIONAL_TYPE_COMMON'
-const ADDITIONAL_TYPE_MATCH = 'ADDITIONAL_TYPE_MATCH'
-const ADDITIONAL_TYPE_UP_RCMD = 'ADDITIONAL_TYPE_UP_RCMD'
-const ADDITIONAL_TYPE_UGC = 'ADDITIONAL_TYPE_UGC' */
-const ADDITIONAL_TYPE_RESERVE = 'ADDITIONAL_TYPE_RESERVE'
+const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
 
 class GenerateImg extends Service {
-    static inject = ['puppeteer', 'ba']
-    giConfig: GenerateImg.Config
+	static inject = ["puppeteer", "ba"];
+	giConfig: GenerateImg.Config;
 
-    constructor(ctx: Context, config: GenerateImg.Config) {
-        super(ctx, 'gi')
-        this.giConfig = config
-    }
+	constructor(ctx: Context, config: GenerateImg.Config) {
+		super(ctx, "gi");
+		this.giConfig = config;
+	}
 
-    async generateLiveImg(data: any, username: string, userface: string, liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/) {
-        const [titleStatus, liveTime, cover] = await this.getLiveStatus(data.live_time, liveStatus)
-        // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
-        // 卡片内容
-        const html = `
+	async imgHandler(html: string) {
+		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
+		const page = await this.ctx.puppeteer.page();
+		await page.goto(htmlPath);
+		await page.setContent(html, { waitUntil: "networkidle0" });
+		const elementHandle = await page.$("html");
+		const boundingBox = await elementHandle.boundingBox();
+		const buffer = await page.screenshot({
+			type: "png",
+			clip: {
+				x: boundingBox.x,
+				y: boundingBox.y,
+				width: boundingBox.width,
+				height: boundingBox.height,
+			},
+		});
+		await elementHandle.dispose();
+		await page.close();
+		return buffer;
+	}
+
+	async generateLiveImg(
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		data: any,
+		username: string,
+		userface: string,
+		followerDisplay: string,
+		liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/,
+		{
+			cardColorStart = this.giConfig.cardColorStart,
+			cardColorEnd = this.giConfig.cardColorEnd,
+			cardBasePlateColor = this.giConfig.cardBasePlateColor,
+			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+		},
+	) {
+		const [titleStatus, liveTime, cover] = await this.getLiveStatus(
+			data.live_time,
+			liveStatus,
+		);
+		// 加载字体
+		const fontURL = pathToFileURL(
+			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
+		);
+		// 卡片内容
+		const html = /* html */ `
             <!DOCTYPE html>
             <html>
             <head>
@@ -73,7 +97,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -85,7 +109,7 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: auto;
                         padding: 15px;
-                        background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                        background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                         overflow: hidden;
                     }
         
@@ -93,11 +117,11 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: auto;
                         box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                        padding: 15px;
+                        padding: ${cardBasePlateBorder};
                         border-radius: 10px;
-                        background-color: #FFF5EE;
+                        background-color: ${cardBasePlateColor};
                     }
-        
+
                     .card {
                         width: 100%;
                         height: auto;
@@ -169,7 +193,7 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div ${this.giConfig.removeBorder ? '' : 'class="base-plate"'}>
+                    <div ${this.giConfig.removeBorder ? "" : 'class="base-plate"'}>
                         <div class="card">
                             <img src="${cover ? data.user_cover : data.keyframe}"
                             alt="封面">
@@ -183,13 +207,29 @@ class GenerateImg extends Service {
                                         <span class="broadcast-message">${username}${titleStatus}</span>
                                     </div>
                                 </div>
-                                ${this.giConfig.hideDesc ? '' : `<p class="card-text">${data.description ? data.description : '这个主播很懒，什么都简介都没写'}</p>`}
+                                ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
                                 <p class="card-link">
-                                    ${liveStatus !== 3 ? `<span>人气：${data.online > 10000 ? `${(data.online / 10000).toFixed(1)}万` : data.online}</span>` : null}
+                                    <span>人气：${data.online > 10000 ? `${(data.online / 10000).toFixed(1)}万` : data.online}</span>
                                     <span>分区名称：${data.area_name}</span>
                                 </p>
                                 <p class="card-link">
                                     <span>${liveTime}</span>
+                                    ${
+																			this.giConfig.followerDisplay
+																				? /* html */ `
+                                        <span>
+                                        ${
+																					liveStatus === 1
+																						? `当前粉丝数：${followerDisplay}`
+																						: liveStatus === 2
+																							? `累计观看人数：${followerDisplay}`
+																							: liveStatus === 3
+																								? `粉丝数变化：${followerDisplay}`
+																								: ""
+																				}
+                                        </span>`
+																				: ""
+																		}
                                 </p>
                             </div>
                         </div>
@@ -197,118 +237,110 @@ class GenerateImg extends Service {
                 </div>
             </body>
             </html>
-        `
-        // 多次尝试生成图片
-        const attempts = 3
-        for (let i = 0; i < attempts; i++) {
-            try {
-                // 判断渲染方式
-                if (this.giConfig.renderType) { // 为1则为真，进入page模式
-                    const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
-                    const page = await this.ctx.puppeteer.page()
-                    await page.goto(htmlPath)
-                    await page.setContent(html, { waitUntil: 'networkidle0' })
-                    const elementHandle = await page.$('html')
-                    const boundingBox = await elementHandle.boundingBox()
-                    const buffer = await page.screenshot({
-                        type: 'png',
-                        clip: {
-                            x: boundingBox.x,
-                            y: boundingBox.y,
-                            width: boundingBox.width,
-                            height: boundingBox.height
-                        }
-                    })
-                    await elementHandle.dispose();
-                    await page.close()
-                    return { buffer }
-                }
-                // 使用render模式渲染
-                const pic = await this.ctx.puppeteer.render(html)
-                return { pic }
-            } catch (e) {
-                if (i === attempts - 1) { // 已尝试三次
-                    throw new Error('生成图片失败！错误: ' + e.toString())
-                }
-            }
-        }
-    }
+        `;
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
 
-    async generateDynamicImg(data: any) {
-        // module_author
-        const module_author = data.modules.module_author
-        const avatarUrl = module_author.face
-        const upName = module_author.name
-        let pubTime = this.unixTimestampToString(module_author.pub_ts)
-        // dynamicCard
-        let dynamicCardUrl: string
-        let dynamicCardId: number
-        let dynamicCardColor: string
-        if (module_author.decorate) {
-            dynamicCardUrl = module_author.decorate.card_url
-            dynamicCardId = module_author.decorate.fan.num_str
-            dynamicCardColor = module_author.decorate.fan.color
-        }
-        // module_stat
-        const module_stat = data.modules.module_stat
-        const comment = module_stat.comment.count
-        const forward = module_stat.forward.count
-        const like = module_stat.like.count
-        // TOPIC
-        const topic = data.modules.module_dynamic.topic ? data.modules.module_dynamic.topic.name : ''
+	async generateDynamicImg(
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		data: any,
+		{
+			cardColorStart = this.giConfig.cardColorStart,
+			cardColorEnd = this.giConfig.cardColorEnd,
+			cardBasePlateColor = this.giConfig.cardBasePlateColor,
+			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+		},
+	) {
+		// module_author
+		const module_author = data.modules.module_author;
+		const avatarUrl = module_author.face;
+		const upName = module_author.name;
+		let pubTime = this.unixTimestampToString(module_author.pub_ts);
+		// dynamicCard
+		let dynamicCardUrl: string;
+		let dynamicCardId: number;
+		let dynamicCardColor: string;
+		if (module_author.decorate) {
+			dynamicCardUrl = module_author.decorate.card_url;
+			dynamicCardId = module_author.decorate.fan.num_str;
+			dynamicCardColor = module_author.decorate.fan.color;
+		}
+		// module_stat
+		const module_stat = data.modules.module_stat;
+		const comment = module_stat.comment.count;
+		const forward = module_stat.forward.count;
+		const like = module_stat.like.count;
+		// TOPIC
+		const topic = data.modules.module_dynamic.topic
+			? data.modules.module_dynamic.topic.name
+			: "";
 
-        const getDynamicMajor = async (dynamicMajorData: any, forward: boolean): Promise<[string, string, string?]> => {
-            // 定义返回值
-            let main: string = ''
-            let link: string = ''
-            // 定义forward类型返回值
-            let forwardInfo: string
+		const getDynamicMajor = async (
+			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			dynamicMajorData: any,
+			forward: boolean,
+		): Promise<[string, string, string?]> => {
+			// 定义返回值
+			let main = "";
+			let link = "";
+			// 定义forward类型返回值
+			let forwardInfo: string;
 
-            // 最基本的图文处理
-            const basicDynamic = () => {
-                const module_dynamic = dynamicMajorData.modules.module_dynamic
-                if (module_dynamic.desc) {
-                    const richText = module_dynamic.desc.rich_text_nodes.reduce((accumulator, currentValue) => {
-                        if (currentValue.emoji) {
-                            return accumulator + `<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`
-                        } else {
-                            return accumulator + currentValue.text
-                        }
-                    }, '');
-                    // 关键字和正则屏蔽
-                    if (this.giConfig.filter.enable) { // 开启动态屏蔽功能
-                        if (this.giConfig.filter.regex) { // 正则屏蔽
-                            const reg = new RegExp(this.giConfig.filter.regex)
-                            if (reg.test(richText)) throw new Error('出现关键词，屏蔽该动态')
-                        }
-                        if (this.giConfig.filter.keywords.length !== 0 &&
-                            this.giConfig.filter.keywords
-                                .some(keyword => richText.includes(keyword))) {
-                            throw new Error('出现关键词，屏蔽该动态')
-                        }
-                    }
-                    // 查找\n
-                    const text = richText.replace(/\n/g, '<br>');
-                    // 拼接字符串
-                    if (text) {
-                        main += `
+			// 最基本的图文处理
+			const basicDynamic = () => {
+				const module_dynamic = dynamicMajorData.modules.module_dynamic;
+				if (module_dynamic.desc) {
+					const richText = module_dynamic.desc.rich_text_nodes.reduce(
+						(accumulator, currentValue) => {
+							if (currentValue.emoji) {
+								return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
+							}
+							return accumulator + currentValue.text;
+						},
+						"",
+					);
+					// 关键字和正则屏蔽
+					if (this.giConfig.filter.enable) {
+						// 开启动态屏蔽功能
+						if (this.giConfig.filter.regex) {
+							// 正则屏蔽
+							const reg = new RegExp(this.giConfig.filter.regex);
+							if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
+						}
+						if (
+							this.giConfig.filter.keywords.length !== 0 &&
+							this.giConfig.filter.keywords.some((keyword) =>
+								richText.includes(keyword),
+							)
+						) {
+							throw new Error("出现关键词，屏蔽该动态");
+						}
+					}
+					// 查找\n
+					const text = richText.replace(/\n/g, "<br>");
+					// 拼接字符串
+					if (text) {
+						main += /* html */ `
                             <div class="card-details">
                                 ${text}
                             </div>
-                        `
-                    }
-                }
+                        `;
+					}
+				}
 
-                // 图片
-                let major: string = ''
-                const arrowImg = pathToFileURL(resolve(__dirname, 'img/arrow.png'))
+				// 图片
+				let major = "";
+				const arrowImg = pathToFileURL(resolve(__dirname, "img/arrow.png"));
 
-                if (module_dynamic.major && module_dynamic.major.draw) {
-                    if (module_dynamic.major.draw.items.length === 1) {
-                        const height = module_dynamic.major.draw.items[0].height
-                        console.log(height);
-                        if (height > 3000) {
-                            major += `
+				if (module_dynamic.major?.draw) {
+					if (module_dynamic.major.draw.items.length === 1) {
+						const height = module_dynamic.major.draw.items[0].height;
+						if (height > 3000) {
+							major += /* html */ `
                                 <div class="single-photo-container">
                                     <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
                                     <div class="single-photo-mask">
@@ -316,83 +348,89 @@ class GenerateImg extends Service {
                                     </div>
                                     <img class="single-photo-mask-arrow" src="${arrowImg}"/>
                                 </div>
-                            `
-                        } else {
-                            major += `
+                            `;
+						} else {
+							major += /* html */ `
                                 <div class="single-photo-container">
                                     <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
                                 </div>
-                            `
-                        }
-                    } else if (module_dynamic.major.draw.items.length === 4) {
-                        major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-                            return acc + `<img class="four-photo-item" src="${cV.src}"/>`
-                        }, '')
-                    } else {
-                        major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-                            return acc + `<img class="photo-item" src="${cV.src}"/>`
-                        }, '')
-                    }
+                            `;
+						}
+					} else if (module_dynamic.major.draw.items.length === 4) {
+						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
+							return /* html */ `${acc}<img class="four-photo-item" src="${cV.src}"/>`;
+						}, "");
+					} else {
+						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
+							return /* html */ `${acc}<img class="photo-item" src="${cV.src}"/>`;
+						}, "");
+					}
 
-                    main += `
+					main += /* html */ `
                         <div class="card-major">
                             ${major}
                         </div>
-                        `
-                }
-            }
+                        `;
+				}
+			};
 
-            // 判断动态类型
-            switch (dynamicMajorData.type) {
-                case DYNAMIC_TYPE_WORD:
-                case DYNAMIC_TYPE_DRAW:
-                case DYNAMIC_TYPE_FORWARD: {
-                    // DYNAMIC_TYPE_DRAW 带图动态 DYNAMIC_TYPE_WORD 文字动态 DYNAMIC_TYPE_FORWARD 转发动态
-                    basicDynamic()
-                    // 转发动态
-                    if (dynamicMajorData.type === DYNAMIC_TYPE_FORWARD) {
-                        //转发动态屏蔽
-                        if (this.giConfig.filter.enable && this.giConfig.filter.forward) {
-                            throw new Error('已屏蔽转发动态')
-                        }
-                        // User info
-                        const forward_module_author = dynamicMajorData.orig.modules.module_author
-                        const forwardUserAvatarUrl = forward_module_author.face
-                        const forwardUserName = forward_module_author.name
-                        // 获取转发的动态
-                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                        const [forwardMain, _, forwardInfo] = await getDynamicMajor(dynamicMajorData.orig, true)
-                        // 拼接main
-                        main += `
+			// 判断动态类型
+			switch (dynamicMajorData.type) {
+				case DYNAMIC_TYPE_WORD:
+				case DYNAMIC_TYPE_DRAW:
+				case DYNAMIC_TYPE_FORWARD: {
+					// DYNAMIC_TYPE_DRAW 带图动态 DYNAMIC_TYPE_WORD 文字动态 DYNAMIC_TYPE_FORWARD 转发动态
+					basicDynamic();
+					// 转发动态
+					if (dynamicMajorData.type === DYNAMIC_TYPE_FORWARD) {
+						//转发动态屏蔽
+						if (this.giConfig.filter.enable && this.giConfig.filter.forward) {
+							throw new Error("已屏蔽转发动态");
+						}
+						// User info
+						const forward_module_author =
+							dynamicMajorData.orig.modules.module_author;
+						const forwardUserAvatarUrl = forward_module_author.face;
+						const forwardUserName = forward_module_author.name;
+						// 获取转发的动态
+						// eslint-disable-next-line @typescript-eslint/no-unused-vars
+						const [forwardMain, _, forwardInfo] = await getDynamicMajor(
+							dynamicMajorData.orig,
+							true,
+						);
+						// 拼接main
+						main += /* html */ `
                         <div class="card-forward">
                             <div class="forward-userinfo">
                                 <img class="forward-avatar" src="${forwardUserAvatarUrl}" alt="avatar">
-                                <span class="forward-username">${forwardUserName} ${forwardInfo ? forwardInfo : ''}</span>
+                                <span class="forward-username">${forwardUserName} ${forwardInfo ? forwardInfo : ""}</span>
                             </div>
                             <div class="forward-main">
                                 ${forwardMain}
                             </div>
                         </div>
-                        `
-                    }
-                    // 判断是否有附加信息
-                    if (dynamicMajorData.modules.module_dynamic.additional) {
-                        const additional = dynamicMajorData.modules.module_dynamic.additional
-                        // 有附加信息，判断类型
-                        switch (additional.type) {
-                            case ADDITIONAL_TYPE_RESERVE: { // 预约信息
-                                const reserve = additional.reserve
-                                // 定义按钮
-                                let button: string
-                                // 判断按钮类型
-                                if (reserve.button.uncheck.text === '已结束') {
-                                    button = `
+                        `;
+					}
+					// 判断是否有附加信息
+					if (dynamicMajorData.modules.module_dynamic.additional) {
+						const additional =
+							dynamicMajorData.modules.module_dynamic.additional;
+						// 有附加信息，判断类型
+						switch (additional.type) {
+							case ADDITIONAL_TYPE_RESERVE: {
+								// 预约信息
+								const reserve = additional.reserve;
+								// 定义按钮
+								let button: string;
+								// 判断按钮类型
+								if (reserve.button.uncheck.text === "已结束") {
+									button = /* html */ `
                                         <button class="reserve-button-end">
                                             <span>${reserve.button.uncheck.text}</span>
                                         </button>
-                                    `
-                                } else {
-                                    button = `
+                                    `;
+								} else {
+									button = /* html */ `
                                         <button class="reserve-button-ing">
                                             <svg class="bili-dyn-card-reserve__action__icon" style="width: 16px; height: 16px;"
                                                 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -409,10 +447,10 @@ class GenerateImg extends Service {
                                             </svg>
                                             <span>${reserve.button.uncheck.text}</span>
                                         </button>
-                                    `
-                                }
+                                    `;
+								}
 
-                                main += `
+								main += /* html */ `
                                 <div class="card-reserve">
                                     <div class="reserve-main">
                                         <div class="reserve-title">
@@ -423,8 +461,9 @@ class GenerateImg extends Service {
                                                 <span class="reserve-time">${reserve.desc1.text}</span>
                                                 <span class="reserve-num">${reserve.desc2.text}</span>
                                             </div>
-                                            ${reserve.desc3 ?
-                                        `<div class="reserve-prize">
+                                            ${
+																							reserve.desc3
+																								? `<div class="reserve-prize">
                                                         <svg class="bili-dyn-card-reserve__lottery__icon"
                                                             style="width: 16px; height: 16px;" xmlns="http://www.w3.org/2000/svg"
                                                             xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 16 16" width="16"
@@ -453,35 +492,37 @@ class GenerateImg extends Service {
                                                                 d="M4.359835 1.609835C4.21339 1.756285 4.21339 1.99372 4.359835 2.140165L8.0429 5.823225C8.140525 5.920875 8.140525 6.079125 8.0429 6.176775L4.359835 9.859825C4.21339 10.006275 4.21339 10.243725 4.359835 10.390175C4.506285 10.5366 4.743725 10.5366 4.89017 10.390175L8.573225 6.7071C8.96375 6.316575 8.96375 5.683425 8.573225 5.2929L4.89017 1.609835C4.743725 1.46339 4.506285 1.46339 4.359835 1.609835z"
                                                                 fill="currentColor"></path>
                                                         </svg>
-                                                    </div>` : ''
-                                    }
+                                                    </div>`
+																								: ""
+																						}
                                         </div>
                                     </div>
                                     <div class="reserve-button">
                                         ${button}
                                     </div>
                                 </div>
-                                `
-                            }
-                        }
-                    }
+                                `;
+							}
+						}
+					}
 
-                    link += `请将$替换为. www$bilibili$com/opus/${dynamicMajorData.id_str}`
-                    break
-                }
-                case DYNAMIC_TYPE_AV: { // 投稿新视频
-                    // 处理文字
-                    basicDynamic()
-                    const archive = dynamicMajorData.modules.module_dynamic.major.archive
-                    if (archive.badge.text === '投稿视频') {
-                        if (forward) {
-                            forwardInfo = '投稿了视频'
-                        } else {
-                            pubTime = `${pubTime} · 投稿了视频`
-                        }
-                    }
+					link += `请将$替换为. www$bilibili$com/opus/${dynamicMajorData.id_str}`;
+					break;
+				}
+				case DYNAMIC_TYPE_AV: {
+					// 投稿新视频
+					// 处理文字
+					basicDynamic();
+					const archive = dynamicMajorData.modules.module_dynamic.major.archive;
+					if (archive.badge.text === "投稿视频") {
+						if (forward) {
+							forwardInfo = "投稿了视频";
+						} else {
+							pubTime = `${pubTime} · 投稿了视频`;
+						}
+					}
 
-                    main += `
+					main += /* html */ `
                     <div class="card-video">
                         <div class="video-cover">
                             <img src="${archive.cover}"
@@ -537,43 +578,54 @@ class GenerateImg extends Service {
                             </div>
                         </div>
                     </div>
-                    `
+                    `;
 
-                    link = `请将$替换为. www$bilibili$com/video/${archive.bvid}`
-                    break
-                }
-                case DYNAMIC_TYPE_LIVE: return [`${upName}发起了直播预约，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_MEDIALIST: return [`${upName}分享了收藏夹，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_PGC: return [`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_ARTICLE: return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_MUSIC: return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_COMMON_SQUARE: return [`${upName}发布了装扮｜剧集｜点评｜普通分享，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_COURSES_SEASON: return [`${upName}发布了新课程，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_UGC_SEASON: return [`${upName}更新了合集，我暂时无法渲染，请自行查看`, link]
-                case DYNAMIC_TYPE_NONE: return [`${upName}发布了一条无效动态`, link]
-                // 直播开播，不做处理
-                case DYNAMIC_TYPE_LIVE_RCMD: throw new Error('直播开播动态，不做处理')
-                case DYNAMIC_TYPE_SUBSCRIPTION_NEW:
-                case DYNAMIC_TYPE_BANNER:
-                case DYNAMIC_TYPE_SUBSCRIPTION:
-                case DYNAMIC_TYPE_APPLET:
-                case DYNAMIC_TYPE_AD:
-                case DYNAMIC_TYPE_COURSES_BATCH:
-                case DYNAMIC_TYPE_COURSES:
-                case DYNAMIC_TYPE_COMMON_VERTICAL:
-                default: return [`${upName}发布了一条我无法识别的动态，请自行查看`, '']
-            }
-            return [main, link, forwardInfo]
-        }
+					link = `请将$替换为. www$bilibili$com/video/${archive.bvid}`;
+					break;
+				}
+				case DYNAMIC_TYPE_LIVE:
+					return [`${upName}发起了直播预约，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_MEDIALIST:
+					return [`${upName}分享了收藏夹，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_PGC:
+					return [
+						`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`,
+						link,
+					];
+				case DYNAMIC_TYPE_ARTICLE:
+					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_MUSIC:
+					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_COMMON_SQUARE:
+					return [
+						`${upName}发布了装扮｜剧集｜点评｜普通分享，我暂时无法渲染，请自行查看`,
+						link,
+					];
+				case DYNAMIC_TYPE_COURSES_SEASON:
+					return [`${upName}发布了新课程，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_UGC_SEASON:
+					return [`${upName}更新了合集，我暂时无法渲染，请自行查看`, link];
+				case DYNAMIC_TYPE_NONE:
+					return [`${upName}发布了一条无效动态`, link];
+				// 直播开播，不做处理
+				case DYNAMIC_TYPE_LIVE_RCMD:
+					throw new Error("直播开播动态，不做处理");
+				default:
+					return [`${upName}发布了一条我无法识别的动态，请自行查看`, ""];
+			}
+			return [main, link, forwardInfo];
+		};
 
-        // 获取动态主要内容
-        const [main, link] = await getDynamicMajor(data, false)
-        // 加载字体
-        const fontURL = pathToFileURL(resolve(__dirname, 'font/HYZhengYuan-75W.ttf'))
-        // 判断是否开启大字体模式
-        let style: string
-        if (this.giConfig.enableLargeFont) {
-            style = `
+		// 获取动态主要内容
+		const [main, link] = await getDynamicMajor(data, false);
+		// 加载字体
+		const fontURL = pathToFileURL(
+			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
+		);
+		// 判断是否开启大字体模式
+		let style: string;
+		if (this.giConfig.enableLargeFont) {
+			style = /* css */ `
             @font-face {
                 font-family: "Custom Font";
                 src: url(${fontURL});
@@ -583,7 +635,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -595,7 +647,7 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 padding: 15px;
-                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                 overflow: hidden;
             }
 
@@ -603,9 +655,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: 15px;
+                padding: ${cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: #FFF5EE;
+                background-color: ${cardBasePlateColor};
             }
 
             .card {
@@ -935,9 +987,9 @@ class GenerateImg extends Service {
                 color: #FFF;
                 background-color: #00A0D8;
             }
-            `
-        } else {
-            style = `
+            `;
+		} else {
+			style = /* css */ `
             @font-face {
                 font-family: "Custom Font";
                 src: url(${fontURL});
@@ -947,7 +999,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -959,7 +1011,7 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 padding: 15px;
-                background: linear-gradient(to right bottom, ${this.giConfig.cardColorStart}, ${this.giConfig.cardColorEnd});
+                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
                 overflow: hidden;
             }
 
@@ -967,9 +1019,9 @@ class GenerateImg extends Service {
                 width: 100%;
                 height: auto;
                 box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: 15px;
+                padding: ${cardBasePlateBorder};
                 border-radius: 10px;
-                background-color: #FFF5EE;
+                background-color: ${cardBasePlateColor};
             }
     
             .card {
@@ -1300,10 +1352,10 @@ class GenerateImg extends Service {
                 color: #FFF;
                 background-color: #00A0D8;
             }
-            `
-        }
-        // 定义卡片内容
-        const html = `
+            `;
+		}
+		// 定义卡片内容
+		const html = /* html */ `
             <!DOCTYPE html>
             <html>
             <head>
@@ -1314,7 +1366,7 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div ${this.giConfig.removeBorder ? '' : 'class="base-plate"'}>
+                    <div ${this.giConfig.removeBorder ? "" : 'class="base-plate"'}>
                         <div class="card">
                             <div class="card-body">
                                 <!-- 主播头像 -->
@@ -1324,24 +1376,32 @@ class GenerateImg extends Service {
                                 <div class="card-content">
                                     <div class="card-header">
                                         <div class="up-info">
-                                            <div class="up-name" style="${module_author.vip.type !== 0 ? 'color: #FB7299' : ''}">${upName}</div>
+                                            <div class="up-name" style="${module_author.vip.type !== 0 ? "color: #FB7299" : ""}">${upName}</div>
                                             <div class="pub-time">${pubTime}</div>
                                         </div>
-                                        ${module_author.decorate ? `
+                                        ${
+																					module_author.decorate
+																						? `
                                         <div class="dress-up">
                                             <img src="${dynamicCardUrl}" />
                                             <span>${dynamicCardId}</span>
                                         </div>
-                                        ` : ''}
+                                        `
+																						: ""
+																				}
                                     </div>
                                     <div class="card-topic">
-                                        ${topic ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                                        ${
+																					topic
+																						? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
                                         class="bili-dyn-topic__icon">
                                         <path fill-rule="evenodd" clip-rule="evenodd"
                                             d="M11.4302 2.57458C11.4416 2.51023 11.4439 2.43974 11.4218 2.3528C11.3281 1.98196 10.9517 1.72037 10.5284 1.7527C10.432 1.76018 10.3599 1.78383 10.297 1.81376C10.2347 1.84398 10.1832 1.88155 10.1401 1.92465C10.1195 1.94485 10.1017 1.96692 10.0839 1.98897L10.0808 1.99289L10.0237 2.06277L9.91103 2.2033C9.76177 2.39141 9.61593 2.58191 9.47513 2.77556C9.33433 2.96936 9.19744 3.16585 9.06672 3.36638C9.00275 3.46491 8.93968 3.56401 8.87883 3.66461L8.56966 3.6613C8.00282 3.6574 7.43605 3.65952 6.86935 3.67034C6.80747 3.56778 6.74325 3.46677 6.67818 3.3664C6.54732 3.16585 6.41045 2.96934 6.26968 2.77568C6.12891 2.58186 5.98309 2.39134 5.83387 2.20322L5.72122 2.06268L5.66416 1.99279L5.6622 1.99036C5.64401 1.96783 5.62586 1.94535 5.60483 1.92454C5.56192 1.88144 5.51022 1.84388 5.44797 1.81364C5.38522 1.78386 5.31305 1.76006 5.21665 1.75273C4.80555 1.72085 4.4203 1.97094 4.32341 2.35273C4.30147 2.43968 4.30358 2.51018 4.31512 2.57453C4.32715 2.63859 4.34975 2.69546 4.38112 2.74649C4.39567 2.77075 4.41283 2.79315 4.42999 2.81557C4.43104 2.81694 4.43209 2.81831 4.43314 2.81968L4.48759 2.89122L4.59781 3.03355C4.74589 3.22242 4.89739 3.40905 5.05377 3.59254C5.09243 3.63788 5.13136 3.68306 5.17057 3.72785C4.99083 3.73681 4.81112 3.7467 4.63143 3.75756C4.41278 3.771 4.19397 3.78537 3.97547 3.80206L3.64757 3.82786L3.48362 3.84177L3.39157 3.85181C3.36984 3.8543 3.34834 3.8577 3.32679 3.86111C3.31761 3.86257 3.30843 3.86402 3.29921 3.86541C3.05406 3.90681 2.81526 3.98901 2.59645 4.10752C2.37765 4.22603 2.17867 4.38039 2.00992 4.56302C1.84117 4.74565 1.70247 4.95593 1.60144 5.18337C1.50025 5.4105 1.43687 5.65447 1.41362 5.90153C1.33103 6.77513 1.27663 7.6515 1.25742 8.5302C1.23758 9.40951 1.25835 10.2891 1.3098 11.1655C1.32266 11.3846 1.33738 11.6035 1.35396 11.8223L1.38046 12.1505L1.39472 12.3144L1.39658 12.335L1.39906 12.3583L1.40417 12.4048C1.40671 12.4305 1.41072 12.4558 1.41473 12.4811C1.41561 12.4866 1.41648 12.4922 1.41734 12.4977C1.45717 12.7449 1.53806 12.9859 1.65567 13.2074C1.77314 13.4289 1.92779 13.6304 2.11049 13.8022C2.29319 13.974 2.50441 14.1159 2.73329 14.2197C2.96201 14.3235 3.2084 14.3901 3.45836 14.4135C3.47066 14.415 3.48114 14.4159 3.49135 14.4167C3.49477 14.417 3.49817 14.4173 3.50159 14.4176L3.5425 14.4212L3.62448 14.4283L3.78843 14.4417L4.11633 14.4674C4.33514 14.4831 4.55379 14.4983 4.7726 14.5111C6.52291 14.6145 8.27492 14.6346 10.0263 14.5706C10.4642 14.5547 10.9019 14.5332 11.3396 14.5062C11.5584 14.4923 11.7772 14.4776 11.9959 14.4604L12.3239 14.434L12.4881 14.4196L12.5813 14.4093C12.6035 14.4065 12.6255 14.403 12.6474 14.3995C12.6565 14.3981 12.6655 14.3966 12.6746 14.3952C12.9226 14.3527 13.1635 14.2691 13.3844 14.1486C13.6052 14.0284 13.8059 13.8716 13.9759 13.6868C14.1463 13.5022 14.2861 13.2892 14.3874 13.0593C14.4381 12.9444 14.4793 12.8253 14.5108 12.7037C14.519 12.6734 14.5257 12.6428 14.5322 12.612L14.5421 12.566L14.55 12.5196C14.5556 12.4887 14.5607 12.4578 14.5641 12.4266C14.5681 12.3959 14.5723 12.363 14.5746 12.3373C14.6642 11.4637 14.7237 10.5864 14.7435 9.70617C14.764 8.825 14.7347 7.94337 14.6719 7.06715C14.6561 6.8479 14.6385 6.62896 14.6183 6.41033L14.5867 6.08246L14.5697 5.91853L14.5655 5.87758C14.5641 5.86445 14.5618 5.8473 14.5599 5.83231C14.5588 5.8242 14.5578 5.81609 14.5567 5.80797C14.5538 5.78514 14.5509 5.76229 14.5466 5.7396C14.5064 5.49301 14.4252 5.25275 14.3067 5.03242C14.1886 4.81208 14.0343 4.61153 13.8519 4.44095C13.6695 4.27038 13.4589 4.12993 13.2311 4.02733C13.0033 3.92458 12.7583 3.85907 12.5099 3.83636C12.4974 3.83492 12.4865 3.83394 12.4759 3.833C12.4729 3.83273 12.4698 3.83246 12.4668 3.83219L12.4258 3.82879L12.3438 3.82199L12.1798 3.80886L11.8516 3.78413C11.633 3.76915 11.4143 3.75478 11.1955 3.74288C10.993 3.73147 10.7904 3.72134 10.5878 3.71243L10.6914 3.59236C10.8479 3.40903 10.9992 3.22242 11.1473 3.03341L11.2576 2.89124L11.312 2.81971C11.3136 2.81773 11.3151 2.81575 11.3166 2.81377C11.3333 2.79197 11.3501 2.77013 11.3641 2.74653C11.3954 2.6955 11.418 2.63863 11.4302 2.57458ZM9.33039 5.49268C9.38381 5.16945 9.67705 4.95281 9.98536 5.00882L9.98871 5.00944C10.2991 5.06783 10.5063 5.37802 10.4524 5.70377L10.2398 6.99039L11.3846 6.9904C11.7245 6.9904 12 7.27925 12 7.63557C12 7.99188 11.7245 8.28073 11.3846 8.28073L10.0266 8.28059L9.7707 9.82911L11.0154 9.82913C11.3553 9.82913 11.6308 10.118 11.6308 10.4743C11.6308 10.8306 11.3553 11.1195 11.0154 11.1195L9.55737 11.1195L9.32807 12.5073C9.27465 12.8306 8.98141 13.0472 8.6731 12.9912L8.66975 12.9906C8.35937 12.9322 8.1522 12.622 8.20604 12.2962L8.40041 11.1195H6.89891L6.66961 12.5073C6.61619 12.8306 6.32295 13.0472 6.01464 12.9912L6.01129 12.9906C5.7009 12.9322 5.49374 12.622 5.54758 12.2962L5.74196 11.1195L4.61538 11.1195C4.27552 11.1195 4 10.8306 4 10.4743C4 10.118 4.27552 9.82913 4.61538 9.82913L5.95514 9.82911L6.21103 8.28059L4.98462 8.28073C4.64475 8.28073 4.36923 7.99188 4.36923 7.63557C4.36923 7.27925 4.64475 6.9904 4.98462 6.9904L6.42421 6.99039L6.67193 5.49268C6.72535 5.16945 7.01859 4.95281 7.3269 5.00882L7.33025 5.00944C7.64063 5.06783 7.8478 5.37802 7.79396 5.70377L7.58132 6.99039H9.08281L9.33039 5.49268ZM8.61374 9.82911L8.86963 8.28059H7.36813L7.11225 9.82911H8.61374Z"
                                             fill="currentColor"></path>
                                         </svg>
-                                        ${topic}` : ''}
+                                        ${topic}`
+																						: ""
+																				}
                                     </div>
                                     ${main}
                                     <div class="card-stat">
@@ -1383,144 +1443,131 @@ class GenerateImg extends Service {
                 </div>
             </body>
             </html>
-        `
-        // 多次尝试生成图片
-        const attempts = 3
-        for (let i = 0; i < attempts; i++) {
-            try {
-                // 判断渲染方式
-                if (this.giConfig.renderType) { // 为1则为真，进入page模式
-                    const htmlPath = 'file://' + __dirname.replaceAll('\\', '/') + '/page/0.html';
-                    const page = await this.ctx.puppeteer.page()
-                    await page.goto(htmlPath)
-                    await page.setContent(html, { waitUntil: 'networkidle0' })
-                    const elementHandle = await page.$('html')
-                    const boundingBox = await elementHandle.boundingBox()
-                    const buffer = await page.screenshot({
-                        type: 'png',
-                        clip: {
-                            x: boundingBox.x,
-                            y: boundingBox.y,
-                            width: boundingBox.width,
-                            height: boundingBox.height
-                        }
-                    })
-                    await elementHandle.dispose();
-                    await page.close()
-                    return { buffer, link }
-                }
-                // 使用render模式渲染
-                const pic = await this.ctx.puppeteer.render(html)
-                return { pic, link }
-            } catch (e) {
-                if (i === attempts - 1) { // 已尝试三次
-                    throw new Error('生成图片失败！错误: ' + e.toString())
-                }
-            }
-        }
-    }
+        `;
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
 
-    async getLiveStatus(time: string, liveStatus: number): Promise<[string, string, boolean]> {
-        let titleStatus: string;
-        let liveTime: string;
-        let cover: boolean;
-        switch (liveStatus) {
-            case 0: {
-                titleStatus = '未直播';
-                liveTime = '未开播';
-                cover = true;
-                break;
-            }
-            case 1: {
-                titleStatus = '开播啦';
-                liveTime = `开播时间：${time}`;
-                cover = true;
-                break;
-            }
-            case 2: {
-                titleStatus = '正在直播';
-                liveTime = `直播时长：${await this.getTimeDifference(time)}`;
-                cover = false;
-                break;
-            }
-            case 3: {
-                titleStatus = '下播啦';
-                liveTime = `直播时长：${await this.getTimeDifference(time)}`;
-                cover = true;
-                break;
-            }
-        }
-        return [titleStatus, liveTime, cover]
-    }
+	async getLiveStatus(
+		time: string,
+		liveStatus: number,
+	): Promise<[string, string, boolean]> {
+		let titleStatus: string;
+		let liveTime: string;
+		let cover: boolean;
+		switch (liveStatus) {
+			case 0: {
+				titleStatus = "未直播";
+				liveTime = "未开播";
+				cover = true;
+				break;
+			}
+			case 1: {
+				titleStatus = "开播啦";
+				liveTime = `开播时间：${time}`;
+				cover = true;
+				break;
+			}
+			case 2: {
+				titleStatus = "正在直播";
+				liveTime = `直播时长：${await this.getTimeDifference(time)}`;
+				cover = false;
+				break;
+			}
+			case 3: {
+				titleStatus = "下播啦";
+				liveTime = `开播时间：${time}`;
+				cover = true;
+				break;
+			}
+		}
+		return [titleStatus, liveTime, cover];
+	}
 
-    async getTimeDifference(dateString: string) {
-        // 将日期字符串转换为Date对象
-        const date = new Date(dateString)
-        // 获取Unix时间戳（以毫秒为单位）
-        const unixTime = date.getTime() / 1000
-        // 获取当前Unix时间戳
-        const now = this.ctx.ba.getTimeOfUTC8()
-        // 计算时间差（以秒为单位）
-        const differenceInSeconds = Math.floor(now - unixTime);
-        // 获取yyyy:MM:dd HH:mm:ss
-        const days = Math.floor(differenceInSeconds / (24 * 60 * 60));
-        const hours = Math.floor((differenceInSeconds % (24 * 60 * 60)) / (60 * 60));
-        const minutes = Math.floor((differenceInSeconds % (60 * 60)) / 60);
-        const seconds = differenceInSeconds % 60;
-        // 返回格式化的字符串
-        return days ?
-            `${days} 天 ${hours}小时${minutes.toString().padStart(2, '0')}分钟${seconds.toString().padStart(2, '0')}秒` :
-            `${hours}小时${minutes.toString().padStart(2, '0')}分钟${seconds.toString().padStart(2, '0')}秒`
-    }
+	async getTimeDifference(dateString: string) {
+		// 将日期字符串转换为Date对象
+		const apiDateTime = DateTime.fromFormat(dateString, "yyyy-MM-dd HH:mm:ss", {
+			zone: "UTC+8",
+		});
+		// 获取当前时间
+		const currentDateTime = DateTime.now();
+		// 计算时间差
+		const diff = currentDateTime.diff(apiDateTime, [
+			"years",
+			"months",
+			"days",
+			"hours",
+			"minutes",
+			"seconds",
+		]);
+		const { years, months, days, hours, minutes, seconds } = diff.toObject();
+		// 按单位生成可读字符串（过滤零值）
+		const parts = [];
+		if (years !== 0) parts.push(`${Math.abs(years)}年`);
+		if (months !== 0) parts.push(`${Math.abs(months)}个月`);
+		if (days !== 0) parts.push(`${Math.abs(days)}天`);
+		if (hours !== 0) parts.push(`${Math.abs(hours)}小时`);
+		if (minutes !== 0) parts.push(`${Math.abs(minutes)}分`);
+		if (seconds !== 0) parts.push(`${Math.round(Math.abs(seconds))}秒`);
+		// 处理负值
+		const sign = diff.as("seconds") < 0 ? "-" : "";
+		// 组合结果（如果无差值返回"0秒"）
+		return parts.length > 0 ? `${sign}${parts.join("")}` : "0秒";
+	}
 
-    unixTimestampToString(timestamp: number) {
-        const date = new Date(timestamp * 1000);
-        const year = date.getFullYear();
-        const month = ("0" + (date.getMonth() + 1)).slice(-2);
-        const day = ("0" + date.getDate()).slice(-2);
-        const hours = ("0" + (date.getHours())).slice(-2);
-        const minutes = ("0" + date.getMinutes()).slice(-2);
-        const seconds = ("0" + date.getSeconds()).slice(-2);
-        return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
-    }
+	unixTimestampToString(timestamp: number) {
+		const date = new Date(timestamp * 1000);
+		const year = date.getFullYear();
+		const month = `0${date.getMonth() + 1}`.slice(-2);
+		const day = `0${date.getDate()}`.slice(-2);
+		const hours = `0${date.getHours()}`.slice(-2);
+		const minutes = `0${date.getMinutes()}`.slice(-2);
+		const seconds = `0${date.getSeconds()}`.slice(-2);
+		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
 namespace GenerateImg {
-    export interface Config {
-        renderType: number,
-        filter: {
-            enable: boolean,
-            notify: boolean,
-            regex: string,
-            keywords: Array<string>,
-            forward: boolean
-        }
-        removeBorder: boolean,
-        cardColorStart: string,
-        cardColorEnd: string,
-        enableLargeFont: boolean,
-        font: string,
-        hideDesc: boolean
-    }
+	export interface Config {
+		filter: {
+			enable: boolean;
+			notify: boolean;
+			regex: string;
+			keywords: Array<string>;
+			forward: boolean;
+		};
+		removeBorder: boolean;
+		cardColorStart: string;
+		cardColorEnd: string;
+		cardBasePlateColor: string;
+		cardBasePlateBorder: string;
+		enableLargeFont: boolean;
+		font: string;
+		hideDesc: boolean;
+		followerDisplay: boolean;
+	}
 
-    export const Config: Schema<Config> = Schema.object({
-        renderType: Schema.number(),
-        filter: Schema.object({
-            enable: Schema.boolean(),
-            notify: Schema.boolean(),
-            regex: Schema.string(),
-            keywords: Schema.array(String),
-            forward: Schema.boolean()
-        }),
-        removeBorder: Schema.boolean(),
-        cardColorStart: Schema.string(),
-        cardColorEnd: Schema.string(),
-        enableLargeFont: Schema.boolean(),
-        font: Schema.string(),
-        hideDesc: Schema.boolean()
-    })
+	export const Config: Schema<Config> = Schema.object({
+		filter: Schema.object({
+			enable: Schema.boolean(),
+			notify: Schema.boolean(),
+			regex: Schema.string(),
+			keywords: Schema.array(String),
+			forward: Schema.boolean(),
+		}),
+		removeBorder: Schema.boolean(),
+		cardColorStart: Schema.string(),
+		cardColorEnd: Schema.string(),
+		cardBasePlateColor: Schema.string(),
+		cardBasePlateBorder: Schema.string(),
+		enableLargeFont: Schema.boolean(),
+		font: Schema.string(),
+		hideDesc: Schema.boolean(),
+		followerDisplay: Schema.boolean(),
+	});
 }
 
-export default GenerateImg
-
+export default GenerateImg;
