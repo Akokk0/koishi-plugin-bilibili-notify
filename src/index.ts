@@ -378,7 +378,8 @@ export const Config: Schema<Config> = Schema.object({
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)
-						.description("是否开启自定义卡片颜色"),
+						.description("是否开启自定义卡片颜色")
+						.experimental(),
 				}),
 				Schema.union([
 					Schema.object({
