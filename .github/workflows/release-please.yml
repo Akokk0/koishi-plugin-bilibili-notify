@@ -1,0 +1,32 @@
+on:
+  push:
+    branches:
+      - main
+name: release-please
+permissions: {}
+jobs:
+  release-please:
+    permissions:
+      contents: write # to create release commit (google-github-actions/release-please-action)
+      pull-requests: write # to create release PR (google-github-actions/release-please-action)
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: node
+      # - uses: actions/checkout@v4
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      #   if: ${{ steps.release.outputs.release_created }}
+      # - run: npm install
+      #   if: ${{ steps.release.outputs.release_created }}
+      # - run: npm run build
+      #   if: ${{ steps.release.outputs.release_created }}
+      # - run: npm publish
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+      #   if: ${{ steps.release.outputs.release_created }}
