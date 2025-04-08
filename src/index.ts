@@ -226,6 +226,7 @@ export interface Config {
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	subTitle: {};
 	sub: Array<{
+		name: string;
 		uid: string;
 		dynamic: boolean;
 		live: boolean;
@@ -342,6 +343,7 @@ export const Config: Schema<Config> = Schema.object({
 
 	sub: Schema.array(
 		Schema.object({
+			name: Schema.string().description("订阅用户昵称，只是给你自己看的(相当于备注)，可填可不填"),
 			uid: Schema.string().required().description("订阅用户UID"),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
@@ -471,21 +473,21 @@ export const Config: Schema<Config> = Schema.object({
 		.description("设定间隔多长时间推送一次直播状态，单位为小时，默认为一小时"),
 
 	customLiveStart: Schema.string()
-		.default("-name开播啦，当前粉丝数：-follower -link")
+		.default("-name开播啦，当前粉丝数：-follower\\n-link")
 		.description(
-			"自定义开播提示语，-name代表UP昵称，-follower代表当前粉丝数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name开播啦，会发送为xxxUP开播啦",
+			"自定义开播提示语，-name代表UP昵称，-follower代表当前粉丝数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name开播啦，会发送为xxxUP开播啦",
 		),
 
 	customLive: Schema.string()
-		.default("-name正在直播，目前已播-time，累计看过人数：-watched -link")
+		.default("-name正在直播，目前已播-time，累计看过人数：-watched\\n-link")
 		.description(
-			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用）。例如-name正在直播，会发送为xxxUP正在直播xxx",
+			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
 		),
 
 	customLiveEnd: Schema.string()
 		.default("-name下播啦，本次直播了-time，粉丝数变化-follower_change")
 		.description(
-			"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
+			"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长，\\n为换行。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
 		),
 
 	followerDisplay: Schema.boolean()

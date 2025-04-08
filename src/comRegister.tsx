@@ -1149,6 +1149,7 @@ class ComRegister {
 						.replace("-name", masterInfo.username)
 						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 						.replace("-watched", watched)
+						.replace("\\n", "\n")
 						.replace(
 							"-link",
 							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1236,6 +1237,7 @@ class ComRegister {
 							.replace("-name", masterInfo.username)
 							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 							.replace("-follower", follower)
+							.replace("\\n", "\n")
 							.replace(
 								"-link",
 								`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1290,6 +1292,7 @@ class ComRegister {
 							.replace("-name", masterInfo.username)
 							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 							.replace("-follower_change", followerChange)
+							.replace("\\n", "\n")
 					: null;
 				// 推送通知卡片
 				await sendLiveNotifyCard(
@@ -1324,6 +1327,7 @@ class ComRegister {
 						.replace("-name", masterInfo.username)
 						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 						.replace("-watched", watched)
+						.replace("\\n", "\n")
 						.replace(
 							"-link",
 							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1514,7 +1518,7 @@ class ComRegister {
 	}
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]) {
-		for (const sub of subs) {
+		await Promise.all(subs.map(async (sub) => {
 			// logger
 			this.logger.info(`加载订阅UID:${sub.uid}中...`);
 			// 定义Data
@@ -1565,7 +1569,7 @@ class ComRegister {
 				card: sub.card,
 			});
 			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
-		}
+		}));
 	}
 
 	checkIfDynamicDetectIsNeeded() {
@@ -1578,7 +1582,7 @@ class ComRegister {
 		if (this.config.dynamicDebugMode) {
 			this.dynamicDispose = this.ctx.setInterval(
 				this.debug_dynamicDetect(),
-				5 * 1000,
+				this.config.dynamicLoopTime * 1000,
 			);
 		} else {
 			this.dynamicDispose = this.ctx.setInterval(
