@@ -298,6 +298,47 @@ class ComRegister {
 				}
 				return table;
 			});
+
+		biliCom
+			.subcommand(".sd <id:string>")
+			.usage("通过id发送指定动态")
+			.example("bili sd")
+			.action(async ( {session}, id) => {
+				// 获取liveUsers
+				const {
+					data: { item },
+				} = (await ctx.ba.getDynamic(id));
+
+				// 推送该条动态
+				const buffer = await withRetry(async () => {
+					// 渲染图片
+					return await this.ctx.gi.generateDynamicImg(item, {});
+				}, 1).catch(async (e) => {
+					if (e.message === "出现关键词，屏蔽该动态") {
+						// 如果需要发送才发送
+						if (this.config.filter.notify) {
+							await session.send(`动态含有屏蔽关键字`)
+						}
+						return;
+					}
+					if (e.message === "已屏蔽转发动态") {
+						if (this.config.filter.notify) {
+							await session.send(`转发了一条动态，已屏蔽`)
+						}
+						return;
+					}
+					// 未知错误
+					this.logger.error(
+						`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+					);
+					// 发送私聊消息并重启服务
+					await this.sendPrivateMsgAndStopService();
+				});
+				// 发送私聊消息并重启服务
+				if (!buffer) return await this.sendPrivateMsgAndStopService();
+				// 推送动态信息
+				return h.image(buffer, "image/png")
+			});
 	}
 
 	async init(config: ComRegister.Config) {
@@ -424,20 +465,20 @@ class ComRegister {
 		}; */
 
 		// Test
-		const testTarget: Target = [
-			{
-				channelIdArr: [
-					{
-						channelId: "635762054",
-						dynamic: true,
-						live: false,
-						liveGuardBuy: false,
-						atAll: false,
-					},
-				],
-				platform: "qqguild",
-			},
-		];
+		// const testTarget: Target = [
+		// 	{
+		// 		channelIdArr: [
+		// 			{
+		// 				channelId: "635762054",
+		// 				dynamic: true,
+		// 				live: false,
+		// 				liveGuardBuy: false,
+		// 				atAll: false,
+		// 			},
+		// 		],
+		// 		platform: "qqguild",
+		// 	},
+		// ];
 	}
 
 	async sendPrivateMsg(content: string) {
@@ -521,15 +562,13 @@ class ComRegister {
 			// 定义需要发送的数组
 			let sendArr: ChannelIdArr = [];
 			// 判断是否需要推送所有机器人加入的群
-			if (target.channelIdArr[0].channelId === "all") {
+			if (target.blackListMode) {
 				// 获取所有guild
 				for (const guild of (await bot.getGuildList()).data) {
+					if (target.channelIdArr.includes({ channelId: guild.id }))
+						continue
 					sendArr.push({
 						channelId: guild.id,
-						dynamic: target.channelIdArr[0].dynamic,
-						live: target.channelIdArr[0].live,
-						liveGuardBuy: target.channelIdArr[0].liveGuardBuy,
-						atAll: target.channelIdArr[0].atAll,
 					});
 				}
 			} else {
@@ -540,18 +579,18 @@ class ComRegister {
 				// 直播开播推送，判断是否需要艾特全体成员
 				for (const channel of sendArr) {
 					// 判断是否需要推送直播消息
-					if (channel.live) {
+					if (target.live) {
 						await this.sendMsgFunc(bot, channel.channelId, content);
 					}
 					// 判断是否需要艾特全体成员
-					if (channel.atAll) {
+					if (target.atAll) {
 						await this.sendMsgFunc(bot, channel.channelId, <at type="all" />);
 					}
 				}
 			} else {
 				for (const channel of sendArr) {
 					// 判断是否需要推送动态消息
-					if (channel.dynamic || channel.live) {
+					if (target.dynamic || target.live) {
 						await this.sendMsgFunc(bot, channel.channelId, content);
 					}
 				}
@@ -1119,19 +1158,7 @@ class ComRegister {
 			);
 		};
 		// 找到频道/群组对应的
-		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
-			// 获取符合条件的target
-			const liveGuardBuyArr = channel.channelIdArr.filter(
-				(channelId) => channelId.liveGuardBuy,
-			);
-			// 将当前liveDanmakuArr的长度+到channelIdArrLen中
-			channelIdArrLen += liveGuardBuyArr.length;
-			// 返回符合的target
-			return {
-				channelIdArr: liveGuardBuyArr,
-				platform: channel.platform,
-			};
-		});
+		const liveGuardBuyPushTargetArr: Target = target.filter((channel => channel.liveGuardBuy));
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
@@ -1316,7 +1343,7 @@ class ComRegister {
 			);
 		}
 		// 判断直播状态
-		if (liveRoomInfo.live_status === 1) {
+		if (liveRoomInfo.live_status === 1 && liveRoomInfo.encrypted == false) {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取当前累计观看人数
@@ -1579,17 +1606,13 @@ class ComRegister {
 
 	enableDynamicDetect() {
 		// 开始动态监测
-		if (this.config.dynamicDebugMode) {
+		this.ctx.setTimeout(
 			this.dynamicDispose = this.ctx.setInterval(
-				this.debug_dynamicDetect(),
+				this.config.dynamicDebugMode ? this.debug_dynamicDetect() : this.dynamicDetect(),
 				this.config.dynamicLoopTime * 1000,
-			);
-		} else {
-			this.dynamicDispose = this.ctx.setInterval(
-				this.dynamicDetect(),
-				this.config.dynamicLoopTime * 1000,
-			);
-		}
+			),
+			(60 - new Date().getSeconds()) * 1000 + 500
+		)
 	}
 
 	async checkIfIsLogin() {
@@ -1614,12 +1637,17 @@ namespace ComRegister {
 			target: Array<{
 				channelIdArr: Array<{
 					channelId: string;
-					dynamic: boolean;
-					live: boolean;
-					liveGuardBuy: boolean;
-					atAll: boolean;
+					// dynamic: boolean;
+					// live: boolean;
+					// liveGuardBuy: boolean;
+					// atAll: boolean;
 				}>;
 				platform: string;
+				blackListMode: boolean;
+				dynamic: boolean;
+				live: boolean;
+				liveGuardBuy: boolean;
+				atAll: boolean;
 			}>;
 			card: {
 				enable: boolean;
@@ -1666,21 +1694,36 @@ namespace ComRegister {
 						channelIdArr: Schema.array(
 							Schema.object({
 								channelId: Schema.string().description("频道/群组号"),
-								dynamic: Schema.boolean().description(
-									"该频道/群组是否推送动态信息",
-								),
-								live: Schema.boolean().description(
-									"该频道/群组是否推送直播通知",
-								),
-								liveGuardBuy: Schema.boolean().description(
-									"该频道/群组是否推送弹幕消息",
-								),
-								atAll: Schema.boolean().description(
-									"推送开播通知时是否艾特全体成员",
-								),
+								// dynamic: Schema.boolean().description(
+								// 	"该频道/群组是否推送动态信息",
+								// ),
+								// live: Schema.boolean().description(
+								// 	"该频道/群组是否推送直播通知",
+								// ),
+								// liveGuardBuy: Schema.boolean().description(
+								// 	"该频道/群组是否推送弹幕消息",
+								// ),
+								// atAll: Schema.boolean().description(
+								// 	"推送开播通知时是否艾特全体成员",
+								// ),
 							}),
 						).description("频道/群组信息"),
 						platform: Schema.string().description("推送平台"),
+						dynamic: Schema.boolean()
+							.default(false)
+							.description("对应频道/群组是否推送动态信息"),
+						live: Schema.boolean()
+							.default(false)
+							.description("对应频道/群组是否推送直播通知"),
+						liveGuardBuy: Schema.boolean()
+							.default(false)
+							.description("对应频道/群组是否推送上舰消息"),
+						atAll: Schema.boolean()
+							.default(false)
+							.description("推送开播通知时是否艾特全体成员"),
+						blackListMode: Schema.boolean()
+							.default(false)
+							.description("若勾选，则推送该平台除下列群组以外的所有群组"),
 					}),
 				).description("订阅用户需要发送的频道/群组信息"),
 				card: Schema.object({

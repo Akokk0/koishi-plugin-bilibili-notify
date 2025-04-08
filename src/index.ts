@@ -235,11 +235,16 @@ export interface Config {
 		target: Array<{
 			channelIdArr: Array<{
 				channelId: string;
-				dynamic: boolean;
-				live: boolean;
-				liveGuardBuy: boolean;
-				atAll: boolean;
+				// dynamic: boolean;
+				// live: boolean;
+				// liveGuardBuy: boolean;
+				// atAll: boolean;
 			}>;
+			blackListMode: boolean;
+			dynamic: boolean;
+			live: boolean;
+			liveGuardBuy: boolean;
+			atAll: boolean;
 			platform: string;
 		}>;
 	}>;
@@ -352,21 +357,36 @@ export const Config: Schema<Config> = Schema.object({
 					platform: Schema.string()
 						.required()
 						.description("推送平台，例如onebot、qq、discord"),
+					dynamic: Schema.boolean()
+						.default(false)
+						.description("对应频道/群组是否推送动态信息"),
+					live: Schema.boolean()
+						.default(false)
+						.description("对应频道/群组是否推送直播通知"),
+					liveGuardBuy: Schema.boolean()
+						.default(false)
+						.description("对应频道/群组是否推送上舰消息"),
+					atAll: Schema.boolean()
+						.default(false)
+						.description("推送开播通知时是否艾特全体成员"),
+					blackListMode: Schema.boolean()
+						.default(false)
+						.description("使用黑名单模式，若勾选，则推送该平台除下列群组以外的所有群组"),
 					channelIdArr: Schema.array(
 						Schema.object({
 							channelId: Schema.string().required().description("频道/群组号"),
 							dynamic: Schema.boolean()
 								.default(false)
-								.description("该频道/群组是否推送动态信息"),
+								.description("该频道/群组是否推送动态信息").deprecated(),
 							live: Schema.boolean()
 								.default(false)
-								.description("该频道/群组是否推送直播通知"),
+								.description("该频道/群组是否推送直播通知").deprecated(),
 							liveGuardBuy: Schema.boolean()
 								.default(false)
-								.description("该频道/群组是否推送上舰消息"),
+								.description("该频道/群组是否推送上舰消息").deprecated(),
 							atAll: Schema.boolean()
 								.default(false)
-								.description("推送开播通知时是否艾特全体成员"),
+								.description("推送开播通知时是否艾特全体成员").deprecated(),
 						}),
 					)
 						.role("table")
