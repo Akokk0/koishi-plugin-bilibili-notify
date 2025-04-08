@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-types */
 interface RetryOptions {
 	attempts: number;
 	onFailure?: (error: Error, attempts: number) => Promise<void> | void;

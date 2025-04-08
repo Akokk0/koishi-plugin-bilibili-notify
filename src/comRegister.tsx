@@ -19,6 +19,7 @@ import QRCode from "qrcode";
 import { withLock, withRetry } from "./utils";
 // Types
 import {
+	type AllDynamicInfo,
 	type ChannelIdArr,
 	LiveType,
 	type LiveUsers,
@@ -569,52 +570,43 @@ class ComRegister {
 		const handler = async () => {
 			// 检测启动初始化
 			if (detectSetup) {
-				// 获取动态信息
-				const data = (await this.ctx.ba.getAllDynamic()) as {
-					code: number;
-					data: {
-						has_more: boolean;
-						items: [];
-						offset: string;
-						update_baseline: string;
-						update_num: number;
-					};
-				};
+				// 使用withRetry函数进行重试
+				const content = await withRetry(async () => {
+					// 获取动态内容
+					return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
+				}, 1).catch((e) => {
+					// logger
+					this.logger.error(
+						`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
+					);
+				});
+				// content不存在则直接返回
+				if (!content) return;
 				// 判断获取动态信息是否成功
-				if (data.code !== 0) return;
+				if (content.code !== 0) return;
 				// 设置更新基线
-				updateBaseline = data.data.update_baseline;
+				updateBaseline = content.data.update_baseline;
+				// 设置第一条动态的动态ID
+				dynamicIdStr = content.data.items[0].id_str;
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
 				return;
 			}
-			// 获取用户所有动态数据
-			let updateNum: number;
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			let content: any;
-			try {
-				// 查询是否有新动态
-				const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
-				updateNum = data.data.update_num;
-				// 没有新动态或获取动态信息失败直接返回
-				if (updateNum <= 0 || data.code !== 0) return;
+			// 使用withRetry函数进行重试
+			const content = await withRetry(async () => {
 				// 获取动态内容
-				content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
-					code: number;
-					data: {
-						has_more: boolean;
-						items: [];
-						offset: string;
-						update_baseline: string;
-						update_num: number;
-					};
-				};
-			} catch (e) {
-				return this.logger.error(
-					`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
+				return (await this.ctx.ba.getAllDynamic(
+					updateBaseline,
+				)) as AllDynamicInfo;
+			}, 1).catch((e) => {
+				// logger
+				this.logger.error(
+					`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
 				);
-			}
+			});
+			// content不存在则直接返回
+			if (!content) return;
 			// 判断获取动态内容是否成功
 			if (content.code !== 0) {
 				switch (content.code) {
@@ -680,34 +672,24 @@ class ComRegister {
 			// 有新动态内容
 			const items = data.items;
 			// 检查更新的动态
-			for (let num = updateNum - 1; num >= 0; num--) {
+			for (const item of items) {
+				// 动态ID如果一致则结束循环
+				if (item.id_str === dynamicIdStr) break;
 				// 没有动态内容则直接跳过
-				if (!items[num]) continue;
+				if (!item) continue;
 				// 从动态数据中取出UP主名称、UID和动态ID
-				const upUID = items[num].modules.module_author.mid;
+				const upUID = item.modules.module_author.mid.toString();
+				const upName = item.modules.module_author.name;
+				const dynamicId = item.id_str;
 				// 寻找关注的UP主的动态
 				for (const sub of this.subManager) {
 					// 判断是否是订阅的UP主
-					// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-					if (sub.dynamic && sub.uid == upUID) {
+					if (sub.dynamic && sub.uid === upUID) {
 						// 订阅该UP主，推送该动态
-						// 判断更新动态是否为1条
-						if (updateNum === 1) {
-							// 判断dynamicIdStr是否有值，是否与当前动态ID一致
-							if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
-								// 重复动态，不再推送，直接返回
-								return;
-							}
-							// 存储该动态ID
-							dynamicIdStr = items[num].id_str;
-						}
-						// 从动态数据中取出UP主名称和动态ID
-						const upName = items[num].modules.module_author.name;
-						const dynamicId = items[num].id_str;
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(items[num], sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -738,7 +720,7 @@ class ComRegister {
 							await this.sendPrivateMsgAndStopService();
 						});
 						// 判断是否执行成功，未执行成功直接返回
-						if (!buffer) return;
+						if (!buffer) continue;
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
@@ -757,10 +739,10 @@ class ComRegister {
 						if (this.config.pushImgsInDynamic) {
 							// 判断是否为图文动态，且存在draw
 							if (
-								items[num].type === "DYNAMIC_TYPE_DRAW" &&
-								items[num].modules.module_dynamic.major?.draw
+								item.type === "DYNAMIC_TYPE_DRAW" &&
+								item.modules.module_dynamic.major?.draw
 							) {
-								for (const img of items[num].modules.module_dynamic.major.draw
+								for (const img of item.modules.module_dynamic.major.draw
 									.items) {
 									await this.sendMsg(
 										sub.target,
@@ -774,6 +756,8 @@ class ComRegister {
 					}
 				}
 			}
+			// 更新本次请求第一条动态的动态ID
+			dynamicIdStr = items[0].id_str;
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -786,62 +770,56 @@ class ComRegister {
 		let updateBaseline: string;
 		// 第一条动态的动态ID
 		let dynamicIdStr: string;
-		// 定义处理逻辑
+		// 定义handler
 		const handler = async () => {
-			console.log(`初始化状态：${detectSetup}`);
+			this.logger.info(`初始化状态：${detectSetup}`);
 			// 检测启动初始化
 			if (detectSetup) {
-				// 获取动态信息
-				const data = (await this.ctx.ba.getAllDynamic()) as {
-					code: number;
-					data: {
-						has_more: boolean;
-						items: [];
-						offset: string;
-						update_baseline: string;
-						update_num: number;
-					};
-				};
+				// 使用withRetry函数进行重试
+				const content = await withRetry(async () => {
+					// 获取动态内容
+					return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
+				}, 1).catch((e) => {
+					// logger
+					this.logger.error(
+						`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
+					);
+				});
+				// content不存在则直接返回
+				if (!content) return;
 				// 判断获取动态信息是否成功
-				if (data.code !== 0) return;
-				console.log(`更新基线：${data.data.update_baseline}`);
+				if (content.code !== 0) return;
 				// 设置更新基线
-				updateBaseline = data.data.update_baseline;
+				updateBaseline = content.data.update_baseline;
+				this.logger.info(`更新基线：${updateBaseline}`);
+				// 设置第一条动态的动态ID
+				dynamicIdStr = content.data.items[0].id_str;
+				this.logger.info(`第一条动态ID：${dynamicIdStr}`);
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
+				this.logger.info("动态检测初始化完成");
 				return;
 			}
-			// 获取用户所有动态数据
-			let updateNum: number;
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			let content: any;
-			try {
-				// 查询是否有新动态
-				const data = await this.ctx.ba.hasNewDynamic(updateBaseline);
-				updateNum = data.data.update_num;
-				// biome-ignore lint/style/noUnusedTemplateLiteral: <explanation>
-				console.log(`获取是否有新动态：`);
-				console.log(data);
-				// 没有新动态或获取动态信息失败直接返回
-				if (updateNum <= 0 || data.code !== 0) return;
+			this.logger.info(`更新基线：${updateBaseline}`);
+			this.logger.info(`第一条动态ID：${dynamicIdStr}`);
+			this.logger.info("获取动态内容中...");
+			// 使用withRetry函数进行重试
+			const content = await withRetry(async () => {
 				// 获取动态内容
-				content = (await this.ctx.ba.getAllDynamic(updateBaseline)) as {
-					code: number;
-					data: {
-						has_more: boolean;
-						items: [];
-						offset: string;
-						update_baseline: string;
-						update_num: number;
-					};
-				};
-				console.log("获取动态内容：");
-				console.log(content.data.items[0]);
-			} catch (e) {
-				return this.logger.error(
-					`dynamicDetect getUserSpaceDynamic() 发生了错误，错误为：${e.message}`,
+				return (await this.ctx.ba.getAllDynamic(
+					updateBaseline,
+				)) as AllDynamicInfo;
+			}, 1).catch((e) => {
+				// logger
+				this.logger.error(
+					`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
 				);
+			});
+			// content不存在则直接返回
+			if (!content) {
+				this.logger.error("获取动态内容失败");
+				return;
 			}
 			// 判断获取动态内容是否成功
 			if (content.code !== 0) {
@@ -901,51 +879,42 @@ class ComRegister {
 					}
 				}
 			}
+			this.logger.error("获取动态内容成功，开始检测动态");
 			// 获取数据内容
 			const data = content.data;
 			// 更新基线
 			updateBaseline = data.update_baseline;
-			console.log(`更新基线：${updateBaseline}`);
+			this.logger.info(`更新基线：${updateBaseline}`);
 			// 有新动态内容
 			const items = data.items;
 			// 检查更新的动态
-			for (let num = updateNum - 1; num >= 0; num--) {
-				// 有更新动态
-				console.log("有更新动态");
+			for (const item of items) {
+				// 动态ID如果一致则结束循环
+				if (item.id_str === dynamicIdStr) {
+					this.logger.info("动态ID与上次检测第一条一致，结束循环");
+					// 结束循环
+					this.logger.info("动态检测结束");
+					break;
+				}
 				// 没有动态内容则直接跳过
-				if (!items[num]) continue;
+				if (!item) continue;
 				// 从动态数据中取出UP主名称、UID和动态ID
-				const upName = content.data.items[num].modules.module_author.name;
-				const upUID = items[num].modules.module_author.mid;
-				const dynamicId = content.data.items[num].id_str;
-				console.log(
-					`寻找关注的UP主，当前动态UP主：${upName}，UID：${upUID}，动态ID：${dynamicId}`,
-				);
+				const upUID = item.modules.module_author.mid.toString();
+				const upName = item.modules.module_author.name;
+				const dynamicId = item.id_str;
 				// 寻找关注的UP主的动态
 				for (const sub of this.subManager) {
-					console.log(`当前订阅UP主：${sub.uid}`);
 					// 判断是否是订阅的UP主
-					// biome-ignore lint/suspicious/noDoubleEquals: <explanation>
-					if (sub.dynamic && sub.uid == upUID) {
+					if (sub.dynamic && sub.uid === upUID) {
 						// 订阅该UP主，推送该动态
-						// 判断更新动态是否为1条
-						if (updateNum === 1) {
-							// 判断dynamicIdStr是否有值，是否与当前动态ID一致
-							if (dynamicIdStr && dynamicIdStr === items[num].id_str) {
-								// 重复动态，不再推送，直接返回
-								return;
-							}
-							// 存储该动态ID
-							dynamicIdStr = items[num].id_str;
-						}
-						// 从动态数据中取出UP主名称和动态ID
-						const upName = items[num].modules.module_author.name;
-						const dynamicId = items[num].id_str;
-						console.log(`UP主名称：${upName}，动态ID：${dynamicId}`);
+						this.logger.info(
+							`寻找到需要推送的动态，订阅的UP主：${upName}(${upUID})，动态ID：${dynamicId}`,
+						);
+						this.logger.info("渲染推送卡片中...");
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(items[num], sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -963,7 +932,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.sendMsg(
 										sub.target,
-										`${upName}发布了一条转发动态，已屏蔽`,
+										`${upName}转发了一条动态，已屏蔽`,
 									);
 								}
 								return;
@@ -975,15 +944,19 @@ class ComRegister {
 							// 发送私聊消息并重启服务
 							await this.sendPrivateMsgAndStopService();
 						});
-						// 屏蔽动态直接返回
-						if (!buffer) return;
+						// 判断是否执行成功，未执行成功直接返回
+						if (!buffer) {
+							this.logger.error("渲染推送卡片失败");
+							// 下一条
+							continue;
+						}
 						// 判断是否需要发送URL
 						const dUrl = this.config.dynamicUrl
 							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
 							: "";
 						// logger
 						this.logger.info("推送动态中...");
-						// 推送动态卡片
+						// 发送推送卡片
 						await this.sendMsg(
 							sub.target,
 							<>
@@ -995,21 +968,18 @@ class ComRegister {
 						if (this.config.pushImgsInDynamic) {
 							// 判断是否为图文动态，且存在draw
 							if (
-								items[num].type === "DYNAMIC_TYPE_DRAW" &&
-								items[num].modules.module_dynamic.major?.draw
+								item.type === "DYNAMIC_TYPE_DRAW" &&
+								item.modules.module_dynamic.major?.draw
 							) {
-								// logger
 								this.logger.info("推送动态图片中...");
-								// 循环遍历图片
-								for (const img of items[num].modules.module_dynamic.major.draw
+								for (const img of item.modules.module_dynamic.major.draw
 									.items) {
 									await this.sendMsg(
 										sub.target,
 										<img src={img.src} alt="动态图片" />,
 									);
 								}
-								// logger
-								this.logger.info("推送动态图片完毕！");
+								this.logger.info("动态图片推送完毕！");
 							}
 						}
 						// logger
@@ -1017,8 +987,10 @@ class ComRegister {
 					}
 				}
 			}
+			// 更新本次请求第一条动态的动态ID
+			dynamicIdStr = items[0].id_str;
 		};
-		// 加工handler并返回
+		// 返回一个闭包函数
 		return withLock(handler);
 	}
 
@@ -1087,7 +1059,11 @@ class ComRegister {
 		return data;
 	}
 
-	async liveDetectWithListener(roomId: string, target: Target, cardStyle: SubItem["card"]) {
+	async liveDetectWithListener(
+		roomId: string,
+		target: Target,
+		cardStyle: SubItem["card"],
+	) {
 		// 定义开播时间
 		let liveTime: string;
 		// 定义定时推送定时器
@@ -1179,11 +1155,7 @@ class ComRegister {
 						)
 				: null;
 			// 发送直播通知卡片
-			await sendLiveNotifyCard(
-				LiveType.LiveBroadcast,
-				watched,
-				liveMsg,
-			);
+			await sendLiveNotifyCard(LiveType.LiveBroadcast, watched, liveMsg);
 		};
 		// 定义直播间信息获取函数
 		const useMasterAndLiveRoomInfo = async (liveType: LiveType) => {
@@ -1359,11 +1331,7 @@ class ComRegister {
 				: null;
 			// 发送直播通知卡片
 			if (this.config.restartPush) {
-				await sendLiveNotifyCard(
-					LiveType.LiveBroadcast,
-					watched,
-					liveMsg,
-				);
+				await sendLiveNotifyCard(LiveType.LiveBroadcast, watched, liveMsg);
 			}
 			// 正在直播，开启定时器，判断定时器是否已开启
 			if (!pushAtTimeTimer) {
@@ -1573,7 +1541,11 @@ class ComRegister {
 				// 判断是否订阅直播
 				if (sub.live) {
 					// 启动直播监测
-					await this.liveDetectWithListener(data.live_room.roomid, sub.target, sub.card);
+					await this.liveDetectWithListener(
+						data.live_room.roomid,
+						sub.target,
+						sub.card,
+					);
 				}
 			}
 			// 在B站中订阅该对象
@@ -1606,7 +1578,7 @@ class ComRegister {
 		if (this.config.dynamicDebugMode) {
 			this.dynamicDispose = this.ctx.setInterval(
 				this.debug_dynamicDetect(),
-				this.config.dynamicLoopTime * 1000,
+				5 * 1000,
 			);
 		} else {
 			this.dynamicDispose = this.ctx.setInterval(

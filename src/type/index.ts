@@ -65,3 +65,35 @@ export type LiveUsers = {
 	group: string;
 	items: Array<LiveUsersItem>;
 };
+
+export type AllDynamicInfo = {
+	code: number;
+	message: string;
+	data: {
+		has_more: boolean;
+		items: [{
+			id_str: string;
+			type: string;
+			modules: {
+				module_author: {
+					mid: number;
+					name: string;
+					face: string;
+				},
+				module_dynamic: {
+					major: {
+						draw: {
+							items: Array<{
+								src: string;
+								alt: string;
+							}>;
+						}
+					}
+				};
+			}
+		}];
+		offset: string;
+		update_baseline: string;
+		update_num: number;
+	};
+};
