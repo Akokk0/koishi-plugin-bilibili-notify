@@ -1240,6 +1240,16 @@ class ComRegister {
 			onLiveStart: async () => {
 				// 判断是否已经开播
 				if (liveStatus) return;
+				//判断是否加密
+				let flag = true
+				liveRoomInfo = await this.useLiveRoomInfo(roomId).catch(() => {
+					// 设置flag为false
+					flag = false;
+					// 返回空
+					return null;
+				});
+				if (flag && liveRoomInfo.encrypted)
+					return
 				// 设置开播状态为true
 				liveStatus = true;
 				// 判断是否信息是否获取成功
@@ -1286,6 +1296,8 @@ class ComRegister {
 				}
 			},
 			onLiveEnd: async () => {
+				if (!liveStatus)
+					return
 				// 将直播状态设置为false
 				liveStatus = false;
 				// 判断是否信息是否获取成功
