@@ -1619,10 +1619,13 @@ class ComRegister {
 	enableDynamicDetect() {
 		// 开始动态监测
 		this.ctx.setTimeout(
-			this.dynamicDispose = this.ctx.setInterval(
-				this.config.dynamicDebugMode ? this.debug_dynamicDetect() : this.dynamicDetect(),
-				this.config.dynamicLoopTime * 1000,
-			),
+			() => {
+				this.logger.info("开始动态监测")
+				this.dynamicDispose = this.ctx.setInterval(
+					this.config.dynamicDebugMode ? this.debug_dynamicDetect() : this.dynamicDetect(),
+					this.config.dynamicLoopTime * 1000,
+				)
+			},
 			(60 - new Date().getSeconds()) * 1000 + 500
 		)
 	}
