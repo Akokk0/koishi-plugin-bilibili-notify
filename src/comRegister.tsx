@@ -565,7 +565,9 @@ class ComRegister {
 		// 更新基线
 		let updateBaseline: string;
 		// 第一条动态的动态ID
-		let dynamicIdStr: string;
+		let dynamicIdStr1st: string;
+		// 第二条动态的动态ID
+		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
 			// 检测启动初始化
@@ -587,7 +589,12 @@ class ComRegister {
 				// 设置更新基线
 				updateBaseline = content.data.update_baseline;
 				// 设置第一条动态的动态ID
-				dynamicIdStr = content.data.items[0].id_str;
+				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
+				// 判断第二条动态是否存在
+				if (content.data?.items[1]) {
+					// 设置第二条动态的动态ID
+					dynamicIdStr2nd = content.data.items[1].id_str;
+				}
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
@@ -674,7 +681,8 @@ class ComRegister {
 			// 检查更新的动态
 			for (const item of items) {
 				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr) break;
+				if (item.id_str === dynamicIdStr1st) break;
+				if (item.id_str === dynamicIdStr2nd) break;
 				// 没有动态内容则直接跳过
 				if (!item) continue;
 				// 从动态数据中取出UP主名称、UID和动态ID
@@ -757,7 +765,8 @@ class ComRegister {
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr = items[0].id_str;
+			dynamicIdStr1st = items[0]?.id_str || "0";
+			dynamicIdStr2nd = items[1]?.id_str || "0";
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -769,7 +778,8 @@ class ComRegister {
 		// 更新基线
 		let updateBaseline: string;
 		// 第一条动态的动态ID
-		let dynamicIdStr: string;
+		let dynamicIdStr1st: string;
+		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
 			this.logger.info(`初始化状态：${detectSetup}`);
@@ -793,8 +803,10 @@ class ComRegister {
 				updateBaseline = content.data.update_baseline;
 				this.logger.info(`更新基线：${updateBaseline}`);
 				// 设置第一条动态的动态ID
-				dynamicIdStr = content.data.items[0].id_str;
-				this.logger.info(`第一条动态ID：${dynamicIdStr}`);
+				dynamicIdStr1st = content.data.items[0]?.id_str || "0";
+				dynamicIdStr2nd = content.data.items[1]?.id_str || "0";
+				this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
+				this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
@@ -802,7 +814,8 @@ class ComRegister {
 				return;
 			}
 			this.logger.info(`更新基线：${updateBaseline}`);
-			this.logger.info(`第一条动态ID：${dynamicIdStr}`);
+			this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
+			this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
 			this.logger.info("获取动态内容中...");
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
@@ -890,10 +903,11 @@ class ComRegister {
 			// 检查更新的动态
 			for (const item of items) {
 				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr) {
+				if (item.id_str === dynamicIdStr1st || item.id_str === dynamicIdStr2nd) {
+					// logger
 					this.logger.info("动态ID与上次检测第一条一致，结束循环");
-					// 结束循环
 					this.logger.info("动态检测结束");
+					// 结束循环
 					break;
 				}
 				// 没有动态内容则直接跳过
@@ -988,7 +1002,8 @@ class ComRegister {
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr = items[0].id_str;
+			dynamicIdStr1st = items[0]?.id_str || "0";
+			dynamicIdStr2nd = items[1]?.id_str || "0";
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -1617,7 +1632,7 @@ class ComRegister {
 						if (signal.aborted) return;
 						// 终止
 						controller.abort(`加载订阅UID:${sub.uid}超时`);
-					}, 10 * 1000);
+					}, this.config.subLoadTimeout * 1000);
 				});
 
 				await Promise.race([
@@ -1672,6 +1687,8 @@ class ComRegister {
 							// 订阅加载超时，取消订阅加载
 							return;
 						}
+						// 清除定时器
+						timer();
 						// 将该订阅添加到sm中
 						this.subManager.push({
 							id: +sub.uid,
@@ -1684,8 +1701,6 @@ class ComRegister {
 							dynamic: sub.dynamic,
 							card: sub.card,
 						});
-						// 清除定时器
-						timer();
 						// logger
 						this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
 					})(),
@@ -1730,6 +1745,7 @@ class ComRegister {
 
 namespace ComRegister {
 	export interface Config {
+		subLoadTimeout: number;
 		sub: Array<{
 			uid: string;
 			dynamic: boolean;
@@ -1779,6 +1795,7 @@ namespace ComRegister {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+		subLoadTimeout: Schema.number(),
 		sub: Schema.array(
 			Schema.object({
 				uid: Schema.string().description("订阅用户UID"),

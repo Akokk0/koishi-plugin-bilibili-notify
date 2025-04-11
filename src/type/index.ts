@@ -71,7 +71,7 @@ export type AllDynamicInfo = {
 	message: string;
 	data: {
 		has_more: boolean;
-		items: [{
+		items: Array<{
 			id_str: string;
 			type: string;
 			modules: {
@@ -79,7 +79,7 @@ export type AllDynamicInfo = {
 					mid: number;
 					name: string;
 					face: string;
-				},
+				};
 				module_dynamic: {
 					major: {
 						draw: {
@@ -87,11 +87,11 @@ export type AllDynamicInfo = {
 								src: string;
 								alt: string;
 							}>;
-						}
-					}
+						};
+					};
 				};
-			}
-		}];
+			};
+		}>;
 		offset: string;
 		update_baseline: string;
 		update_num: number;
