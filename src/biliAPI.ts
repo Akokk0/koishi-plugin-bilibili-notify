@@ -28,6 +28,8 @@ const GET_USER_SPACE_DYNAMIC_LIST =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space";
 const GET_ALL_DYNAMIC_LIST =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all";
+const GET_DYNAMIC_DETAIL =
+	"https://api.bilibili.com/x/polymer/web-dynamic/v1/detail"
 const HAS_NEW_DYNAMIC =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update";
 const GET_COOKIES_INFO =
@@ -38,8 +40,8 @@ const GET_LOGIN_QRCODE =
 	"https://passport.bilibili.com/x/passport-login/web/qrcode/generate";
 const GET_LOGIN_STATUS =
 	"https://passport.bilibili.com/x/passport-login/web/qrcode/poll";
-const GET_LIVE_ROOM_INFO =
-	"https://api.live.bilibili.com/room/v1/Room/get_info";
+const GET_LIVE_ROOM_INIT =
+	"https://api.live.bilibili.com/room/v1/Room/room_init";
 const GET_MASTER_INFO =
 	"https://api.live.bilibili.com/live_user/v1/Master/info";
 const GET_TIME_NOW = "https://api.bilibili.com/x/report/click/now";
@@ -343,6 +345,20 @@ class BiliAPI extends Service {
 		attempts: 3,
 		onFailure(error, attempts) {
 			this.logger.error(
+				`getAllDynamic() 第${attempts}次失败: ${error.message}`,
+			);
+		},
+	})
+	async getDynamic(id: string) {
+		let url = GET_DYNAMIC_DETAIL + "?id=" + id;
+		const { data } = await this.client.get(url);
+		return data;
+	}
+
+	@Retry({
+		attempts: 3,
+		onFailure(error, attempts) {
+			this.logger.error(
 				`hasNewDynamic() 第${attempts}次失败: ${error.message}`,
 			);
 		},
@@ -506,7 +522,7 @@ class BiliAPI extends Service {
 	})
 	async getLiveRoomInfo(roomId: string) {
 		const { data } = await this.client.get(
-			`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`,
+			`${GET_LIVE_ROOM_INIT}?id=${roomId}`,
 		);
 		return data;
 	}

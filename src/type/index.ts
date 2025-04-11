@@ -8,15 +8,20 @@ export enum LiveType {
 
 export type ChannelIdArr = Array<{
 	channelId: string;
-	dynamic: boolean;
-	live: boolean;
-	liveGuardBuy: boolean;
-	atAll: boolean;
+	// dynamic: boolean;
+	// live: boolean;
+	// liveGuardBuy: boolean;
+	// atAll: boolean;
 }>;
 
 export type TargetItem = {
 	channelIdArr: ChannelIdArr;
 	platform: string;
+	dynamic: boolean;
+	live: boolean;
+	liveGuardBuy: boolean;
+	atAll: boolean;
+	blackListMode: boolean;
 };
 
 export type Target = Array<TargetItem>;
