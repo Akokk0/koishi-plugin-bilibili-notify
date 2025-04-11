@@ -565,7 +565,9 @@ class ComRegister {
 		// 更新基线
 		let updateBaseline: string;
 		// 第一条动态的动态ID
-		let dynamicIdStr: string;
+		let dynamicIdStr1st: string;
+		// 第二条动态的动态ID
+		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
 			// 检测启动初始化
@@ -587,7 +589,12 @@ class ComRegister {
 				// 设置更新基线
 				updateBaseline = content.data.update_baseline;
 				// 设置第一条动态的动态ID
-				dynamicIdStr = content.data.items[0].id_str;
+				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
+				// 判断第二条动态是否存在
+				if (content.data?.items[1]) {
+					// 设置第二条动态的动态ID
+					dynamicIdStr2nd = content.data.items[1].id_str;
+				}
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
@@ -674,7 +681,8 @@ class ComRegister {
 			// 检查更新的动态
 			for (const item of items) {
 				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr) break;
+				if (item.id_str === dynamicIdStr1st) break;
+				if (item.id_str === dynamicIdStr2nd) break;
 				// 没有动态内容则直接跳过
 				if (!item) continue;
 				// 从动态数据中取出UP主名称、UID和动态ID
@@ -757,7 +765,8 @@ class ComRegister {
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr = items[0].id_str;
+			dynamicIdStr1st = items[0]?.id_str || "0";
+			dynamicIdStr2nd = items[1]?.id_str || "0";
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -769,7 +778,8 @@ class ComRegister {
 		// 更新基线
 		let updateBaseline: string;
 		// 第一条动态的动态ID
-		let dynamicIdStr: string;
+		let dynamicIdStr1st: string;
+		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
 			this.logger.info(`初始化状态：${detectSetup}`);
@@ -793,8 +803,10 @@ class ComRegister {
 				updateBaseline = content.data.update_baseline;
 				this.logger.info(`更新基线：${updateBaseline}`);
 				// 设置第一条动态的动态ID
-				dynamicIdStr = content.data.items[0].id_str;
-				this.logger.info(`第一条动态ID：${dynamicIdStr}`);
+				dynamicIdStr1st = content.data.items[0]?.id_str || "0";
+				dynamicIdStr2nd = content.data.items[1]?.id_str || "0";
+				this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
+				this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
 				// 设置初始化为false
 				detectSetup = false;
 				// 初始化完成
@@ -802,7 +814,8 @@ class ComRegister {
 				return;
 			}
 			this.logger.info(`更新基线：${updateBaseline}`);
-			this.logger.info(`第一条动态ID：${dynamicIdStr}`);
+			this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
+			this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
 			this.logger.info("获取动态内容中...");
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
@@ -890,10 +903,11 @@ class ComRegister {
 			// 检查更新的动态
 			for (const item of items) {
 				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr) {
+				if (item.id_str === dynamicIdStr1st || item.id_str === dynamicIdStr2nd) {
+					// logger
 					this.logger.info("动态ID与上次检测第一条一致，结束循环");
-					// 结束循环
 					this.logger.info("动态检测结束");
+					// 结束循环
 					break;
 				}
 				// 没有动态内容则直接跳过
@@ -988,7 +1002,8 @@ class ComRegister {
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr = items[0].id_str;
+			dynamicIdStr1st = items[0]?.id_str || "0";
+			dynamicIdStr2nd = items[1]?.id_str || "0";
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -1402,9 +1417,15 @@ class ComRegister {
 		});
 	}
 
-	async subUserInBili(mid: string): Promise<{ flag: boolean; msg: string }> {
+	async subUserInBili(mid: string): Promise<{
+		code: number;
+		msg: string;
+	}> {
 		// 获取关注分组信息
-		const checkGroupIsReady = async (): Promise<boolean> => {
+		const checkGroupIsReady = async (): Promise<{
+			code: number;
+			msg: string;
+		}> => {
 			// 判断是否有数据
 			if (
 				this.loginDBData.dynamic_group_id === "" ||
@@ -1427,80 +1448,128 @@ class ComRegister {
 						}
 					}
 				} else if (createGroupData.code !== 0) {
-					console.log(createGroupData);
 					// 创建分组失败
-					return false;
+					return { code: createGroupData.code, msg: createGroupData.message };
 				}
 				// 创建成功，保存到数据库
 				this.ctx.database.set("loginBili", 1, {
 					dynamic_group_id: this.loginDBData.dynamic_group_id,
 				});
 				// 创建成功
-				return true;
+				return { code: createGroupData.code, msg: createGroupData.message };
 			}
-			return true;
+			return { code: 0, msg: "分组已存在" };
 		};
 		// 判断分组是否准备好
-		const flag = await checkGroupIsReady();
+		const resp = await checkGroupIsReady();
 		// 判断是否创建成功
-		if (!flag) {
+		if (resp.code !== 0) {
 			// 创建分组失败
-			return { flag: false, msg: "创建分组失败，请尝试重启插件" };
+			return resp;
 		}
-		// 获取分组明细
-		const relationGroupDetailData = await this.ctx.ba.getRelationGroupDetail(
-			this.loginDBData.dynamic_group_id,
-		);
-		// 判断分组信息是否获取成功
-		if (relationGroupDetailData.code !== 0) {
-			if (relationGroupDetailData.code === 22104) {
-				// 将原先的分组id置空
-				this.loginDBData.dynamic_group_id = null;
-				// 分组不存在
-				const flag = await checkGroupIsReady();
-				// 判断是否创建成功
-				if (!flag) {
-					// 创建分组失败
-					return { flag: false, msg: "创建分组失败，请尝试重启插件" };
+		// 获取分组详情
+		const getGroupDetailData = async (): Promise<{
+			code: number;
+			msg: string;
+			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			data: any;
+		}> => {
+			// 获取分组明细
+			const relationGroupDetailData = await this.ctx.ba.getRelationGroupDetail(
+				this.loginDBData.dynamic_group_id,
+			);
+			// 判断分组信息是否获取成功
+			if (relationGroupDetailData.code !== 0) {
+				if (relationGroupDetailData.code === 22104) {
+					// 将原先的分组id置空
+					this.loginDBData.dynamic_group_id = null;
+					// 分组不存在
+					const resp = await checkGroupIsReady();
+					// 判断是否创建成功
+					if (resp.code !== 0) {
+						// 创建分组失败
+						return { ...resp, data: undefined };
+					}
+					// 再次获取分组明细
+					return getGroupDetailData();
 				}
-				return { flag: true, msg: "分组不存在，已重新创建分组" };
+				// 获取分组明细失败
+				return {
+					code: relationGroupDetailData.code,
+					msg: relationGroupDetailData.message,
+					data: undefined,
+				};
 			}
-			// 获取分组明细失败
-			return { flag: false, msg: "获取分组明细失败" };
+			return {
+				code: 0,
+				msg: "获取分组明细成功",
+				data: relationGroupDetailData.data,
+			};
+		};
+		// 获取分组明细
+		const { code, msg, data } = await getGroupDetailData();
+		// 判断获取分组明细是否成功
+		if (code !== 0) {
+			return { code, msg };
 		}
-		for (const user of relationGroupDetailData.data) {
+		// 判断是否已经订阅该对象
+		for (const user of data) {
 			if (user.mid === mid) {
 				// 已关注订阅对象
-				return { flag: true, msg: "订阅对象已存在于分组中" };
+				return { code: 0, msg: "订阅对象已存在于分组中" };
 			}
 		}
 		// 订阅对象
-		const subUserData = await this.ctx.ba.follow(mid);
-		// 判断是否订阅成功
-		switch (subUserData.code) {
-			case -101:
+		const subUserData = (await this.ctx.ba.follow(mid)) as {
+			code: number;
+			message: string;
+		};
+		// 模式匹配
+		const subUserMatchPattern = {
+			[-101]: () => {
 				return {
-					flag: false,
+					code: subUserData.code,
 					msg: "账号未登录，请使用指令bili login登录后再进行订阅操作",
 				};
-			case -102:
-				return { flag: false, msg: "账号被封停，无法进行订阅操作" };
-			case 22002:
-				return { flag: false, msg: "因对方隐私设置，无法进行订阅操作" };
-			case 22003:
-				return { flag: false, msg: "你已将对方拉黑，无法进行订阅操作" };
-			case 22013:
-				return { flag: false, msg: "账号已注销，无法进行订阅操作" };
-			case 40061:
+			},
+			[-102]: () => {
 				return {
-					flag: false,
+					code: subUserData.code,
+					msg: "账号被封停，无法进行订阅操作",
+				};
+			},
+			[22002]: () => {
+				return {
+					code: subUserData.code,
+					msg: "因对方隐私设置，无法进行订阅操作",
+				};
+			},
+			[22003]: () => {
+				return {
+					code: subUserData.code,
+					msg: "你已将对方拉黑，无法进行订阅操作",
+				};
+			},
+			[22013]: () => {
+				return {
+					code: subUserData.code,
+					msg: "账号已注销，无法进行订阅操作",
+				};
+			},
+			[40061]: () => {
+				return {
+					code: subUserData.code,
 					msg: "账号不存在，请检查uid输入是否正确或用户是否存在",
 				};
-			case 22001:
-				break; // 订阅对象为自己 无需添加到分组
-			case 22014: // 已关注订阅对象 无需再次关注
-			case 0: {
-				// 执行订阅成功
+			},
+			[22001]: () => {
+				return {
+					code: 0,
+					msg: "订阅对象为自己，无需添加到分组",
+				};
+			},
+			// 已订阅该对象
+			[22014]: async () => {
 				// 把订阅对象添加到分组中
 				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
 					mid,
@@ -1509,67 +1578,136 @@ class ComRegister {
 				// 判断是否添加成功
 				if (copyUserToGroupData.code !== 0) {
 					// 添加失败
-					return { flag: false, msg: "添加订阅对象到分组失败，请稍后重试" };
+					return {
+						code: copyUserToGroupData.code,
+						msg: "添加订阅对象到分组失败，请稍后重试",
+					};
 				}
-			}
-		}
-		// 订阅成功
-		return { flag: true, msg: "用户订阅成功" };
+				// 添加成功
+				return { code: 0, msg: "订阅对象添加成功" };
+			},
+			// 订阅成功
+			[0]: async () => {
+				// 把订阅对象添加到分组中
+				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
+					mid,
+					this.loginDBData.dynamic_group_id,
+				);
+				// 判断是否添加成功
+				if (copyUserToGroupData.code !== 0) {
+					// 添加失败
+					return {
+						code: copyUserToGroupData.code,
+						msg: "添加订阅对象到分组失败，请稍后重试",
+					};
+				}
+				// 添加成功
+				return { code: 0, msg: "订阅对象添加成功" };
+			},
+		};
+		// 获取函数
+		const func: () => Promise<{ code: number; msg: string }> =
+			subUserMatchPattern[subUserData.code];
+		// 执行函数并返回
+		return await func();
 	}
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]) {
-		await Promise.all(subs.map(async (sub) => {
-			// logger
-			this.logger.info(`加载订阅UID:${sub.uid}中...`);
-			// 定义Data
-			const data = await withRetry(
-				async () => await this.ctx.ba.getUserInfo(sub.uid),
-			)
-				.then((content) => content.data)
-				.catch((e) => {
-					this.logger.error(
-						`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
-					);
-					// logger
-					this.logger.info(`加载订阅UID:${sub.uid}失败！`);
+		// 定义一个AbortController
+		const controller = new AbortController();
+		const { signal } = controller;
+
+		// 设置超时
+		signal.addEventListener("abort", () => {
+			this.logger.info(`${signal.reason}，订阅未完全加载！`);
+		});
+
+		await Promise.all(
+			subs.map(async (sub) => {
+				let timer: () => void;
+				// 创建一个定时器
+				const timeoutPromise = new Promise((_, reject) => {
+					timer = this.ctx.setTimeout(() => {
+						// 取消订阅加载
+						if (signal.aborted) return;
+						// 终止
+						controller.abort(`加载订阅UID:${sub.uid}超时`);
+					}, this.config.subLoadTimeout * 1000);
 				});
-			// 判断是否需要订阅直播
-			if (sub.live) {
-				// 检查roomid是否存在
-				if (!data.live_room) {
-					// 用户没有开通直播间，无法订阅直播
-					sub.live = false;
-					// 发送提示
-					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
-				}
-				// 判断是否订阅直播
-				if (sub.live) {
-					// 启动直播监测
-					await this.liveDetectWithListener(
-						data.live_room.roomid,
-						sub.target,
-						sub.card,
-					);
-				}
-			}
-			// 在B站中订阅该对象
-			const subInfo = await this.subUserInBili(sub.uid);
-			// 判断订阅是否成功
-			if (!subInfo.flag) this.logger.warn(subInfo.msg);
-			// 将该订阅添加到sm中
-			this.subManager.push({
-				id: +sub.uid,
-				uid: sub.uid,
-				uname: data.name,
-				roomId: sub.live ? data.live_room.roomid : "",
-				target: sub.target,
-				platform: "",
-				live: sub.live,
-				dynamic: sub.dynamic,
-				card: sub.card,
-			});
-			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
-		}));
+
+				await Promise.race([
+					(async () => {
+						// logger
+						this.logger.info(`加载订阅UID:${sub.uid}中...`);
+						// 定义Data
+						const data = await withRetry(
+							async () => await this.ctx.ba.getUserInfo(sub.uid),
+						)
+							.then((content) => content.data)
+							.catch((e) => {
+								this.logger.error(
+									`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
+								);
+								// logger
+								this.logger.info(`加载订阅UID:${sub.uid}失败！`);
+							});
+						// 判断是否需要订阅直播
+						if (sub.live) {
+							// 检查roomid是否存在
+							if (!data.live_room) {
+								// 用户没有开通直播间，无法订阅直播
+								sub.live = false;
+								// 发送提示
+								this.logger.warn(
+									`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`,
+								);
+							}
+							// 判断是否订阅直播
+							if (sub.live) {
+								// 启动直播监测
+								await this.liveDetectWithListener(
+									data.live_room.roomid,
+									sub.target,
+									sub.card,
+								);
+							}
+						}
+						// 在B站中订阅该对象
+						const subInfo = await this.subUserInBili(sub.uid);
+						// 判断订阅是否成功
+						if (subInfo.code !== 0) {
+							// 订阅失败，直接返回
+							this.logger.error(
+								`UID:${sub.uid} 订阅失败，错误信息：${subInfo.msg}`,
+							);
+							return;
+						}
+						// 判断是否超时
+						if (signal.aborted) {
+							// 订阅加载超时，取消订阅加载
+							return;
+						}
+						// 清除定时器
+						timer();
+						// 将该订阅添加到sm中
+						this.subManager.push({
+							id: +sub.uid,
+							uid: sub.uid,
+							uname: data.name,
+							roomId: sub.live ? data.live_room.roomid : "",
+							target: sub.target,
+							platform: "",
+							live: sub.live,
+							dynamic: sub.dynamic,
+							card: sub.card,
+						});
+						// logger
+						this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
+					})(),
+					timeoutPromise,
+				]);
+			}),
+		);
 	}
 
 	checkIfDynamicDetectIsNeeded() {
@@ -1607,6 +1745,7 @@ class ComRegister {
 
 namespace ComRegister {
 	export interface Config {
+		subLoadTimeout: number;
 		sub: Array<{
 			uid: string;
 			dynamic: boolean;
@@ -1656,6 +1795,7 @@ namespace ComRegister {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+		subLoadTimeout: Schema.number(),
 		sub: Schema.array(
 			Schema.object({
 				uid: Schema.string().description("订阅用户UID"),
