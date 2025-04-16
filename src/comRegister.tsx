@@ -1788,7 +1788,6 @@ namespace ComRegister {
 		customLive: string;
 		customLiveEnd: string;
 		dynamicUrl: boolean;
-		dynamicLoopTime: number;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -1861,7 +1860,6 @@ namespace ComRegister {
 		customLive: Schema.string(),
 		customLiveEnd: Schema.string().required(),
 		dynamicUrl: Schema.boolean().required(),
-		dynamicLoopTime: Schema.number().default(60),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

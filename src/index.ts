@@ -23,17 +23,6 @@ declare module "koishi" {
 class ServerManager extends Service {
 	// 服务
 	servers: ForkScope[] = [];
-	// 动态循环时间
-	dynamicLoopTime: number;
-	// 定义具体时间模式匹配
-	dynamicLoopTimePatternMatching = {
-		"1分钟": 60,
-		"2分钟": 120,
-		"3分钟": 180,
-		"5分钟": 300,
-		"10分钟": 600,
-		"20分钟": 1200,
-	};
 
 	constructor(ctx: Context) {
 		super(ctx, "sm");
@@ -81,10 +70,6 @@ class ServerManager extends Service {
 	}
 
 	protected start(): void | Promise<void> {
-		// 加载配置
-		// 转换为具体时间
-		this.dynamicLoopTime =
-			this.dynamicLoopTimePatternMatching[globalConfig.dynamicLoopTime];
 		// 注册插件
 		if (!this.registerPlugin()) {
 			this.logger.error("插件启动失败");
@@ -129,7 +114,6 @@ class ServerManager extends Service {
 				customLiveStart: globalConfig.customLiveStart,
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
-				dynamicLoopTime: this.dynamicLoopTime,
 				dynamicUrl: globalConfig.dynamicUrl,
 				filter: globalConfig.filter,
 				dynamicDebugMode: globalConfig.dynamicDebugMode,
@@ -248,7 +232,6 @@ export interface Config {
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	dynamic: {};
 	dynamicUrl: boolean;
-	dynamicLoopTime: "1分钟" | "2分钟" | "3分钟" | "5分钟" | "10分钟" | "20分钟";
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
@@ -426,20 +409,6 @@ export const Config: Schema<Config> = Schema.object({
 		.default(false)
 		.description(
 			"发送动态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！",
-		),
-
-	dynamicLoopTime: Schema.union([
-		"1分钟",
-		"2分钟",
-		"3分钟",
-		"5分钟",
-		"10分钟",
-		"20分钟",
-	])
-		.role("")
-		.default("2分钟")
-		.description(
-			"设定多久检测一次动态。若需动态的时效性，可以设置为1分钟。若订阅的UP主经常在短时间内连着发多条动态应该将该值提高，否则会出现动态漏推送和晚推送的问题，默认值为2分钟",
 		),
 
 	pushImgsInDynamic: Schema.boolean()

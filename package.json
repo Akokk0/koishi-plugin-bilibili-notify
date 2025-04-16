@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],
@@ -52,14 +52,12 @@
       "required": [
         "database",
         "puppeteer",
-        "notifier"
+        "notifier",
+        "cron"
       ]
     },
     "description": {
       "zh": "Bilibili动态推送，直播通知插件。具体使用方法请参考readme.md"
-    },
-    "locales": [
-      "zh"
-    ]
+    }
   }
 }
