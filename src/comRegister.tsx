@@ -8,6 +8,7 @@ import {
 	h,
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
+import {} from "koishi-plugin-cron";
 import {} from "@koishijs/plugin-help";
 // 数据库
 import type { LoginBili } from "./database";
@@ -33,7 +34,7 @@ import {
 
 class ComRegister {
 	// 必须服务
-	static inject = ["ba", "gi", "database", "bl", "sm"];
+	static inject = ["ba", "gi", "database", "bl", "sm", "cron"];
 	// 定义数组：QQ相关bot
 	qqRelatedBotList: Array<string> = [
 		"qq",
@@ -64,8 +65,6 @@ class ComRegister {
 	privateBot: Bot<Context>;
 	// 动态检测销毁函数
 	dynamicDispose: () => void;
-	// 直播检测销毁函数
-	liveDispose: () => void;
 	// 发送消息方式
 	sendMsgFunc: (
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -393,6 +392,13 @@ class ComRegister {
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
+		// 注册插件销毁函数
+		this.ctx.on("dispose", () => {
+			// 销毁登录定时器
+			if (this.loginTimer) this.loginTimer();
+			// 销毁动态监测
+			if (this.dynamicDispose) this.dynamicDispose();
+		});
 		// logger
 		this.logger.info("插件初始化完毕！");
 	}
@@ -903,7 +909,10 @@ class ComRegister {
 			// 检查更新的动态
 			for (const item of items) {
 				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr1st || item.id_str === dynamicIdStr2nd) {
+				if (
+					item.id_str === dynamicIdStr1st ||
+					item.id_str === dynamicIdStr2nd
+				) {
 					// logger
 					this.logger.info("动态ID与上次检测第一条一致，结束循环");
 					this.logger.info("动态检测结束");
@@ -1717,17 +1726,12 @@ class ComRegister {
 
 	enableDynamicDetect() {
 		// 开始动态监测
-		if (this.config.dynamicDebugMode) {
-			this.dynamicDispose = this.ctx.setInterval(
-				this.debug_dynamicDetect(),
-				this.config.dynamicLoopTime * 1000,
-			);
-		} else {
-			this.dynamicDispose = this.ctx.setInterval(
-				this.dynamicDetect(),
-				this.config.dynamicLoopTime * 1000,
-			);
-		}
+		this.dynamicDispose = this.ctx.cron(
+			"*/2 * * * *",
+			this.config.dynamicDebugMode
+				? this.debug_dynamicDetect()
+				: this.dynamicDetect(),
+		);
 	}
 
 	async checkIfIsLogin() {

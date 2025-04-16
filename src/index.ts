@@ -8,7 +8,7 @@ import GenerateImg from "./generateImg";
 import BiliAPI from "./biliAPI";
 import BLive from "./blive";
 
-export const inject = ["puppeteer", "database", "notifier"];
+export const inject = ["puppeteer", "database", "notifier", "cron"];
 
 export const name = "bilibili-notify";
 
