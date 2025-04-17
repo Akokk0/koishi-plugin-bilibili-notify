@@ -29,6 +29,7 @@ import {
 	type SubManager,
 	type Target,
 } from "./type";
+import { DateTime } from "luxon";
 // TODO:WorlCloud
 // import { Segment, useDefault } from "segmentit";
 
@@ -568,16 +569,16 @@ class ComRegister {
 	dynamicDetect() {
 		// 检测初始化变量
 		let detectSetup = true;
-		// 更新基线
-		let updateBaseline: string;
+		// 时间线
+		let timeline: number;
 		// 第一条动态的动态ID
 		let dynamicIdStr1st: string;
-		// 第二条动态的动态ID
-		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
-			// 检测启动初始化
+			// 动态监测启动初始化
 			if (detectSetup) {
+				// logger
+				this.logger.info("动态监测初始化中...");
 				// 使用withRetry函数进行重试
 				const content = await withRetry(async () => {
 					// 获取动态内容
@@ -592,26 +593,21 @@ class ComRegister {
 				if (!content) return;
 				// 判断获取动态信息是否成功
 				if (content.code !== 0) return;
-				// 设置更新基线
-				updateBaseline = content.data.update_baseline;
 				// 设置第一条动态的动态ID
 				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
-				// 判断第二条动态是否存在
-				if (content.data?.items[1]) {
-					// 设置第二条动态的动态ID
-					dynamicIdStr2nd = content.data.items[1].id_str;
-				}
+				// 设置时间线
+				timeline = content.data?.items[0]?.modules.module_author.pub_ts || DateTime.now().toSeconds();
 				// 设置初始化为false
 				detectSetup = false;
+				// logger
+				this.logger.info("动态监测初始化完毕！");
 				// 初始化完成
 				return;
 			}
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
-				return (await this.ctx.ba.getAllDynamic(
-					updateBaseline,
-				)) as AllDynamicInfo;
+				return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
@@ -678,101 +674,100 @@ class ComRegister {
 					}
 				}
 			}
-			// 获取数据内容
-			const data = content.data;
-			// 更新基线
-			updateBaseline = data.update_baseline;
-			// 有新动态内容
-			const items = data.items;
+			const items = content.data.items;
 			// 检查更新的动态
 			for (const item of items) {
-				// 动态ID如果一致则结束循环
-				if (item.id_str === dynamicIdStr1st) break;
-				if (item.id_str === dynamicIdStr2nd) break;
 				// 没有动态内容则直接跳过
 				if (!item) continue;
-				// 从动态数据中取出UP主名称、UID和动态ID
-				const upUID = item.modules.module_author.mid.toString();
-				const upName = item.modules.module_author.name;
+				// 获取动态ID
 				const dynamicId = item.id_str;
-				// 寻找关注的UP主的动态
-				for (const sub of this.subManager) {
-					// 判断是否是订阅的UP主
-					if (sub.dynamic && sub.uid === upUID) {
-						// 订阅该UP主，推送该动态
-						// 推送该条动态
-						const buffer = await withRetry(async () => {
-							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
-						}, 1).catch(async (e) => {
-							// 直播开播动态，不做处理
-							if (e.message === "直播开播动态，不做处理") return;
-							if (e.message === "出现关键词，屏蔽该动态") {
-								// 如果需要发送才发送
-								if (this.config.filter.notify) {
-									await this.sendMsg(
-										sub.target,
-										`${upName}发布了一条含有屏蔽关键字的动态`,
-									);
+				// 动态ID如果一致则结束循环
+				if (dynamicId === dynamicIdStr1st) break;
+				// 判断动态时间戳是否大于时间线
+				if (item.modules.module_author.pub_ts > timeline) {
+					// 从动态数据中取出UP主名称、UID
+					const upUID = item.modules.module_author.mid.toString();
+					const upName = item.modules.module_author.name;
+					// 寻找关注的UP主的动态
+					for (const sub of this.subManager) {
+						// 判断是否是订阅的UP主
+						if (sub.dynamic && sub.uid === upUID) {
+							// 订阅该UP主，推送该动态
+							// 推送该条动态
+							const buffer = await withRetry(async () => {
+								// 渲染图片
+								return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							}, 1).catch(async (e) => {
+								// 直播开播动态，不做处理
+								if (e.message === "直播开播动态，不做处理") return;
+								if (e.message === "出现关键词，屏蔽该动态") {
+									// 如果需要发送才发送
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条含有屏蔽关键字的动态`,
+										);
+									}
+									return;
 								}
-								return;
-							}
-							if (e.message === "已屏蔽转发动态") {
-								if (this.config.filter.notify) {
-									await this.sendMsg(
-										sub.target,
-										`${upName}转发了一条动态，已屏蔽`,
-									);
+								if (e.message === "已屏蔽转发动态") {
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}转发了一条动态，已屏蔽`,
+										);
+									}
+									return;
 								}
-								return;
-							}
-							// 未知错误
-							this.logger.error(
-								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								// 未知错误
+								this.logger.error(
+									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								);
+								// 发送私聊消息并重启服务
+								await this.sendPrivateMsgAndStopService();
+							});
+							// 判断是否执行成功，未执行成功直接返回
+							if (!buffer) continue;
+							// 判断是否需要发送URL
+							const dUrl = this.config.dynamicUrl
+								? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
+								: "";
+							// logger
+							this.logger.info("推送动态中...");
+							// 发送推送卡片
+							await this.sendMsg(
+								sub.target,
+								<>
+									{h.image(buffer, "image/png")}
+									{dUrl}
+								</>,
 							);
-							// 发送私聊消息并重启服务
-							await this.sendPrivateMsgAndStopService();
-						});
-						// 判断是否执行成功，未执行成功直接返回
-						if (!buffer) continue;
-						// 判断是否需要发送URL
-						const dUrl = this.config.dynamicUrl
-							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
-							: "";
-						// logger
-						this.logger.info("推送动态中...");
-						// 发送推送卡片
-						await this.sendMsg(
-							sub.target,
-							<>
-								{h.image(buffer, "image/png")}
-								{dUrl}
-							</>,
-						);
-						// 判断是否需要发送动态中的图片
-						if (this.config.pushImgsInDynamic) {
-							// 判断是否为图文动态，且存在draw
-							if (
-								item.type === "DYNAMIC_TYPE_DRAW" &&
-								item.modules.module_dynamic.major?.draw
-							) {
-								for (const img of item.modules.module_dynamic.major.draw
-									.items) {
-									await this.sendMsg(
-										sub.target,
-										<img src={img.src} alt="动态图片" />,
-									);
+							// 判断是否需要发送动态中的图片
+							if (this.config.pushImgsInDynamic) {
+								// 判断是否为图文动态，且存在draw
+								if (
+									item.type === "DYNAMIC_TYPE_DRAW" &&
+									item.modules.module_dynamic.major?.draw
+								) {
+									for (const img of item.modules.module_dynamic.major.draw
+										.items) {
+										await this.sendMsg(
+											sub.target,
+											<img src={img.src} alt="动态图片" />,
+										);
+									}
 								}
 							}
+							// logger
+							this.logger.info("动态推送完毕！");
 						}
-						// logger
-						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr1st = items[0]?.id_str || "0";
-			dynamicIdStr2nd = items[1]?.id_str || "0";
+			dynamicIdStr1st = items[0].id_str;
+			// 更新时间线
+			timeline = items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -781,16 +776,18 @@ class ComRegister {
 	debug_dynamicDetect() {
 		// 检测初始化变量
 		let detectSetup = true;
-		// 更新基线
-		let updateBaseline: string;
+		// 时间线
+		let timeline: number;
 		// 第一条动态的动态ID
 		let dynamicIdStr1st: string;
-		let dynamicIdStr2nd: string;
 		// 定义handler
 		const handler = async () => {
-			this.logger.info(`初始化状态：${detectSetup}`);
-			// 检测启动初始化
+			// 动态监测启动初始化
 			if (detectSetup) {
+				// logger
+				this.logger.info("动态监测初始化中...");
+				// logger
+				this.logger.info("正在获取动态信息...");
 				// 使用withRetry函数进行重试
 				const content = await withRetry(async () => {
 					// 获取动态内容
@@ -802,33 +799,38 @@ class ComRegister {
 					);
 				});
 				// content不存在则直接返回
-				if (!content) return;
+				if (!content) {
+					// logger
+					this.logger.info("获取动态信息失败！");
+					return;
+				}
 				// 判断获取动态信息是否成功
-				if (content.code !== 0) return;
-				// 设置更新基线
-				updateBaseline = content.data.update_baseline;
-				this.logger.info(`更新基线：${updateBaseline}`);
+				if (content.code !== 0) {
+					// logger
+					this.logger.info("获取动态信息失败！");
+					return;
+				}
 				// 设置第一条动态的动态ID
-				dynamicIdStr1st = content.data.items[0]?.id_str || "0";
-				dynamicIdStr2nd = content.data.items[1]?.id_str || "0";
-				this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
-				this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
+				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
+				// logger
+				this.logger.info(`获取到第一条动态ID:${dynamicIdStr1st}`);
+				// 设置时间线
+				timeline = content.data?.items[0]?.modules.module_author.pub_ts || DateTime.now().toSeconds();
+				// logger
+				this.logger.info(`获取到时间线信息:${timeline}`);
 				// 设置初始化为false
 				detectSetup = false;
+				// logger
+				this.logger.info("动态监测初始化完毕！");
 				// 初始化完成
-				this.logger.info("动态检测初始化完成");
 				return;
 			}
-			this.logger.info(`更新基线：${updateBaseline}`);
-			this.logger.info(`第一条动态ID：${dynamicIdStr1st}`);
-			this.logger.info(`第二条动态ID：${dynamicIdStr2nd}`);
-			this.logger.info("获取动态内容中...");
+			// logger
+			this.logger.info("正在获取动态信息...");
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
-				return (await this.ctx.ba.getAllDynamic(
-					updateBaseline,
-				)) as AllDynamicInfo;
+				return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
@@ -837,7 +839,8 @@ class ComRegister {
 			});
 			// content不存在则直接返回
 			if (!content) {
-				this.logger.error("获取动态内容失败");
+				// logger
+				this.logger.info("获取动态信息失败！");
 				return;
 			}
 			// 判断获取动态内容是否成功
@@ -898,121 +901,144 @@ class ComRegister {
 					}
 				}
 			}
-			this.logger.error("获取动态内容成功，开始检测动态");
-			// 获取数据内容
-			const data = content.data;
-			// 更新基线
-			updateBaseline = data.update_baseline;
-			this.logger.info(`更新基线：${updateBaseline}`);
-			// 有新动态内容
-			const items = data.items;
+			// logger
+			this.logger.info("成功获取动态信息！开始检查更新的动态...");
+			// 获取动态内容
+			const items = content.data.items;
 			// 检查更新的动态
 			for (const item of items) {
-				// 动态ID如果一致则结束循环
-				if (
-					item.id_str === dynamicIdStr1st ||
-					item.id_str === dynamicIdStr2nd
-				) {
+				// 没有动态内容则直接跳过
+				if (!item) {
 					// logger
-					this.logger.info("动态ID与上次检测第一条一致，结束循环");
-					this.logger.info("动态检测结束");
-					// 结束循环
+					this.logger.info("动态内容为空，跳过该动态");
+					continue;
+				}
+				// 获取动态ID
+				const dynamicId = item.id_str;
+				// logger
+				this.logger.info(`当前动态ID:${dynamicId}`);
+				this.logger.info(`上一次获取到第一条动态ID:${dynamicId}`);
+				// 动态ID如果一致则结束循环
+				if (dynamicId === dynamicIdStr1st) {
+					// logger
+					this.logger.info("动态ID与上一次获取第一条一致，结束循环");
 					break;
 				}
-				// 没有动态内容则直接跳过
-				if (!item) continue;
-				// 从动态数据中取出UP主名称、UID和动态ID
-				const upUID = item.modules.module_author.mid.toString();
-				const upName = item.modules.module_author.name;
-				const dynamicId = item.id_str;
-				// 寻找关注的UP主的动态
-				for (const sub of this.subManager) {
-					// 判断是否是订阅的UP主
-					if (sub.dynamic && sub.uid === upUID) {
-						// 订阅该UP主，推送该动态
-						this.logger.info(
-							`寻找到需要推送的动态，订阅的UP主：${upName}(${upUID})，动态ID：${dynamicId}`,
-						);
-						this.logger.info("渲染推送卡片中...");
-						// 推送该条动态
-						const buffer = await withRetry(async () => {
-							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
-						}, 1).catch(async (e) => {
-							// 直播开播动态，不做处理
-							if (e.message === "直播开播动态，不做处理") return;
-							if (e.message === "出现关键词，屏蔽该动态") {
-								// 如果需要发送才发送
-								if (this.config.filter.notify) {
-									await this.sendMsg(
-										sub.target,
-										`${upName}发布了一条含有屏蔽关键字的动态`,
-									);
+				// logger
+				this.logger.info(`当前动态时间线:${item.modules.module_author.pub_ts}`);
+				this.logger.info(`上一次获取到第一条动态时间线:${timeline}`);
+				// 判断动态时间戳是否大于时间线
+				if (item.modules.module_author.pub_ts > timeline) {
+					// logger
+					this.logger.info("动态时间线大于上一次获取到第一条动态时间线，开始判断是否是订阅的UP主...");
+					// 从动态数据中取出UP主名称、UID
+					const upUID = item.modules.module_author.mid.toString();
+					const upName = item.modules.module_author.name;
+					// logger
+					this.logger.info(`当前动态UP主UID:${upUID}，UP主名称:${upName}`);
+					// 寻找关注的UP主的动态
+					for (const sub of this.subManager) {
+						// 判断是否是订阅的UP主
+						if (sub.dynamic && sub.uid === upUID) {
+							// logger：订阅该UP主，推送该动态
+							this.logger.info("订阅该UP主，开始推送该动态...");
+							// logger
+							this.logger.info("开始生成推送卡片...");
+							// 推送该条动态
+							const buffer = await withRetry(async () => {
+								// 渲染图片
+								return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							}, 1).catch(async (e) => {
+								// 直播开播动态，不做处理
+								if (e.message === "直播开播动态，不做处理") return;
+								if (e.message === "出现关键词，屏蔽该动态") {
+									// 如果需要发送才发送
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}发布了一条含有屏蔽关键字的动态`,
+										);
+									}
+									return;
 								}
-								return;
-							}
-							if (e.message === "已屏蔽转发动态") {
-								if (this.config.filter.notify) {
-									await this.sendMsg(
-										sub.target,
-										`${upName}转发了一条动态，已屏蔽`,
-									);
+								if (e.message === "已屏蔽转发动态") {
+									if (this.config.filter.notify) {
+										await this.sendMsg(
+											sub.target,
+											`${upName}转发了一条动态，已屏蔽`,
+										);
+									}
+									return;
 								}
-								return;
+								// 未知错误
+								this.logger.error(
+									`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+								);
+								// 发送私聊消息并重启服务
+								await this.sendPrivateMsgAndStopService();
+							});
+							// 判断是否执行成功，未执行成功直接返回
+							if (!buffer) {
+								// logger
+								this.logger.info("推送卡片生成失败，或该动态为屏蔽动态，跳过该动态！");
+								// 结束循环
+								continue;
 							}
-							// 未知错误
-							this.logger.error(
-								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+							// 定义动态链接
+							let dUrl = "";
+							// 判断是否需要发送URL
+							if (this.config.dynamicUrl) {
+								// logger
+								this.logger.info("生成动态链接中...");
+								// 生成动态链接
+								dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`;
+							}
+							// logger
+							this.logger.info("推送动态中...");
+							// 发送推送卡片
+							await this.sendMsg(
+								sub.target,
+								<>
+									{h.image(buffer, "image/png")}
+									{dUrl}
+								</>,
 							);
-							// 发送私聊消息并重启服务
-							await this.sendPrivateMsgAndStopService();
-						});
-						// 判断是否执行成功，未执行成功直接返回
-						if (!buffer) {
-							this.logger.error("渲染推送卡片失败");
-							// 下一条
-							continue;
-						}
-						// 判断是否需要发送URL
-						const dUrl = this.config.dynamicUrl
-							? `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`
-							: "";
-						// logger
-						this.logger.info("推送动态中...");
-						// 发送推送卡片
-						await this.sendMsg(
-							sub.target,
-							<>
-								{h.image(buffer, "image/png")}
-								{dUrl}
-							</>,
-						);
-						// 判断是否需要发送动态中的图片
-						if (this.config.pushImgsInDynamic) {
-							// 判断是否为图文动态，且存在draw
-							if (
-								item.type === "DYNAMIC_TYPE_DRAW" &&
-								item.modules.module_dynamic.major?.draw
-							) {
-								this.logger.info("推送动态图片中...");
-								for (const img of item.modules.module_dynamic.major.draw
-									.items) {
-									await this.sendMsg(
-										sub.target,
-										<img src={img.src} alt="动态图片" />,
-									);
+							// logger
+							this.logger.info("动态推送完毕！");
+							// 判断是否需要发送动态中的图片
+							if (this.config.pushImgsInDynamic) {
+								// logger
+								this.logger.info("开始推送动态中的图片...");
+								// 判断是否为图文动态，且存在draw
+								if (
+									item.type === "DYNAMIC_TYPE_DRAW" &&
+									item.modules.module_dynamic.major?.draw
+								) {
+									for (const img of item.modules.module_dynamic.major.draw
+										.items) {
+										await this.sendMsg(
+											sub.target,
+											<img src={img.src} alt="动态图片" />,
+										);
+									}
 								}
-								this.logger.info("动态图片推送完毕！");
+								// logger
+								this.logger.info("图片推送完毕！");
 							}
+							// logger
+							this.logger.info("动态推送完毕！");
 						}
-						// logger
-						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
 			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr1st = items[0]?.id_str || "0";
-			dynamicIdStr2nd = items[1]?.id_str || "0";
+			dynamicIdStr1st = items[0].id_str;
+			// logger
+			this.logger.info(`更新本次请求第一条动态的动态ID:${dynamicIdStr1st}`);
+			// 更新时间线
+			timeline = items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
+			// logger
+			this.logger.info(`更新时间线:${timeline}`);
 		};
 		// 返回一个闭包函数
 		return withLock(handler);

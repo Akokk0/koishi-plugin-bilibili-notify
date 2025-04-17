@@ -79,6 +79,7 @@ export type AllDynamicInfo = {
 					mid: number;
 					name: string;
 					face: string;
+					pub_ts: number;
 				};
 				module_dynamic: {
 					major: {

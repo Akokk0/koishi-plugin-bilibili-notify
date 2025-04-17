@@ -27,7 +27,7 @@
 
 ## 注意事项
 
-0. 动态监测，当您订阅之后，会在您设置的dynamicLoopTime(默认为2分钟)之后才会开启监测。如果您需要测试则需要等待您设置的dynamicLoopTime的时间之后再发送测试动态
+0. 由于 `3.0.2` 动态监测定时器更换为cron定时任务，如果需要测试动态监测功能是否正常，可以通过控制台日志输出观察，打印 `动态监测初始化完毕！` 后，可进行测试
 
 1. 此插件依赖于 `database` 和 `puppeteer` 服务，同时受权限控制，需要具备 `authority:3` 及以上的权限才能使用本插件提供的指令，你可以参考下方配置登录插件中的方法得到一个超级管理员账号（具有 `authority:5` 的最高权限） 
 
@@ -38,6 +38,7 @@
    [权限管理](https://koishi.chat/zh-CN/manual/usage/customize.html)
 
 3. 指令使用方法请参考 `help bili`，子命令使用方法请加 `-h` ，例如 `bili login -h`
+
 4. 登录方式为二维码，输入命令 `bili login` 之后扫码登录，您的登录凭证将存储在您的本地数据库，并由您自己填写的密钥加密，所以请保管好你的密钥
 
 ## 安装
@@ -219,6 +220,7 @@
 - ver 3.0.1 修复：动态推送过程中，如果上一次请求的第一条动态被删除，可能导致动态重复推送(本次修复并不能完全保障不重复推送，如果第一条和第二条都被删除则可能会出现重复推送)； 新增：配置项 `subTimeout` 设置订阅超时时间
 - ver 3.0.2 优化：动态监测，新增依赖服务 `cron`
 - ver 3.0.3 移除：配置项 `dynamicLoopTime` ，动态循环时间将不再可选，默认为两分钟
+- ver 3.0.4 优化：动态监测，增加时间判断，防止出现重复推送问题； 由于 `3.0.2` 动态监测定时器更换为cron定时任务，如果需要测试动态监测功能是否正常，可以通过控制台日志输出观察，打印 `动态监测初始化完毕！` 后，可进行测试
 
 ## 交流群
 
@@ -227,7 +229,9 @@
 ## 感谢
 
 [koishijs](https://github.com/koishijs/koishi) 感谢官方提供的插件开发框架, 以及技术指导
+
 [blive-message-listener](https://github.com/ddiu8081/blive-message-listener) 感谢 `ddiu8081` 提供简单方便的B站直播监听依赖
+
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 感谢 `SocialSisterYi` 提供B站API参考
 
 ## License
