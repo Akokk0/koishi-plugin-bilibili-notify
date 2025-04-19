@@ -298,6 +298,25 @@ class ComRegister {
 				}
 				return table;
 			});
+
+		biliCom
+			.subcommand(".dyn <uid:string> [index:number]", "手动推送一条动态信息", {
+				hidden: true,
+			})
+			.usage("手动推送一条动态信息")
+			.example("bili dyn 233 1 手动推送UID为233用户空间的第一条动态信息")
+			.action(async ({ session }, uid, index) => {
+				// 获取index
+				const i = (index && index - 1) || 0;
+				// 获取动态
+				const content = await this.ctx.ba.getUserSpaceDynamic(uid);
+				// 获取动态内容
+				const item = content.data.items[i];
+				// 生成图片
+				const buffer = await this.ctx.gi.generateDynamicImg(item);
+				// 发送图片
+				await session.send(h.image(buffer, "image/png"));
+			});
 	}
 
 	async init(config: ComRegister.Config) {
@@ -596,7 +615,9 @@ class ComRegister {
 				// 设置第一条动态的动态ID
 				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
 				// 设置时间线
-				timeline = content.data?.items[0]?.modules.module_author.pub_ts || DateTime.now().toSeconds();
+				timeline =
+					content.data?.items[0]?.modules.module_author.pub_ts ||
+					DateTime.now().toSeconds();
 				// 设置初始化为false
 				detectSetup = false;
 				// logger
@@ -767,7 +788,8 @@ class ComRegister {
 			// 更新本次请求第一条动态的动态ID
 			dynamicIdStr1st = items[0].id_str;
 			// 更新时间线
-			timeline = items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
+			timeline =
+				items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -815,7 +837,9 @@ class ComRegister {
 				// logger
 				this.logger.info(`获取到第一条动态ID:${dynamicIdStr1st}`);
 				// 设置时间线
-				timeline = content.data?.items[0]?.modules.module_author.pub_ts || DateTime.now().toSeconds();
+				timeline =
+					content.data?.items[0]?.modules.module_author.pub_ts ||
+					DateTime.now().toSeconds();
 				// logger
 				this.logger.info(`获取到时间线信息:${timeline}`);
 				// 设置初始化为false
@@ -930,7 +954,9 @@ class ComRegister {
 				// 判断动态时间戳是否大于时间线
 				if (item.modules.module_author.pub_ts > timeline) {
 					// logger
-					this.logger.info("动态时间线大于上一次获取到第一条动态时间线，开始判断是否是订阅的UP主...");
+					this.logger.info(
+						"动态时间线大于上一次获取到第一条动态时间线，开始判断是否是订阅的UP主...",
+					);
 					// 从动态数据中取出UP主名称、UID
 					const upUID = item.modules.module_author.mid.toString();
 					const upName = item.modules.module_author.name;
@@ -980,7 +1006,9 @@ class ComRegister {
 							// 判断是否执行成功，未执行成功直接返回
 							if (!buffer) {
 								// logger
-								this.logger.info("推送卡片生成失败，或该动态为屏蔽动态，跳过该动态！");
+								this.logger.info(
+									"推送卡片生成失败，或该动态为屏蔽动态，跳过该动态！",
+								);
 								// 结束循环
 								continue;
 							}
@@ -1036,7 +1064,8 @@ class ComRegister {
 			// logger
 			this.logger.info(`更新本次请求第一条动态的动态ID:${dynamicIdStr1st}`);
 			// 更新时间线
-			timeline = items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
+			timeline =
+				items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
 			// logger
 			this.logger.info(`更新时间线:${timeline}`);
 		};
