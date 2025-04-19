@@ -1,8 +1,7 @@
 import { type Context, Schema, Service } from "koishi";
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
-import imagemin from "imagemin";
-import imageminPngquant from "imagemin-pngquant";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
@@ -40,28 +39,6 @@ class GenerateImg extends Service {
 		this.giConfig = config;
 	}
 
-	async compressImage(buffer: Buffer): Promise<Buffer> {
-		return await withRetry(async () => {
-			const compressedBuffer = await imagemin.buffer(buffer, {
-				plugins: [
-					imageminPngquant({
-						quality: [0.6, 0.8],
-						speed: 4,
-					}),
-				],
-			});
-
-			if (compressedBuffer.length >= buffer.length) {
-				return buffer;
-			}
-
-			return Buffer.from(compressedBuffer);
-		}, 1).catch((e) => {
-			this.ctx.logger.error(`压缩图片失败: ${e.message}`);
-			return buffer;
-		});
-	}
-
 	async imgHandler(html: string) {
 		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
 		const page = await this.ctx.puppeteer.page();
@@ -70,7 +47,7 @@ class GenerateImg extends Service {
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
 		const buffer = await page.screenshot({
-			type: "png",
+			type: "jpeg",
 			clip: {
 				x: boundingBox.x,
 				y: boundingBox.y,
@@ -80,7 +57,7 @@ class GenerateImg extends Service {
 		});
 		await elementHandle.dispose();
 		await page.close();
-		return this.compressImage(buffer);
+        return buffer;
 	}
 
 	async generateLiveImg(

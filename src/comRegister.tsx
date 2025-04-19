@@ -163,7 +163,7 @@ class ComRegister {
 					},
 					async (err, buffer) => {
 						if (err) return await session.send("二维码生成出错，请重新尝试");
-						await session.send(h.image(buffer, "image/png"));
+						await session.send(h.image(buffer, "image/jpeg"));
 					},
 				);
 				// 检查之前是否存在登录定时器
@@ -315,7 +315,7 @@ class ComRegister {
 				// 生成图片
 				const buffer = await this.ctx.gi.generateDynamicImg(item);
 				// 发送图片
-				await session.send(h.image(buffer, "image/png"));
+				await session.send(h.image(buffer, "image/jpeg"));
 			});
 	}
 
@@ -759,7 +759,7 @@ class ComRegister {
 							await this.sendMsg(
 								sub.target,
 								<>
-									{h.image(buffer, "image/png")}
+									{h.image(buffer, "image/jpeg")}
 									{dUrl}
 								</>,
 							);
@@ -1027,7 +1027,7 @@ class ComRegister {
 							await this.sendMsg(
 								sub.target,
 								<>
-									{h.image(buffer, "image/png")}
+									{h.image(buffer, "image/jpeg")}
 									{dUrl}
 								</>,
 							);
@@ -1186,7 +1186,7 @@ class ComRegister {
 			// 推送直播信息
 			const msg = (
 				<>
-					{h.image(buffer, "image/png")}
+					{h.image(buffer, "image/jpeg")}
 					{liveNotifyMsg || ""}
 				</>
 			);
