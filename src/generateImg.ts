@@ -1,7 +1,6 @@
 import { type Context, Schema, Service } from "koishi";
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
-import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
