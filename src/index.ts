@@ -106,7 +106,6 @@ class ServerManager extends Service {
 				subLoadTimeout: globalConfig.subLoadTimeout,
 				sub: globalConfig.sub,
 				master: globalConfig.master,
-				automaticResend: globalConfig.automaticResend,
 				liveDetectMode: globalConfig.liveDetectMode,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
@@ -206,7 +205,6 @@ export interface Config {
 	master: {};
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	basicSettings: {};
-	automaticResend: boolean;
 	userAgent: string;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	subTitle: {};
@@ -311,12 +309,6 @@ export const Config: Schema<Config> = Schema.object({
 	]),
 
 	basicSettings: Schema.object({}).description("基本设置"),
-
-	automaticResend: Schema.boolean()
-		.default(true)
-		.description(
-			"是否开启自动重发功能，默认开启。开启后，如果推送失败，将会自动重发，尝试三次。关闭后，推送失败将不会再重发，直到下一次推送",
-		),
 
 	userAgent: Schema.string()
 		.required()

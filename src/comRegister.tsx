@@ -66,14 +66,6 @@ class ComRegister {
 	privateBot: Bot<Context>;
 	// 动态检测销毁函数
 	dynamicDispose: () => void;
-	// 发送消息方式
-	sendMsgFunc: (
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		bot: Bot<Context, any>,
-		channelId: string,
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		content: any,
-	) => Promise<void>;
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -335,65 +327,6 @@ class ComRegister {
 				content: "您未配置私人机器人，将无法向您推送机器人状态！",
 			});
 		}
-		// 判断消息发送方式
-		if (config.automaticResend) {
-			this.sendMsgFunc = async (
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				bot: Bot<Context, any>,
-				channelId: string,
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				content: any,
-			) => {
-				withRetry(async () => await bot.sendMessage(channelId, content)).catch(
-					async (e: Error) => {
-						if (e.message === "this._request is not a function") {
-							// 2S之后重新发送消息
-							this.ctx.setTimeout(async () => {
-								await this.sendMsgFunc(bot, channelId, content);
-							}, 2000);
-							// 返回
-							return;
-						}
-						// 打印错误信息
-						this.logger.error(
-							`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
-						);
-						await this.sendPrivateMsg(
-							`发送群组ID:${channelId}消息失败，请查看日志`,
-						);
-					},
-				);
-			};
-		} else {
-			this.sendMsgFunc = async (
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				bot: Bot<Context, any>,
-				channelId: string,
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-				content: any,
-			) => {
-				withRetry(
-					async () => await bot.sendMessage(channelId, content),
-					1,
-				).catch(async (e: Error) => {
-					if (e.message === "this._request is not a function") {
-						// 2S之后重新发送消息
-						this.ctx.setTimeout(async () => {
-							await this.sendMsgFunc(bot, channelId, content);
-						}, 2000);
-						// 返回
-						return;
-					}
-					// 打印错误信息
-					this.logger.error(
-						`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
-					);
-					await this.sendPrivateMsg(
-						`发送群组ID:${channelId}消息失败，请查看日志`,
-					);
-				});
-			};
-		}
 		// 检查登录数据库是否有数据
 		this.loginDBData = (
 			await this.ctx.database.get("loginBili", 1, ["dynamic_group_id"])
@@ -539,8 +472,34 @@ class ComRegister {
 		return;
 	}
 
+	async sendMessageWithRetry (
+		broadcastTarget: string[],
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		content: any,
+	) {
+		withRetry(async () => await this.ctx.broadcast(broadcastTarget, content), 1).catch(
+			async (e: Error) => {
+				if (e.message === "this._request is not a function") {
+					// 2S之后重新发送消息
+					this.ctx.setTimeout(async () => {
+						await this.sendMessageWithRetry(broadcastTarget, content);
+					}, 2000);
+					// 返回
+					return;
+				}
+				// 打印错误信息
+				this.logger.error(
+					`发送群组ID:${broadcastTarget[0]}消息失败！原因: ${e.message}`,
+				);
+				await this.sendPrivateMsg(
+					`发送群组ID:${broadcastTarget[0]}消息失败，请查看日志`,
+				);
+			},
+		);
+	};
+
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async sendMsg(targets: Target, content: any, live?: boolean) {
+	async broadcastToTargets(targets: Target, content: any, live?: boolean) {
 		for (const target of targets) {
 			// 获取机器人实例
 			const bot = this.getBot(target.platform);
@@ -565,20 +524,24 @@ class ComRegister {
 			if (live) {
 				// 直播开播推送，判断是否需要艾特全体成员
 				for (const channel of sendArr) {
+					// 构建广播目标
+					const broadcastTarget = [`${target.platform}:${channel.channelId}`];
 					// 判断是否需要推送直播消息
 					if (channel.live) {
-						await this.sendMsgFunc(bot, channel.channelId, content);
+						await this.sendMessageWithRetry(broadcastTarget, content);
 					}
 					// 判断是否需要艾特全体成员
 					if (channel.atAll) {
-						await this.sendMsgFunc(bot, channel.channelId, <at type="all" />);
+						await this.sendMessageWithRetry(broadcastTarget, <at type="all" />);
 					}
 				}
 			} else {
 				for (const channel of sendArr) {
+					// 构建广播目标
+					const broadcastTarget = [`${target.platform}:${channel.channelId}`];
 					// 判断是否需要推送动态消息
 					if (channel.dynamic || channel.live) {
-						await this.sendMsgFunc(bot, channel.channelId, content);
+						await this.sendMessageWithRetry(broadcastTarget, content);
 					}
 				}
 			}
@@ -724,7 +687,7 @@ class ComRegister {
 								if (e.message === "出现关键词，屏蔽该动态") {
 									// 如果需要发送才发送
 									if (this.config.filter.notify) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											`${upName}发布了一条含有屏蔽关键字的动态`,
 										);
@@ -733,7 +696,7 @@ class ComRegister {
 								}
 								if (e.message === "已屏蔽转发动态") {
 									if (this.config.filter.notify) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											`${upName}转发了一条动态，已屏蔽`,
 										);
@@ -756,7 +719,7 @@ class ComRegister {
 							// logger
 							this.logger.info("推送动态中...");
 							// 发送推送卡片
-							await this.sendMsg(
+							await this.broadcastToTargets(
 								sub.target,
 								<>
 									{h.image(buffer, "image/jpeg")}
@@ -772,7 +735,7 @@ class ComRegister {
 								) {
 									for (const img of item.modules.module_dynamic.major.draw
 										.items) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											<img src={img.src} alt="动态图片" />,
 										);
@@ -980,7 +943,7 @@ class ComRegister {
 								if (e.message === "出现关键词，屏蔽该动态") {
 									// 如果需要发送才发送
 									if (this.config.filter.notify) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											`${upName}发布了一条含有屏蔽关键字的动态`,
 										);
@@ -989,7 +952,7 @@ class ComRegister {
 								}
 								if (e.message === "已屏蔽转发动态") {
 									if (this.config.filter.notify) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											`${upName}转发了一条动态，已屏蔽`,
 										);
@@ -1024,7 +987,7 @@ class ComRegister {
 							// logger
 							this.logger.info("推送动态中...");
 							// 发送推送卡片
-							await this.sendMsg(
+							await this.broadcastToTargets(
 								sub.target,
 								<>
 									{h.image(buffer, "image/jpeg")}
@@ -1044,7 +1007,7 @@ class ComRegister {
 								) {
 									for (const img of item.modules.module_dynamic.major.draw
 										.items) {
-										await this.sendMsg(
+										await this.broadcastToTargets(
 											sub.target,
 											<img src={img.src} alt="动态图片" />,
 										);
@@ -1191,7 +1154,7 @@ class ComRegister {
 				</>
 			);
 			// 只有在开播时才艾特全体成员
-			return await this.sendMsg(
+			return await this.broadcastToTargets(
 				target,
 				msg,
 				liveType === LiveType.StartBroadcasting,
@@ -1287,7 +1250,7 @@ class ComRegister {
 				// 定义消息
 				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
 				// 直接发送消息
-				channelIdArrLen > 0 && this.sendMsg(liveGuardBuyPushTargetArr, content);
+				channelIdArrLen > 0 && this.broadcastToTargets(liveGuardBuyPushTargetArr, content);
 			},
 			onLiveStart: async () => {
 				// 判断是否已经开播
@@ -1507,8 +1470,12 @@ class ComRegister {
 						if (group.name === "订阅") {
 							// 拿到分组id
 							this.loginDBData.dynamic_group_id = group.tagid;
-							// 结束循环
-							break;
+							// 保存到数据库
+							this.ctx.database.set("loginBili", 1, {
+								dynamic_group_id: this.loginDBData.dynamic_group_id,
+							});
+							// 返回分组已存在
+							return { code: 0, msg: "分组已存在" };
 						}
 					}
 				} else if (createGroupData.code !== 0) {
@@ -1833,7 +1800,6 @@ namespace ComRegister {
 			masterAccount: string;
 			masterAccountGuildId: string;
 		};
-		automaticResend: boolean;
 		liveDetectMode: "API" | "WS";
 		restartPush: boolean;
 		pushTime: number;
@@ -1902,7 +1868,6 @@ namespace ComRegister {
 			masterAccount: Schema.string(),
 			masterAccountGuildId: Schema.string(),
 		}),
-		automaticResend: Schema.boolean().required(),
 		liveDetectMode: Schema.union([
 			Schema.const("API"),
 			Schema.const("WS"),
