@@ -177,13 +177,14 @@ export function apply(ctx: Context, config: Config) {
 	ctx.notifier.create({
 		type: "danger",
 		content:
-			"3.0.0-alpha.16 全面从指令订阅迁移到配置订阅，以前使用指令的订阅需要全部重新填写到订阅配置中",
+			"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
 	});
 	ctx.notifier.create({
 		type: "warning",
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
+	ctx.logger.warn("从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容");
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -217,7 +218,7 @@ export interface Config {
 		// biome-ignore lint/complexity/noBannedTypes: <explanation>
 		card: {};
 		target: Array<{
-			channelIdArr: Array<{
+			channelArr: Array<{
 				channelId: string;
 				dynamic: boolean;
 				live: boolean;
@@ -324,7 +325,9 @@ export const Config: Schema<Config> = Schema.object({
 
 	sub: Schema.array(
 		Schema.object({
-			name: Schema.string().description("订阅用户昵称，只是给你自己看的(相当于备注)，可填可不填"),
+			name: Schema.string().description(
+				"订阅用户昵称，只是给你自己看的(相当于备注)，可填可不填",
+			),
 			uid: Schema.string().required().description("订阅用户UID"),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
@@ -333,7 +336,7 @@ export const Config: Schema<Config> = Schema.object({
 					platform: Schema.string()
 						.required()
 						.description("推送平台，例如onebot、qq、discord"),
-					channelIdArr: Schema.array(
+					channelArr: Schema.array(
 						Schema.object({
 							channelId: Schema.string().required().description("频道/群组号"),
 							dynamic: Schema.boolean()

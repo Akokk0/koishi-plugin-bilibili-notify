@@ -21,7 +21,7 @@ import { withLock, withRetry } from "./utils";
 // Types
 import {
 	type AllDynamicInfo,
-	type ChannelIdArr,
+	type ChannelArr,
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
@@ -385,7 +385,7 @@ class ComRegister {
 		// Test
 		const testTarget: Target = [
 			{
-				channelIdArr: [
+				channelArr: [
 					{
 						channelId: "635762054",
 						dynamic: true,
@@ -472,31 +472,32 @@ class ComRegister {
 		return;
 	}
 
-	async sendMessageWithRetry (
-		broadcastTarget: string[],
+	async sendMessageWithRetry(
+		bot: Bot<Context>,
+		channelId: string,
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		content: any,
 	) {
-		withRetry(async () => await this.ctx.broadcast(broadcastTarget, content), 1).catch(
+		withRetry(async () => await bot.sendMessage(channelId, content), 1).catch(
 			async (e: Error) => {
 				if (e.message === "this._request is not a function") {
 					// 2S之后重新发送消息
 					this.ctx.setTimeout(async () => {
-						await this.sendMessageWithRetry(broadcastTarget, content);
+						await this.sendMessageWithRetry(bot, channelId, content);
 					}, 2000);
 					// 返回
 					return;
 				}
 				// 打印错误信息
 				this.logger.error(
-					`发送群组ID:${broadcastTarget[0]}消息失败！原因: ${e.message}`,
+					`发送群组ID:${channelId}消息失败！原因: ${e.message}`,
 				);
 				await this.sendPrivateMsg(
-					`发送群组ID:${broadcastTarget[0]}消息失败，请查看日志`,
+					`发送群组ID:${channelId}消息失败，请查看日志`,
 				);
 			},
 		);
-	};
+	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	async broadcastToTargets(targets: Target, content: any, live?: boolean) {
@@ -504,45 +505,50 @@ class ComRegister {
 			// 获取机器人实例
 			const bot = this.getBot(target.platform);
 			// 定义需要发送的数组
-			let sendArr: ChannelIdArr = [];
+			let channelArr: ChannelArr = [];
 			// 判断是否需要推送所有机器人加入的群
-			if (target.channelIdArr[0].channelId === "all") {
+			if (target.channelArr[0].channelId === "all") {
 				// 获取所有guild
 				for (const guild of (await bot.getGuildList()).data) {
-					sendArr.push({
+					channelArr.push({
 						channelId: guild.id,
-						dynamic: target.channelIdArr[0].dynamic,
-						live: target.channelIdArr[0].live,
-						liveGuardBuy: target.channelIdArr[0].liveGuardBuy,
-						atAll: target.channelIdArr[0].atAll,
+						dynamic: target.channelArr[0].dynamic,
+						live: target.channelArr[0].live,
+						liveGuardBuy: target.channelArr[0].liveGuardBuy,
+						atAll: target.channelArr[0].atAll,
 					});
 				}
 			} else {
-				sendArr = target.channelIdArr;
+				channelArr = target.channelArr;
 			}
 			// 判断是否是直播开播推送，如果是则需要进一步判断是否需要艾特群体成员
 			if (live) {
 				// 直播开播推送，判断是否需要艾特全体成员
-				for (const channel of sendArr) {
-					// 构建广播目标
-					const broadcastTarget = [`${target.platform}:${channel.channelId}`];
+				for (const channel of channelArr) {
 					// 判断是否需要推送直播消息
 					if (channel.live) {
-						await this.sendMessageWithRetry(broadcastTarget, content);
+						await this.sendMessageWithRetry(bot, channel.channelId, content);
 					}
 					// 判断是否需要艾特全体成员
 					if (channel.atAll) {
-						await this.sendMessageWithRetry(broadcastTarget, <at type="all" />);
+						await this.sendMessageWithRetry(
+							bot,
+							channel.channelId,
+							<at type="all" />,
+						);
 					}
+					// 延迟发送
+					await this.ctx.sleep(500);
 				}
 			} else {
-				for (const channel of sendArr) {
-					// 构建广播目标
-					const broadcastTarget = [`${target.platform}:${channel.channelId}`];
+				// 不是直播开播推送
+				for (const channel of channelArr) {
 					// 判断是否需要推送动态消息
 					if (channel.dynamic || channel.live) {
-						await this.sendMessageWithRetry(broadcastTarget, content);
+						await this.sendMessageWithRetry(bot, channel.channelId, content);
 					}
+					// 延迟发送
+					await this.ctx.sleep(500);
 				}
 			}
 		}
@@ -1116,7 +1122,7 @@ class ComRegister {
 		let liveStatus = false;
 		// 处理target
 		// 定义channelIdArr总长度
-		let channelIdArrLen = 0;
+		let channelArrLen = 0;
 		// 定义数据
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		let liveRoomInfo: any;
@@ -1163,14 +1169,14 @@ class ComRegister {
 		// 找到频道/群组对应的
 		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
 			// 获取符合条件的target
-			const liveGuardBuyArr = channel.channelIdArr.filter(
+			const liveGuardBuyArr = channel.channelArr.filter(
 				(channelId) => channelId.liveGuardBuy,
 			);
 			// 将当前liveDanmakuArr的长度+到channelIdArrLen中
-			channelIdArrLen += liveGuardBuyArr.length;
+			channelArrLen += liveGuardBuyArr.length;
 			// 返回符合的target
 			return {
-				channelIdArr: liveGuardBuyArr,
+				channelArr: liveGuardBuyArr,
 				platform: channel.platform,
 			};
 		});
@@ -1250,7 +1256,8 @@ class ComRegister {
 				// 定义消息
 				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
 				// 直接发送消息
-				channelIdArrLen > 0 && this.broadcastToTargets(liveGuardBuyPushTargetArr, content);
+				channelArrLen > 0 &&
+					this.broadcastToTargets(liveGuardBuyPushTargetArr, content);
 			},
 			onLiveStart: async () => {
 				// 判断是否已经开播
@@ -1777,7 +1784,7 @@ namespace ComRegister {
 			dynamic: boolean;
 			live: boolean;
 			target: Array<{
-				channelIdArr: Array<{
+				channelArr: Array<{
 					channelId: string;
 					dynamic: boolean;
 					live: boolean;
@@ -1827,7 +1834,7 @@ namespace ComRegister {
 				live: Schema.boolean().description("是否订阅用户直播"),
 				target: Schema.array(
 					Schema.object({
-						channelIdArr: Schema.array(
+						channelArr: Schema.array(
 							Schema.object({
 								channelId: Schema.string().description("频道/群组号"),
 								dynamic: Schema.boolean().description(

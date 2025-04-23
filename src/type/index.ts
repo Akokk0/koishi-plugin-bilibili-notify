@@ -6,7 +6,7 @@ export enum LiveType {
 	FirstLiveBroadcast = 4,
 }
 
-export type ChannelIdArr = Array<{
+export type ChannelArr = Array<{
 	channelId: string;
 	dynamic: boolean;
 	live: boolean;
@@ -15,7 +15,7 @@ export type ChannelIdArr = Array<{
 }>;
 
 export type TargetItem = {
-	channelIdArr: ChannelIdArr;
+	channelArr: ChannelArr;
 	platform: string;
 };
 

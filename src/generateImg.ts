@@ -56,7 +56,7 @@ class GenerateImg extends Service {
 		});
 		await elementHandle.dispose();
 		await page.close();
-        return buffer;
+		return buffer;
 	}
 
 	async generateLiveImg(
