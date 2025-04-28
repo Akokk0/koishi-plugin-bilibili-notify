@@ -25,6 +25,7 @@ import {
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
+	PushType,
 	type SubItem,
 	type SubManager,
 	type Target,
@@ -500,7 +501,7 @@ class ComRegister {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async broadcastToTargets(targets: Target, content: any, live?: boolean) {
+	async broadcastToTargets(targets: Target, content: any, type: PushType) {
 		for (const target of targets) {
 			// 获取机器人实例
 			const bot = this.getBot(target.platform);
@@ -521,36 +522,65 @@ class ComRegister {
 			} else {
 				channelArr = target.channelArr;
 			}
-			// 判断是否是直播开播推送，如果是则需要进一步判断是否需要艾特群体成员
-			if (live) {
-				// 直播开播推送，判断是否需要艾特全体成员
-				for (const channel of channelArr) {
-					// 判断是否需要推送直播消息
-					if (channel.live) {
-						await this.sendMessageWithRetry(bot, channel.channelId, content);
+			// 模式匹配
+			const pushTypePatternMatching = {
+				[PushType.Live]: async () => {
+					for (const channel of channelArr) {
+						// 判断是否需要推送动态消息
+						if (channel.live) {
+							await this.sendMessageWithRetry(bot, channel.channelId, content);
+						}
+						// 延迟发送
+						await this.ctx.sleep(500);
 					}
-					// 判断是否需要艾特全体成员
-					if (channel.atAll) {
-						await this.sendMessageWithRetry(
-							bot,
-							channel.channelId,
-							<at type="all" />,
-						);
+				},
+				[PushType.Dynamic]: async () => {
+					for (const channel of channelArr) {
+						// 判断是否需要推送动态消息
+						if (channel.live) {
+							await this.sendMessageWithRetry(bot, channel.channelId, content);
+						}
+						// 延迟发送
+						await this.ctx.sleep(500);
 					}
-					// 延迟发送
-					await this.ctx.sleep(500);
+				},
+				[PushType.StartBroadcasting]: async () => {
+					// 直播开播推送，判断是否需要艾特全体成员
+					for (const channel of channelArr) {
+						// 判断是否需要推送直播消息
+						if (channel.live) {
+							await this.sendMessageWithRetry(bot, channel.channelId, content);
+						}
+						// 判断是否需要艾特全体成员
+						if (channel.atAll) {
+							await this.sendMessageWithRetry(
+								bot,
+								channel.channelId,
+								<at type="all" />,
+							);
+						}
+						// 延迟发送
+						await this.ctx.sleep(500);
+					}
+				},
+				[PushType.LiveGuardBuy]: async () => {
+					// 直播守护购买推送，判断是否需要艾特全体成员
+					for (const channel of channelArr) {
+						// 判断是否需要推送直播消息
+						if (channel.liveGuardBuy) {
+							await this.sendMessageWithRetry(
+								bot,
+								channel.channelId,
+								content,
+							);
+						}
+						// 延迟发送
+						await this.ctx.sleep(500);
+					}
 				}
-			} else {
-				// 不是直播开播推送
-				for (const channel of channelArr) {
-					// 判断是否需要推送动态消息
-					if (channel.dynamic || channel.live) {
-						await this.sendMessageWithRetry(bot, channel.channelId, content);
-					}
-					// 延迟发送
-					await this.ctx.sleep(500);
-				}
-			}
+			};
+			// 推送
+			await pushTypePatternMatching[type]();
 		}
 	}
 
@@ -681,7 +711,7 @@ class ComRegister {
 					// 寻找关注的UP主的动态
 					for (const sub of this.subManager) {
 						// 判断是否是订阅的UP主
-						if (sub.dynamic && sub.uid === upUID) {
+						if (sub.uid === upUID && sub.dynamic) {
 							// 订阅该UP主，推送该动态
 							// 推送该条动态
 							const buffer = await withRetry(async () => {
@@ -696,6 +726,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											`${upName}发布了一条含有屏蔽关键字的动态`,
+											PushType.Dynamic,
 										);
 									}
 									return;
@@ -705,6 +736,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											`${upName}转发了一条动态，已屏蔽`,
+											PushType.Dynamic,
 										);
 									}
 									return;
@@ -731,6 +763,7 @@ class ComRegister {
 									{h.image(buffer, "image/jpeg")}
 									{dUrl}
 								</>,
+								PushType.Dynamic,
 							);
 							// 判断是否需要发送动态中的图片
 							if (this.config.pushImgsInDynamic) {
@@ -744,6 +777,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											<img src={img.src} alt="动态图片" />,
+											PushType.Dynamic,
 										);
 									}
 								}
@@ -952,6 +986,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											`${upName}发布了一条含有屏蔽关键字的动态`,
+											PushType.Dynamic,
 										);
 									}
 									return;
@@ -961,6 +996,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											`${upName}转发了一条动态，已屏蔽`,
+											PushType.Dynamic,
 										);
 									}
 									return;
@@ -999,6 +1035,7 @@ class ComRegister {
 									{h.image(buffer, "image/jpeg")}
 									{dUrl}
 								</>,
+								PushType.Dynamic,
 							);
 							// logger
 							this.logger.info("动态推送完毕！");
@@ -1016,6 +1053,7 @@ class ComRegister {
 										await this.broadcastToTargets(
 											sub.target,
 											<img src={img.src} alt="动态图片" />,
+											PushType.Dynamic,
 										);
 									}
 								}
@@ -1163,7 +1201,7 @@ class ComRegister {
 			return await this.broadcastToTargets(
 				target,
 				msg,
-				liveType === LiveType.StartBroadcasting,
+				liveType === LiveType.StartBroadcasting ? PushType.StartBroadcasting : PushType.Live,
 			);
 		};
 		// 找到频道/群组对应的
@@ -1257,7 +1295,7 @@ class ComRegister {
 				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
 				// 直接发送消息
 				channelArrLen > 0 &&
-					this.broadcastToTargets(liveGuardBuyPushTargetArr, content);
+					this.broadcastToTargets(liveGuardBuyPushTargetArr, content, PushType.LiveGuardBuy);
 			},
 			onLiveStart: async () => {
 				// 判断是否已经开播

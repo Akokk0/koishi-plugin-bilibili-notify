@@ -177,7 +177,7 @@ export function apply(ctx: Context, config: Config) {
 	ctx.notifier.create({
 		type: "danger",
 		content:
-			"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
+			"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1及以后版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
 	});
 	ctx.notifier.create({
 		type: "warning",

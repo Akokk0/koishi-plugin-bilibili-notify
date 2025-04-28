@@ -98,3 +98,10 @@ export type AllDynamicInfo = {
 		update_num: number;
 	};
 };
+
+export enum PushType {
+	Live = 0,
+	Dynamic = 1,
+	StartBroadcasting = 2,
+	LiveGuardBuy = 3,
+}
