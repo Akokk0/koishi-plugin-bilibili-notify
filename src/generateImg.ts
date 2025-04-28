@@ -46,7 +46,7 @@ class GenerateImg extends Service {
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
 		const buffer = await page.screenshot({
-			type: "png",
+			type: "jpeg",
 			clip: {
 				x: boundingBox.x,
 				y: boundingBox.y,
@@ -253,7 +253,12 @@ class GenerateImg extends Service {
 			cardColorEnd = this.giConfig.cardColorEnd,
 			cardBasePlateColor = this.giConfig.cardBasePlateColor,
 			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
-		},
+		}: {
+			cardColorStart?: string;
+			cardColorEnd?: string;
+			cardBasePlateColor?: string;
+			cardBasePlateBorder?: string;
+		} = {},
 	) {
 		// module_author
 		const module_author = data.modules.module_author;

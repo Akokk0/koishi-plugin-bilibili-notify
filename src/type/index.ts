@@ -6,7 +6,7 @@ export enum LiveType {
 	FirstLiveBroadcast = 4,
 }
 
-export type ChannelIdArr = Array<{
+export type ChannelArr = Array<{
 	channelId: string;
 	dynamic: boolean;
 	live: boolean;
@@ -15,7 +15,7 @@ export type ChannelIdArr = Array<{
 }>;
 
 export type TargetItem = {
-	channelIdArr: ChannelIdArr;
+	channelArr: ChannelArr;
 	platform: string;
 };
 
@@ -79,6 +79,7 @@ export type AllDynamicInfo = {
 					mid: number;
 					name: string;
 					face: string;
+					pub_ts: number;
 				};
 				module_dynamic: {
 					major: {
@@ -97,3 +98,10 @@ export type AllDynamicInfo = {
 		update_num: number;
 	};
 };
+
+export enum PushType {
+	Live = 0,
+	Dynamic = 1,
+	StartBroadcasting = 2,
+	LiveGuardBuy = 3,
+}
