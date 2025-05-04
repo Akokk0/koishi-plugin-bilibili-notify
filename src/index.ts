@@ -106,7 +106,6 @@ class ServerManager extends Service {
 				subLoadTimeout: globalConfig.subLoadTimeout,
 				sub: globalConfig.sub,
 				master: globalConfig.master,
-				liveDetectMode: globalConfig.liveDetectMode,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
@@ -234,7 +233,6 @@ export interface Config {
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
-	liveDetectMode: "API" | "WS";
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -413,20 +411,6 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	live: Schema.object({}).description("直播推送设置"),
-
-	liveDetectMode: Schema.union([
-		Schema.const("WS").description(
-			"WebSocket模式：连接到对应的直播间，可推送弹幕消息，开播下播响应最快，但对订阅数有限制",
-		),
-		Schema.const("API")
-			.description(
-				"API模式：请求对应直播间API，无法获取弹幕消息，开播下播响应慢，理论可无限订阅",
-			)
-			.deprecated(),
-	])
-		.role("radio")
-		.description("直播检测模式")
-		.default("WS"),
 
 	restartPush: Schema.boolean()
 		.default(true)
