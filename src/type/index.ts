@@ -6,13 +6,15 @@ export enum LiveType {
 	FirstLiveBroadcast = 4,
 }
 
-export type ChannelArr = Array<{
+export type Channel = {
 	channelId: string;
 	dynamic: boolean;
 	live: boolean;
 	liveGuardBuy: boolean;
 	atAll: boolean;
-}>;
+}
+
+export type ChannelArr = Array<Channel>;
 
 export type TargetItem = {
 	channelArr: ChannelArr;

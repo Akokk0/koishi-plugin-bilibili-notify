@@ -500,84 +500,115 @@ class ComRegister {
 		);
 	}
 
+	getGroupsThatMeetCriteria(targets: Target, type: PushType) {
+		// 定义数组
+		const pushArr: Array<string> = [];
+		// 判断类型
+		if (type === PushType.Live || type === PushType.StartBroadcasting) {
+			for (const target of targets) {
+				for (const channel of target.channelArr) {
+					if (channel.live) {
+						pushArr.push(`${target.platform}:${channel.channelId}`);
+					}
+				}
+			}
+			return pushArr;
+		}
+		if (type === PushType.Dynamic) {
+			for (const target of targets) {
+				for (const channel of target.channelArr) {
+					if (channel.dynamic) {
+						pushArr.push(`${target.platform}:${channel.channelId}`);
+					}
+				}
+			}
+			return pushArr;
+		}
+		if (type === PushType.LiveGuardBuy) {
+			for (const target of targets) {
+				for (const channel of target.channelArr) {
+					if (channel.liveGuardBuy) {
+						pushArr.push(`${target.platform}:${channel.channelId}`);
+					}
+				}
+			}
+			return pushArr;
+		}
+	}
+
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	async broadcastToTargets(targets: Target, content: any, type: PushType) {
-		for (const target of targets) {
-			// 获取机器人实例
-			const bot = this.getBot(target.platform);
-			// 定义需要发送的数组
-			let channelArr: ChannelArr = [];
-			// 判断是否需要推送所有机器人加入的群
-			if (target.channelArr[0].channelId === "all") {
-				// 获取所有guild
-				for (const guild of (await bot.getGuildList()).data) {
-					channelArr.push({
-						channelId: guild.id,
-						dynamic: target.channelArr[0].dynamic,
-						live: target.channelArr[0].live,
-						liveGuardBuy: target.channelArr[0].liveGuardBuy,
-						atAll: target.channelArr[0].atAll,
-					});
-				}
-			} else {
-				channelArr = target.channelArr;
-			}
-			// 模式匹配
-			const pushTypePatternMatching = {
-				[PushType.Live]: async () => {
-					for (const channel of channelArr) {
-						// 判断是否需要推送动态消息
-						if (channel.live) {
-							await this.sendMessageWithRetry(bot, channel.channelId, content);
-						}
-						// 延迟发送
-						await this.ctx.sleep(500);
-					}
-				},
-				[PushType.Dynamic]: async () => {
-					for (const channel of channelArr) {
-						// 判断是否需要推送动态消息
-						if (channel.live) {
-							await this.sendMessageWithRetry(bot, channel.channelId, content);
-						}
-						// 延迟发送
-						await this.ctx.sleep(500);
-					}
-				},
-				[PushType.StartBroadcasting]: async () => {
-					// 直播开播推送，判断是否需要艾特全体成员
-					for (const channel of channelArr) {
-						// 判断是否需要推送直播消息
-						if (channel.live) {
-							await this.sendMessageWithRetry(bot, channel.channelId, content);
-						}
-						// 判断是否需要艾特全体成员
-						if (channel.atAll) {
-							await this.sendMessageWithRetry(
-								bot,
-								channel.channelId,
-								<at type="all" />,
-							);
-						}
-						// 延迟发送
-						await this.ctx.sleep(500);
-					}
-				},
-				[PushType.LiveGuardBuy]: async () => {
-					// 直播守护购买推送，判断是否需要艾特全体成员
-					for (const channel of channelArr) {
-						// 判断是否需要推送直播消息
-						if (channel.liveGuardBuy) {
-							await this.sendMessageWithRetry(bot, channel.channelId, content);
-						}
-						// 延迟发送
-						await this.ctx.sleep(500);
-					}
-				},
-			};
-			// 推送
-			await pushTypePatternMatching[type]();
+		// 不止一个目标平台或一个目标频道
+		if (targets.length !== 1 || targets[0].channelArr.length !== 1) {
+			// 直接使用broadcast
+			const pushArr = this.getGroupsThatMeetCriteria(targets, type);
+			// logger
+			this.logger.info(
+				`推送消息到 ${pushArr.length} 个目标频道，目标频道为：${pushArr.join(", ")}`,
+			);
+			// 推送消息
+			await withRetry(async () => {
+				await this.ctx.broadcast(pushArr, content);
+			}, 1);
+			// 结束
+			return;
 		}
+		// 获取目标
+		const targetChannel = targets[0].channelArr[0];
+		// 获取机器人实例
+		const bot = this.getBot(targets[0].platform);
+		// 模式匹配
+		const pushTypePatternMatching = {
+			[PushType.Live]: async () => {
+				if (targetChannel.live) {
+					// 直接推送
+					await this.sendMessageWithRetry(
+						bot,
+						targetChannel.channelId,
+						content,
+					);
+				}
+			},
+			[PushType.Dynamic]: async () => {
+				if (targetChannel.dynamic) {
+					await this.sendMessageWithRetry(
+						bot,
+						targetChannel.channelId,
+						content,
+					);
+				}
+			},
+			[PushType.StartBroadcasting]: async () => {
+				// 判断是否需要推送直播消息
+				if (targetChannel.live) {
+					await this.sendMessageWithRetry(
+						bot,
+						targetChannel.channelId,
+						content,
+					);
+				}
+				// 判断是否需要艾特全体成员
+				if (targetChannel.atAll) {
+					await this.sendMessageWithRetry(
+						bot,
+						targetChannel.channelId,
+						<at type="all" />,
+					);
+				}
+			},
+			[PushType.LiveGuardBuy]: async () => {
+				// 判断是否需要推送直播消息
+				if (targetChannel.liveGuardBuy) {
+					await this.sendMessageWithRetry(
+						bot,
+						targetChannel.channelId,
+						content,
+					);
+				}
+			},
+		};
+		// 推送
+		await pushTypePatternMatching[type]();
 	}
 
 	dynamicDetect() {
