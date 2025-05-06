@@ -26,6 +26,7 @@ import {
 	type LiveUsers,
 	type MasterInfo,
 	PushType,
+	type Result,
 	type SubItem,
 	type SubManager,
 	type Target,
@@ -204,7 +205,9 @@ class ComRegister {
 							// 销毁定时器
 							this.loginTimer();
 							// 订阅手动订阅中的订阅
-							await this.loadSubFromConfig(config.sub);
+							const { code, msg } = await this.loadSubFromConfig(config.sub);
+							// 判断是否加载成功
+							if (code !== 0) this.logger.error(msg);
 							// 清除控制台通知
 							ctx.ba.disposeNotifier();
 							// 发送成功登录推送
@@ -341,7 +344,21 @@ class ComRegister {
 			return;
 		}
 		// 从配置获取订阅
-		config.sub && (await this.loadSubFromConfig(config.sub));
+		if (config.sub) {
+			const { code, msg } = await this.loadSubFromConfig(config.sub);
+			// 判断是否加载成功
+			if (code !== 0) {
+				this.logger.error(msg);
+
+				this.logger.error("订阅对象加载失败，插件初始化失败！");
+				// 发送私聊消息
+				await this.sendPrivateMsg(
+					"订阅对象加载失败，插件初始化失败！",
+				);
+
+				return;
+			}
+		}
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
@@ -360,44 +377,6 @@ class ComRegister {
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	getBot(pf: string): Bot<Context, any> {
 		return this.ctx.bots.find((bot) => bot.platform === pf);
-	}
-
-	// TODO:WordCloud
-	async test_wordCloud() {
-		/* const currentLiveDanmakuArr = []
-		// 定义获取弹幕权重Record函数
-		const getDanmakuWeightRecord = (): Record<string, number> => {
-			// 创建segmentit
-			const segmentit = useDefault(new Segment());
-			// 创建Record
-			const danmakuWeightRecord: Record<string, number> = {};
-			// 循环遍历currentLiveDanmakuArr
-			for (const danmaku of currentLiveDanmakuArr) {
-				// 遍历结果
-				segmentit.doSegment(danmaku).map((word: { w: string; p: number }) => {
-					// 定义权重
-					danmakuWeightRecord[word.w] = (danmakuWeightRecord[word.w] || 0) + 1;
-				});
-			}
-			// 返回Record
-			return danmakuWeightRecord;
-		}; */
-
-		// Test
-		const testTarget: Target = [
-			{
-				channelArr: [
-					{
-						channelId: "635762054",
-						dynamic: true,
-						live: false,
-						liveGuardBuy: false,
-						atAll: false,
-					},
-				],
-				platform: "qqguild",
-			},
-		];
 	}
 
 	async sendPrivateMsg(content: string) {
@@ -769,6 +748,16 @@ class ComRegister {
 								}
 								return;
 							}
+							if (e.message === "已屏蔽专栏动态") {
+								if (this.config.filter.notify) {
+									await this.broadcastToTargets(
+										sub.target,
+										`${upName}投稿了一条专栏，已屏蔽`,
+										PushType.Dynamic,
+									);
+								}
+								return;
+							}
 							// 未知错误
 							this.logger.error(
 								`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
@@ -1017,10 +1006,14 @@ class ComRegister {
 				const upName = item.modules.module_author.name;
 				// logger
 				this.logger.info(`当前动态UP主UID:${upUID}，UP主名称:${upName}`);
+				// 定义是否是订阅的UP主flag
+				let isSubscribed = false;
 				// 寻找关注的UP主的动态
 				for (const sub of this.subManager) {
 					// 判断是否是订阅的UP主
 					if (sub.dynamic && sub.uid === upUID) {
+						// 将flag设置为true
+						isSubscribed = true;
 						// logger：订阅该UP主，推送该动态
 						this.logger.info("订阅该UP主，开始推送该动态...");
 						// logger
@@ -1113,6 +1106,8 @@ class ComRegister {
 						// logger
 						this.logger.info("动态推送完毕！");
 					}
+				}
+				if (!isSubscribed) {
 					// logger
 					this.logger.info("不是关注的UP主，跳过该动态");
 				}
@@ -1552,15 +1547,9 @@ class ComRegister {
 		});
 	}
 
-	async subUserInBili(mid: string): Promise<{
-		code: number;
-		msg: string;
-	}> {
+	async subUserInBili(mid: string): Promise<Result> {
 		// 获取关注分组信息
-		const checkGroupIsReady = async (): Promise<{
-			code: number;
-			msg: string;
-		}> => {
+		const checkGroupIsReady = async (): Promise<Result> => {
 			// 判断是否有数据
 			if (
 				this.loginDBData.dynamic_group_id === "" ||
@@ -1602,17 +1591,9 @@ class ComRegister {
 		// 判断分组是否准备好
 		const resp = await checkGroupIsReady();
 		// 判断是否创建成功
-		if (resp.code !== 0) {
-			// 创建分组失败
-			return resp;
-		}
+		if (resp.code !== 0) return resp;
 		// 获取分组详情
-		const getGroupDetailData = async (): Promise<{
-			code: number;
-			msg: string;
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			data: any;
-		}> => {
+		const getGroupDetailData = async (): Promise<Result> => {
 			// 获取分组明细
 			const relationGroupDetailData = await this.ctx.ba.getRelationGroupDetail(
 				this.loginDBData.dynamic_group_id,
@@ -1625,10 +1606,7 @@ class ComRegister {
 					// 分组不存在
 					const resp = await checkGroupIsReady();
 					// 判断是否创建成功
-					if (resp.code !== 0) {
-						// 创建分组失败
-						return { ...resp, data: undefined };
-					}
+					if (resp.code !== 0) return resp;
 					// 再次获取分组明细
 					return getGroupDetailData();
 				}
@@ -1745,108 +1723,81 @@ class ComRegister {
 			},
 		};
 		// 获取函数
-		const func: () => Promise<{ code: number; msg: string }> =
-			subUserMatchPattern[subUserData.code];
+		const func: () => Promise<Result> = subUserMatchPattern[subUserData.code];
 		// 执行函数并返回
 		return await func();
 	}
 
-	async loadSubFromConfig(subs: ComRegister.Config["sub"]) {
-		// 定义一个AbortController
-		const controller = new AbortController();
-		const { signal } = controller;
-
-		// 设置超时
-		signal.addEventListener("abort", () => {
-			this.logger.info(`${signal.reason}，订阅未完全加载！`);
-		});
-
-		await Promise.all(
-			subs.map(async (sub) => {
-				let timer: () => void;
-				// 创建一个定时器
-				const timeoutPromise = new Promise((_, reject) => {
-					timer = this.ctx.setTimeout(() => {
-						// 取消订阅加载
-						if (signal.aborted) return;
-						// 终止
-						controller.abort(`加载订阅UID:${sub.uid}超时`);
-					}, this.config.subLoadTimeout * 1000);
+	async loadSubFromConfig(subs: ComRegister.Config["sub"]): Promise<Result> {
+		for (const sub of subs) {
+			// logger
+			this.logger.info(`加载订阅UID:${sub.uid}中...`);
+			// 定义Data
+			const {
+				code: userInfoCode,
+				msg: userInfoMsg,
+				data: userInfoData,
+			} = await withRetry(async () => {
+				// 获取用户信息
+				const data = await this.ctx.ba.getUserInfo(sub.uid);
+				// 返回用户信息
+				return { code: 0, data };
+			})
+				.then((content) => content.data)
+				.catch((e) => {
+					this.logger.error(
+						`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
+					);
+					// 返回失败
+					return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
 				});
-
-				await Promise.race([
-					(async () => {
-						// logger
-						this.logger.info(`加载订阅UID:${sub.uid}中...`);
-						// 定义Data
-						const data = await withRetry(
-							async () => await this.ctx.ba.getUserInfo(sub.uid),
-						)
-							.then((content) => content.data)
-							.catch((e) => {
-								this.logger.error(
-									`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
-								);
-								// logger
-								this.logger.info(`加载订阅UID:${sub.uid}失败！`);
-							});
-						// 判断是否需要订阅直播
-						if (sub.live) {
-							// 检查roomid是否存在
-							if (!data.live_room) {
-								// 用户没有开通直播间，无法订阅直播
-								sub.live = false;
-								// 发送提示
-								this.logger.warn(
-									`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`,
-								);
-							}
-							// 判断是否订阅直播
-							if (sub.live) {
-								// 启动直播监测
-								await this.liveDetectWithListener(
-									data.live_room.roomid,
-									sub.target,
-									sub.card,
-								);
-							}
-						}
-						// 在B站中订阅该对象
-						const subInfo = await this.subUserInBili(sub.uid);
-						// 判断订阅是否成功
-						if (subInfo.code !== 0) {
-							// 订阅失败，直接返回
-							this.logger.error(
-								`UID:${sub.uid} 订阅失败，错误信息：${subInfo.msg}`,
-							);
-							return;
-						}
-						// 判断是否超时
-						if (signal.aborted) {
-							// 订阅加载超时，取消订阅加载
-							return;
-						}
-						// 清除定时器
-						timer();
-						// 将该订阅添加到sm中
-						this.subManager.push({
-							id: +sub.uid,
-							uid: sub.uid,
-							uname: data.name,
-							roomId: sub.live ? data.live_room.roomid : "",
-							target: sub.target,
-							platform: "",
-							live: sub.live,
-							dynamic: sub.dynamic,
-							card: sub.card,
-						});
-						// logger
-						this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
-					})(),
-					timeoutPromise,
-				]);
-			}),
-		);
+			// 判断是否获取成功
+			if (userInfoCode !== 0) return { code: userInfoCode, msg: userInfoMsg };
+			// 判断是否需要订阅直播
+			if (sub.live) {
+				// 检查roomid是否存在
+				if (!userInfoData.live_room) {
+					// 用户没有开通直播间，无法订阅直播
+					sub.live = false;
+					// 发送提示
+					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
+				}
+				// 判断是否订阅直播
+				if (sub.live) {
+					// 启动直播监测
+					await this.liveDetectWithListener(
+						userInfoData.live_room.roomid,
+						sub.target,
+						sub.card,
+					);
+				}
+			}
+			// 在B站中订阅该对象
+			const subInfo = await this.subUserInBili(sub.uid);
+			// 判断订阅是否成功
+			if (subInfo.code !== 0) return subInfo;
+			// 将该订阅添加到sm中
+			this.subManager.push({
+				id: +sub.uid,
+				uid: sub.uid,
+				uname: userInfoData.name,
+				roomId: sub.live ? userInfoData.live_room.roomid : "",
+				target: sub.target,
+				platform: "",
+				live: sub.live,
+				dynamic: sub.dynamic,
+				card: sub.card,
+			});
+			// logger
+			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
+			// 1-3秒随机延迟
+			const randomDelay = Math.floor(Math.random() * 3) + 1;
+			// logger
+			this.logger.info(`随机延迟:${randomDelay}秒`);
+			// delay
+			await this.ctx.sleep(randomDelay * 1000);
+		}
+		return { code: 0, msg: "订阅加载完毕！" };
 	}
 
 	checkIfDynamicDetectIsNeeded() {

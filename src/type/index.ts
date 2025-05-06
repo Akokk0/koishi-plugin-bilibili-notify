@@ -107,3 +107,10 @@ export enum PushType {
 	StartBroadcasting = 2,
 	LiveGuardBuy = 3,
 }
+
+export type Result = {
+	code: number;
+	msg?: string;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	data?: any;
+}

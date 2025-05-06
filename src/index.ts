@@ -183,7 +183,9 @@ export function apply(ctx: Context, config: Config) {
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
-	ctx.logger.warn("从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容");
+	ctx.logger.warn(
+		"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
+	);
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -508,6 +510,7 @@ export const Config: Schema<Config> = Schema.object({
 				forward: Schema.boolean()
 					.default(false)
 					.description("是否屏蔽转发动态"),
+				article: Schema.boolean().default(false).description("是否屏蔽专栏"),
 			}),
 			Schema.object({}),
 		]),
