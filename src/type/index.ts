@@ -85,12 +85,26 @@ export type AllDynamicInfo = {
 				};
 				module_dynamic: {
 					major: {
-						draw: {
+						draw?: {
 							items: Array<{
 								src: string;
 								alt: string;
 							}>;
 						};
+						archive?: {
+							aid: string;
+							// biome-ignore lint/complexity/noBannedTypes: <explanation>
+							badge: Object;
+							bvid: string;
+							cover: string;
+							desc: string;
+							disable_preview: number;
+							duration_text: string;
+							jump_url: string;
+							stat: string;
+							title: string;
+							type: number;
+						}
 					};
 				};
 			};

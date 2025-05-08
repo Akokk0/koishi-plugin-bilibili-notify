@@ -352,9 +352,7 @@ class ComRegister {
 
 				this.logger.error("订阅对象加载失败，插件初始化失败！");
 				// 发送私聊消息
-				await this.sendPrivateMsg(
-					"订阅对象加载失败，插件初始化失败！",
-				);
+				await this.sendPrivateMsg("订阅对象加载失败，插件初始化失败！");
 
 				return;
 			}
@@ -595,8 +593,10 @@ class ComRegister {
 		let detectSetup = true;
 		// 时间线
 		let timeline: number;
-		// 第一条动态的动态ID
-		let dynamicIdStr1st: string;
+		// 当前推送动态时间线
+		let currentTimeline: number;
+		// 动态ID
+		let dynId: string;
 		// 定义handler
 		const handler = async () => {
 			// 动态监测启动初始化
@@ -618,7 +618,7 @@ class ComRegister {
 				// 判断获取动态信息是否成功
 				if (content.code !== 0) return;
 				// 设置第一条动态的动态ID
-				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
+				dynId = content.data?.items[0]?.id_str || "0";
 				// 设置时间线
 				timeline =
 					content.data?.items[0]?.modules.module_author.pub_ts ||
@@ -708,7 +708,7 @@ class ComRegister {
 				// 获取动态ID
 				const dynamicId = item.id_str;
 				// 动态ID如果一致则结束循环
-				if (dynamicId === dynamicIdStr1st) break;
+				if (dynamicId === dynId) break;
 				// 获取动态发布时间
 				const postTime = item.modules.module_author.pub_ts;
 				// timeline已超过或与当前动态时间戳相同，则后面的动态不需要推送
@@ -771,8 +771,12 @@ class ComRegister {
 						let dUrl = "";
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
-							// 生成动态链接
-							dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`;
+							if (item.type === "DYNAMIC_TYPE_AV") {
+								dUrl = `${upName}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+							} else {
+								// 生成动态链接
+								dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`;
+							}
 						}
 						// logger
 						this.logger.info("推送动态中...");
@@ -802,16 +806,22 @@ class ComRegister {
 								}
 							}
 						}
+						// 设置timeline
+						currentTimeline = postTime;
 						// logger
 						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
-			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr1st = items[0].id_str;
 			// 更新时间线
-			timeline =
-				items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
+			if (currentTimeline) {
+				timeline = currentTimeline;
+				currentTimeline = null;
+			}
+			// 设置动态ID
+			if (items[0].id_str && items[0].id_str !== dynId) {
+				dynId = items[0].id_str;
+			}
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -822,8 +832,10 @@ class ComRegister {
 		let detectSetup = true;
 		// 时间线
 		let timeline: number;
-		// 第一条动态的动态ID
-		let dynamicIdStr1st: string;
+		// 当前推送动态时间线
+		let currentTimeline: number;
+		// 动态ID
+		let dynId: string;
 		// 定义handler
 		const handler = async () => {
 			// 动态监测启动初始化
@@ -855,9 +867,9 @@ class ComRegister {
 					return;
 				}
 				// 设置第一条动态的动态ID
-				dynamicIdStr1st = content.data?.items[0]?.id_str || "0";
+				dynId = content.data?.items[0]?.id_str || "0";
 				// logger
-				this.logger.info(`获取到第一条动态ID:${dynamicIdStr1st}`);
+				this.logger.info(`获取到第一条动态ID:${dynId}`);
 				// 设置时间线
 				timeline =
 					content.data?.items[0]?.modules.module_author.pub_ts ||
@@ -963,11 +975,12 @@ class ComRegister {
 				const dynamicId = item.id_str;
 				// logger
 				this.logger.info(`当前动态ID:${dynamicId}`);
-				this.logger.info(`上一次获取到第一条动态ID:${dynamicId}`);
+				this.logger.info(`上次第一条推送的动态ID:${dynId}`);
 				// 动态ID如果一致则结束循环
-				if (dynamicId === dynamicIdStr1st) {
+				if (dynamicId === dynId) {
 					// logger
-					this.logger.info("动态ID与上一次获取第一条一致，结束循环");
+					this.logger.info("动态ID与上次第一条推送动态一致，结束循环");
+					// 结束循环
 					break;
 				}
 				// 获取动态发布时间
@@ -999,7 +1012,7 @@ class ComRegister {
 				}
 				// logger
 				this.logger.info(
-					"动态时间线大于上一次获取到第一条动态时间线，开始判断是否是订阅的UP主...",
+					"动态时间线大于最后推送动态时间线，开始判断是否是订阅的UP主...",
 				);
 				// 从动态数据中取出UP主名称、UID
 				const upUID = item.modules.module_author.mid.toString();
@@ -1068,8 +1081,12 @@ class ComRegister {
 						if (this.config.dynamicUrl) {
 							// logger
 							this.logger.info("生成动态链接中...");
-							// 生成动态链接
-							dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`;
+							if (item.type === "DYNAMIC_TYPE_AV") {
+								dUrl = `${upName}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+							} else {
+								// 生成动态链接
+								dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
+							}
 						}
 						// logger
 						this.logger.info("推送动态中...");
@@ -1103,6 +1120,8 @@ class ComRegister {
 							// logger
 							this.logger.info("图片推送完毕！");
 						}
+						// 设置timeline
+						currentTimeline = postTime;
 						// logger
 						this.logger.info("动态推送完毕！");
 					}
@@ -1112,15 +1131,21 @@ class ComRegister {
 					this.logger.info("不是关注的UP主，跳过该动态");
 				}
 			}
-			// 更新本次请求第一条动态的动态ID
-			dynamicIdStr1st = items[0].id_str;
-			// logger
-			this.logger.info(`更新本次请求第一条动态的动态ID:${dynamicIdStr1st}`);
 			// 更新时间线
-			timeline =
-				items[0].modules.module_author.pub_ts || DateTime.now().toSeconds();
-			// logger
-			this.logger.info(`更新时间线:${timeline}`);
+			if (currentTimeline) {
+				timeline = currentTimeline;
+				currentTimeline = null;
+				// logger
+				this.logger.info(`更新时间线:${timeline}`);
+			} else {
+				this.logger.info("时间线无需更新！");
+			}
+			// 更新动态ID
+			if (items[0].id_str && items[0].id_str !== dynId) {
+				dynId = items[0].id_str;
+				// logger
+				this.logger.info(`更新动态ID:${dynId}`);
+			}
 			// logger
 			this.logger.info(
 				`时间线格式化:${DateTime.fromSeconds(timeline).toFormat("yyyy-MM-dd HH:mm:ss")}`,
@@ -1722,10 +1747,8 @@ class ComRegister {
 				return { code: 0, msg: "订阅对象添加成功" };
 			},
 		};
-		// 获取函数
-		const func: () => Promise<Result> = subUserMatchPattern[subUserData.code];
 		// 执行函数并返回
-		return await func();
+		return await subUserMatchPattern[subUserData.code]();
 	}
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]): Promise<Result> {
