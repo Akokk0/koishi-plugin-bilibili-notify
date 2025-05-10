@@ -8,7 +8,6 @@ import {
 	h,
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
-import {} from "koishi-plugin-cron";
 import {} from "@koishijs/plugin-help";
 // 数据库
 import type { LoginBili } from "./database";
@@ -16,12 +15,12 @@ import type { LoginBili } from "./database";
 import type { MsgHandler } from "blive-message-listener";
 // 外部依赖：qrcode
 import QRCode from "qrcode";
+import { CronJob } from "cron";
 // Utils
 import { withLock, withRetry } from "./utils";
 // Types
 import {
 	type AllDynamicInfo,
-	type ChannelArr,
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
@@ -32,12 +31,10 @@ import {
 	type Target,
 } from "./type";
 import { DateTime } from "luxon";
-// TODO:WorlCloud
-// import { Segment, useDefault } from "segmentit";
 
 class ComRegister {
 	// 必须服务
-	static inject = ["ba", "gi", "database", "bl", "sm", "cron"];
+	static inject = ["ba", "gi", "database", "bl", "sm"];
 	// 定义数组：QQ相关bot
 	qqRelatedBotList: Array<string> = [
 		"qq",
@@ -62,12 +59,14 @@ class ComRegister {
 	ctx: Context;
 	// 订阅管理器
 	subManager: SubManager = [];
+	// 动态时间线管理器
+	dynamicTimelineManager: Map<string, number> = new Map();
 	// 检查登录数据库是否有数据
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// 机器人实例
 	privateBot: Bot<Context>;
 	// 动态检测销毁函数
-	dynamicDispose: () => void;
+	dynamicJob: CronJob;
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -84,7 +83,7 @@ class ComRegister {
 			.usage("查看动态监测运行状态")
 			.example("status dyn")
 			.action(() => {
-				if (this.dynamicDispose) {
+				if (this.dynamicJob?.isActive) {
 					return "动态监测正在运行";
 				}
 				return "动态监测未运行";
@@ -357,6 +356,8 @@ class ComRegister {
 				return;
 			}
 		}
+		// 整理dynamicTimelineManager
+		this.initDynamicTimelineManager();
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 在控制台中显示订阅对象
@@ -366,10 +367,20 @@ class ComRegister {
 			// 销毁登录定时器
 			if (this.loginTimer) this.loginTimer();
 			// 销毁动态监测
-			if (this.dynamicDispose) this.dynamicDispose();
+			if (this.dynamicJob) this.dynamicJob.stop();
 		});
 		// logger
 		this.logger.info("插件初始化完毕！");
+	}
+
+	initDynamicTimelineManager() {
+		for (const sub of this.subManager) {
+			if (sub.dynamic) {
+				this.dynamicTimelineManager[sub.uid] = Math.floor(
+					DateTime.now().toSeconds(),
+				);
+			}
+		}
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -589,47 +600,10 @@ class ComRegister {
 	}
 
 	dynamicDetect() {
-		// 检测初始化变量
-		let detectSetup = true;
-		// 时间线
-		let timeline: number;
-		// 当前推送动态时间线
-		let currentTimeline: number;
-		// 动态ID
-		let dynId: string;
 		// 定义handler
 		const handler = async () => {
-			// 动态监测启动初始化
-			if (detectSetup) {
-				// logger
-				this.logger.info("动态监测初始化中...");
-				// 使用withRetry函数进行重试
-				const content = await withRetry(async () => {
-					// 获取动态内容
-					return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
-				}, 1).catch((e) => {
-					// logger
-					this.logger.error(
-						`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
-					);
-				});
-				// content不存在则直接返回
-				if (!content) return;
-				// 判断获取动态信息是否成功
-				if (content.code !== 0) return;
-				// 设置第一条动态的动态ID
-				dynId = content.data?.items[0]?.id_str || "0";
-				// 设置时间线
-				timeline =
-					content.data?.items[0]?.modules.module_author.pub_ts ||
-					DateTime.now().toSeconds();
-				// 设置初始化为false
-				detectSetup = false;
-				// logger
-				this.logger.info("动态监测初始化完毕！");
-				// 初始化完成
-				return;
-			}
+			// 定义本次请求推送的动态
+			const currentPushDyn: Record<string, AllDynamicInfo["data"]["items"][number]> = {};
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
@@ -705,21 +679,19 @@ class ComRegister {
 			for (const item of items) {
 				// 没有动态内容则直接跳过
 				if (!item) continue;
-				// 获取动态ID
-				const dynamicId = item.id_str;
-				// 动态ID如果一致则结束循环
-				if (dynamicId === dynId) break;
 				// 获取动态发布时间
 				const postTime = item.modules.module_author.pub_ts;
-				// timeline已超过或与当前动态时间戳相同，则后面的动态不需要推送
-				if (postTime <= timeline) break;
 				// 从动态数据中取出UP主名称、UID
-				const upUID = item.modules.module_author.mid.toString();
-				const upName = item.modules.module_author.name;
-				// 寻找关注的UP主的动态
-				for (const sub of this.subManager) {
-					// 判断是否是订阅的UP主
-					if (sub.dynamic && sub.uid === upUID) {
+				const uid = item.modules.module_author.mid.toString();
+				const name = item.modules.module_author.name;
+				// 判断是否存在时间线
+				if (this.dynamicTimelineManager.has(uid)) {
+					// 寻找关注的UP主
+					const timeline = this.dynamicTimelineManager.get(uid);
+					// 判断动态发布时间是否大于时间线
+					if (timeline < postTime) {
+						// 获取订阅对象
+						const sub = this.subManager[uid];
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
@@ -732,7 +704,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.target,
-										`${upName}发布了一条含有屏蔽关键字的动态`,
+										`${name}发布了一条含有屏蔽关键字的动态`,
 										PushType.Dynamic,
 									);
 								}
@@ -742,7 +714,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.target,
-										`${upName}转发了一条动态，已屏蔽`,
+										`${name}转发了一条动态，已屏蔽`,
 										PushType.Dynamic,
 									);
 								}
@@ -752,7 +724,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.target,
-										`${upName}投稿了一条专栏，已屏蔽`,
+										`${name}投稿了一条专栏，已屏蔽`,
 										PushType.Dynamic,
 									);
 								}
@@ -772,10 +744,10 @@ class ComRegister {
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${upName}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+								dUrl = `${name}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
 							} else {
 								// 生成动态链接
-								dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${dynamicId}`;
+								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
 							}
 						}
 						// logger
@@ -806,21 +778,19 @@ class ComRegister {
 								}
 							}
 						}
-						// 设置timeline
-						currentTimeline = postTime;
+						// 将当前动态存入currentPushDyn
+						currentPushDyn[uid] = item;
 						// logger
 						this.logger.info("动态推送完毕！");
 					}
 				}
 			}
-			// 更新时间线
-			if (currentTimeline) {
-				timeline = currentTimeline;
-				currentTimeline = null;
-			}
-			// 设置动态ID
-			if (items[0].id_str && items[0].id_str !== dynId) {
-				dynId = items[0].id_str;
+			// 遍历currentPushDyn
+			for (const uid in currentPushDyn) {
+				// 获取动态发布时间
+				const postTime = currentPushDyn[uid].modules.module_author.pub_ts;
+				// 更新当前时间线
+				this.dynamicTimelineManager.set(uid, postTime);
 			}
 		};
 		// 返回一个闭包函数
@@ -828,63 +798,12 @@ class ComRegister {
 	}
 
 	debug_dynamicDetect() {
-		// 检测初始化变量
-		let detectSetup = true;
-		// 时间线
-		let timeline: number;
-		// 当前推送动态时间线
-		let currentTimeline: number;
-		// 动态ID
-		let dynId: string;
 		// 定义handler
 		const handler = async () => {
-			// 动态监测启动初始化
-			if (detectSetup) {
-				// logger
-				this.logger.info("动态监测初始化中...");
-				// logger
-				this.logger.info("正在获取动态信息...");
-				// 使用withRetry函数进行重试
-				const content = await withRetry(async () => {
-					// 获取动态内容
-					return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
-				}, 1).catch((e) => {
-					// logger
-					this.logger.error(
-						`dynamicDetect getAllDynamic() 发生了错误，错误为：${e.message}`,
-					);
-				});
-				// content不存在则直接返回
-				if (!content) {
-					// logger
-					this.logger.info("获取动态信息失败！");
-					return;
-				}
-				// 判断获取动态信息是否成功
-				if (content.code !== 0) {
-					// logger
-					this.logger.info("获取动态信息失败！");
-					return;
-				}
-				// 设置第一条动态的动态ID
-				dynId = content.data?.items[0]?.id_str || "0";
-				// logger
-				this.logger.info(`获取到第一条动态ID:${dynId}`);
-				// 设置时间线
-				timeline =
-					content.data?.items[0]?.modules.module_author.pub_ts ||
-					DateTime.now().toSeconds();
-				// logger
-				this.logger.info(`获取到时间线信息:${timeline}`);
-				// 设置初始化为false
-				detectSetup = false;
-				// logger
-				this.logger.info("动态监测初始化完毕！");
-				// 初始化完成
-				return;
-			}
+			// 定义本次请求推送的动态
+			const currentPushDyn: Record<string, AllDynamicInfo["data"]["items"][number]> = {};
 			// logger
-			this.logger.info("正在获取动态信息...");
+			this.logger.info("开始获取动态信息...");
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
@@ -896,11 +815,7 @@ class ComRegister {
 				);
 			});
 			// content不存在则直接返回
-			if (!content) {
-				// logger
-				this.logger.info("获取动态信息失败！");
-				return;
-			}
+			if (!content) return;
 			// 判断获取动态内容是否成功
 			if (content.code !== 0) {
 				switch (content.code) {
@@ -960,77 +875,42 @@ class ComRegister {
 				}
 			}
 			// logger
-			this.logger.info("成功获取动态信息！开始检查更新的动态...");
+			this.logger.info("获取动态信息成功！开始处理动态信息...");
 			// 获取动态内容
 			const items = content.data.items;
 			// 检查更新的动态
 			for (const item of items) {
 				// 没有动态内容则直接跳过
-				if (!item) {
-					// logger
-					this.logger.info("动态内容为空，跳过该动态");
-					continue;
-				}
-				// 获取动态ID
-				const dynamicId = item.id_str;
-				// logger
-				this.logger.info(`当前动态ID:${dynamicId}`);
-				this.logger.info(`上次第一条推送的动态ID:${dynId}`);
-				// 动态ID如果一致则结束循环
-				if (dynamicId === dynId) {
-					// logger
-					this.logger.info("动态ID与上次第一条推送动态一致，结束循环");
-					// 结束循环
-					break;
-				}
+				if (!item) continue;
 				// 获取动态发布时间
 				const postTime = item.modules.module_author.pub_ts;
-				// logger
-				this.logger.info(`当前动态时间线:${postTime}`);
-				// logger
-				this.logger.info(`上一次获取到第一条动态时间线:${timeline}`);
-				// logger
-				this.logger.info(
-					`当前动态发布时间：${DateTime.fromSeconds(postTime).toFormat(
-						"yyyy-MM-dd HH:mm:ss",
-					)}`,
-				);
+				// 从动态数据中取出UP主名称、UID
+				const uid = item.modules.module_author.mid.toString();
+				const name = item.modules.module_author.name;
 				// logger
 				this.logger.info(
-					`上一次获取到第一条动态发布时间：${DateTime.fromSeconds(
-						timeline,
-					).toFormat("yyyy-MM-dd HH:mm:ss")}`,
+					`获取到动态信息，UP主：${name}，UID：${uid}，动态发布时间：${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")}`,
 				);
-				// timeline已超过或与当前动态时间戳相同，则后面的动态不需要推送
-				if (postTime <= timeline) {
+				// 判断是否存在时间线
+				if (this.dynamicTimelineManager.has(uid)) {
+					// logger
+					this.logger.info("订阅该UP主，判断动态时间线...");
+					// 寻找关注的UP主
+					const timeline = this.dynamicTimelineManager.get(uid);
 					// logger
 					this.logger.info(
-						"当前动态时间戳已小于等于上一次获取到第一条动态时间线，更晚发布的动态无需监测",
+						`上次推送时间线：${DateTime.fromSeconds(timeline).toFormat(
+							"yyyy-MM-dd HH:mm:ss",
+						)}`,
 					);
-					// 结束本次监测
-					break;
-				}
-				// logger
-				this.logger.info(
-					"动态时间线大于最后推送动态时间线，开始判断是否是订阅的UP主...",
-				);
-				// 从动态数据中取出UP主名称、UID
-				const upUID = item.modules.module_author.mid.toString();
-				const upName = item.modules.module_author.name;
-				// logger
-				this.logger.info(`当前动态UP主UID:${upUID}，UP主名称:${upName}`);
-				// 定义是否是订阅的UP主flag
-				let isSubscribed = false;
-				// 寻找关注的UP主的动态
-				for (const sub of this.subManager) {
-					// 判断是否是订阅的UP主
-					if (sub.dynamic && sub.uid === upUID) {
-						// 将flag设置为true
-						isSubscribed = true;
-						// logger：订阅该UP主，推送该动态
-						this.logger.info("订阅该UP主，开始推送该动态...");
+					// 判断动态发布时间是否大于时间线
+					if (timeline < postTime) {
 						// logger
-						this.logger.info("开始生成推送卡片...");
+						this.logger.info("需要推送该条动态，开始推送...");
+						// 获取订阅对象
+						const sub = this.subManager[uid];
+						// logger
+						this.logger.info("开始渲染推送卡片...");
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
@@ -1043,7 +923,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.target,
-										`${upName}发布了一条含有屏蔽关键字的动态`,
+										`${name}发布了一条含有屏蔽关键字的动态`,
 										PushType.Dynamic,
 									);
 								}
@@ -1053,7 +933,17 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.target,
-										`${upName}转发了一条动态，已屏蔽`,
+										`${name}转发了一条动态，已屏蔽`,
+										PushType.Dynamic,
+									);
+								}
+								return;
+							}
+							if (e.message === "已屏蔽专栏动态") {
+								if (this.config.filter.notify) {
+									await this.broadcastToTargets(
+										sub.target,
+										`${name}投稿了一条专栏，已屏蔽`,
 										PushType.Dynamic,
 									);
 								}
@@ -1067,26 +957,24 @@ class ComRegister {
 							await this.sendPrivateMsgAndStopService();
 						});
 						// 判断是否执行成功，未执行成功直接返回
-						if (!buffer) {
-							// logger
-							this.logger.info(
-								"推送卡片生成失败，或该动态为屏蔽动态，跳过该动态！",
-							);
-							// 结束循环
-							continue;
-						}
+						if (!buffer) continue;
+						// logger
+						this.logger.info("渲染推送卡片成功！");
 						// 定义动态链接
 						let dUrl = "";
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							// logger
-							this.logger.info("生成动态链接中...");
+							this.logger.info("需要发送动态链接，开始生成链接...");
+							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${upName}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+								dUrl = `${name}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
 							} else {
 								// 生成动态链接
-								dUrl = `${upName}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
+								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
 							}
+							// logger
+							this.logger.info("动态链接生成成功！");
 						}
 						// logger
 						this.logger.info("推送动态中...");
@@ -1102,7 +990,7 @@ class ComRegister {
 						// 判断是否需要发送动态中的图片
 						if (this.config.pushImgsInDynamic) {
 							// logger
-							this.logger.info("开始推送动态中的图片...");
+							this.logger.info("需要发送动态中的图片，开始发送...");
 							// 判断是否为图文动态，且存在draw
 							if (
 								item.type === "DYNAMIC_TYPE_DRAW" &&
@@ -1118,40 +1006,32 @@ class ComRegister {
 								}
 							}
 							// logger
-							this.logger.info("图片推送完毕！");
+							this.logger.info("动态中的图片发送完毕！");
 						}
-						// 设置timeline
-						currentTimeline = postTime;
+						// 将当前动态存入currentPushDyn
+						currentPushDyn[uid] = item;
 						// logger
 						this.logger.info("动态推送完毕！");
 					}
 				}
-				if (!isSubscribed) {
-					// logger
-					this.logger.info("不是关注的UP主，跳过该动态");
-				}
-			}
-			// 更新时间线
-			if (currentTimeline) {
-				timeline = currentTimeline;
-				currentTimeline = null;
-				// logger
-				this.logger.info(`更新时间线:${timeline}`);
-			} else {
-				this.logger.info("时间线无需更新！");
-			}
-			// 更新动态ID
-			if (items[0].id_str && items[0].id_str !== dynId) {
-				dynId = items[0].id_str;
-				// logger
-				this.logger.info(`更新动态ID:${dynId}`);
 			}
 			// logger
-			this.logger.info(
-				`时间线格式化:${DateTime.fromSeconds(timeline).toFormat("yyyy-MM-dd HH:mm:ss")}`,
-			);
+			this.logger.info("动态信息处理完毕！");
+			// 遍历currentPushDyn
+			for (const uid in currentPushDyn) {
+				// 获取动态发布时间
+				const postTime = currentPushDyn[uid].modules.module_author.pub_ts;
+				// 更新当前时间线
+				this.dynamicTimelineManager.set(uid, postTime);
+				// logger
+				this.logger.info(
+					`更新时间线成功，UP主：${uid}，时间线：${DateTime.fromSeconds(
+						postTime,
+					).toFormat("yyyy-MM-dd HH:mm:ss")}`,
+				);
+			}
 			// logger
-			this.logger.info("动态监测完成，等待下一次检测...");
+			this.logger.info(`本次推送动态数量：${Object.keys(currentPushDyn).length}`);
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
@@ -1829,13 +1709,15 @@ class ComRegister {
 	}
 
 	enableDynamicDetect() {
-		// 开始动态监测
-		this.dynamicDispose = this.ctx.cron(
+		// 定义Job
+		this.dynamicJob = new CronJob(
 			"*/2 * * * *",
 			this.config.dynamicDebugMode
 				? this.debug_dynamicDetect()
 				: this.dynamicDetect(),
 		);
+		// 开始动态监测
+		this.dynamicJob.start();
 	}
 
 	async checkIfIsLogin() {
@@ -1853,7 +1735,6 @@ class ComRegister {
 
 namespace ComRegister {
 	export interface Config {
-		subLoadTimeout: number;
 		sub: Array<{
 			uid: string;
 			dynamic: boolean;
@@ -1900,7 +1781,6 @@ namespace ComRegister {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
-		subLoadTimeout: Schema.number(),
 		sub: Schema.array(
 			Schema.object({
 				uid: Schema.string().description("订阅用户UID"),

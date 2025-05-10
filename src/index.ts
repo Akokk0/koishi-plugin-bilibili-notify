@@ -8,7 +8,7 @@ import GenerateImg from "./generateImg";
 import BiliAPI from "./biliAPI";
 import BLive from "./blive";
 
-export const inject = ["puppeteer", "database", "notifier", "cron"];
+export const inject = ["puppeteer", "database", "notifier"];
 
 export const name = "bilibili-notify";
 
@@ -103,7 +103,6 @@ class ServerManager extends Service {
 
 			// CR = ComRegister
 			const cr = this.ctx.plugin(ComRegister, {
-				subLoadTimeout: globalConfig.subLoadTimeout,
 				sub: globalConfig.sub,
 				master: globalConfig.master,
 				restartPush: globalConfig.restartPush,
@@ -210,7 +209,6 @@ export interface Config {
 	userAgent: string;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	subTitle: {};
-	subLoadTimeout: number;
 	sub: Array<{
 		name: string;
 		uid: string;
@@ -318,10 +316,6 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	subTitle: Schema.object({}).description("订阅配置"),
-
-	subLoadTimeout: Schema.number()
-		.default(10)
-		.description("订阅加载超时时间，单位为秒，默认10秒"),
 
 	sub: Schema.array(
 		Schema.object({
