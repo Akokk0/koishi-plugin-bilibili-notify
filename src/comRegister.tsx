@@ -695,7 +695,7 @@ class ComRegister {
 					// 判断动态发布时间是否大于时间线
 					if (timeline < postTime) {
 						// 获取订阅对象
-						const sub = this.subManager[uid];
+						const sub = this.subManager.find(sub => sub.uid === uid);
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
@@ -915,7 +915,7 @@ class ComRegister {
 						// logger
 						this.logger.info("需要推送该条动态，开始推送...");
 						// 获取订阅对象
-						const sub = this.subManager[uid];
+						const sub = this.subManager.find(sub => sub.uid === uid);
 						// logger
 						this.logger.info("开始渲染推送卡片...");
 						// 推送该条动态

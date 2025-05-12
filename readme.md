@@ -240,6 +240,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.5-alpha.0 修复：潜在动态推送bug； 优化：现在动态监测无需等待，当插件初始化完成即开始监测、移除多余依赖、移除对 `cron` 服务的依赖、移除选项 `超时订阅`
 - ver 3.1.5-alpha.1 修复：动态不推送的bug；
 - ver 3.1.5-alpha.2 修复：潜在动态推送bug；
+- ver 3.1.5-alpha.3 修复：动态推送时报错：dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：Cannot read properties of undefined (reading 'card')；
 
 ## 交流群
 
