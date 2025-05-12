@@ -376,8 +376,9 @@ class ComRegister {
 	initDynamicTimelineManager() {
 		for (const sub of this.subManager) {
 			if (sub.dynamic) {
-				this.dynamicTimelineManager[sub.uid] = Math.floor(
-					DateTime.now().toSeconds(),
+				this.dynamicTimelineManager.set(
+					sub.uid,
+					Math.floor(DateTime.now().toSeconds()),
 				);
 			}
 		}
@@ -603,7 +604,10 @@ class ComRegister {
 		// 定义handler
 		const handler = async () => {
 			// 定义本次请求推送的动态
-			const currentPushDyn: Record<string, AllDynamicInfo["data"]["items"][number]> = {};
+			const currentPushDyn: Record<
+				string,
+				AllDynamicInfo["data"]["items"][number]
+			> = {};
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
@@ -801,7 +805,10 @@ class ComRegister {
 		// 定义handler
 		const handler = async () => {
 			// 定义本次请求推送的动态
-			const currentPushDyn: Record<string, AllDynamicInfo["data"]["items"][number]> = {};
+			const currentPushDyn: Record<
+				string,
+				AllDynamicInfo["data"]["items"][number]
+			> = {};
 			// logger
 			this.logger.info("开始获取动态信息...");
 			// 使用withRetry函数进行重试
@@ -1031,7 +1038,9 @@ class ComRegister {
 				);
 			}
 			// logger
-			this.logger.info(`本次推送动态数量：${Object.keys(currentPushDyn).length}`);
+			this.logger.info(
+				`本次推送动态数量：${Object.keys(currentPushDyn).length}`,
+			);
 		};
 		// 返回一个闭包函数
 		return withLock(handler);
