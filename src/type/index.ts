@@ -6,13 +6,15 @@ export enum LiveType {
 	FirstLiveBroadcast = 4,
 }
 
-export type ChannelArr = Array<{
+export type Channel = {
 	channelId: string;
 	dynamic: boolean;
 	live: boolean;
 	liveGuardBuy: boolean;
 	atAll: boolean;
-}>;
+}
+
+export type ChannelArr = Array<Channel>;
 
 export type TargetItem = {
 	channelArr: ChannelArr;
@@ -83,12 +85,26 @@ export type AllDynamicInfo = {
 				};
 				module_dynamic: {
 					major: {
-						draw: {
+						draw?: {
 							items: Array<{
 								src: string;
 								alt: string;
 							}>;
 						};
+						archive?: {
+							aid: string;
+							// biome-ignore lint/complexity/noBannedTypes: <explanation>
+							badge: Object;
+							bvid: string;
+							cover: string;
+							desc: string;
+							disable_preview: number;
+							duration_text: string;
+							jump_url: string;
+							stat: string;
+							title: string;
+							type: number;
+						}
 					};
 				};
 			};
@@ -104,4 +120,11 @@ export enum PushType {
 	Dynamic = 1,
 	StartBroadcasting = 2,
 	LiveGuardBuy = 3,
+}
+
+export type Result = {
+	code: number;
+	msg?: string;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	data?: any;
 }

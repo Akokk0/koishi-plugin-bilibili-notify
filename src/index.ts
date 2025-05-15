@@ -8,7 +8,7 @@ import GenerateImg from "./generateImg";
 import BiliAPI from "./biliAPI";
 import BLive from "./blive";
 
-export const inject = ["puppeteer", "database", "notifier", "cron"];
+export const inject = ["puppeteer", "database", "notifier"];
 
 export const name = "bilibili-notify";
 
@@ -103,10 +103,8 @@ class ServerManager extends Service {
 
 			// CR = ComRegister
 			const cr = this.ctx.plugin(ComRegister, {
-				subLoadTimeout: globalConfig.subLoadTimeout,
 				sub: globalConfig.sub,
 				master: globalConfig.master,
-				liveDetectMode: globalConfig.liveDetectMode,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
@@ -184,7 +182,9 @@ export function apply(ctx: Context, config: Config) {
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
-	ctx.logger.warn("从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容");
+	ctx.logger.warn(
+		"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
+	);
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -209,7 +209,6 @@ export interface Config {
 	userAgent: string;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	subTitle: {};
-	subLoadTimeout: number;
 	sub: Array<{
 		name: string;
 		uid: string;
@@ -234,7 +233,6 @@ export interface Config {
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
-	liveDetectMode: "API" | "WS";
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -318,10 +316,6 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	subTitle: Schema.object({}).description("订阅配置"),
-
-	subLoadTimeout: Schema.number()
-		.default(10)
-		.description("订阅加载超时时间，单位为秒，默认10秒"),
 
 	sub: Schema.array(
 		Schema.object({
@@ -414,20 +408,6 @@ export const Config: Schema<Config> = Schema.object({
 
 	live: Schema.object({}).description("直播推送设置"),
 
-	liveDetectMode: Schema.union([
-		Schema.const("WS").description(
-			"WebSocket模式：连接到对应的直播间，可推送弹幕消息，开播下播响应最快，但对订阅数有限制",
-		),
-		Schema.const("API")
-			.description(
-				"API模式：请求对应直播间API，无法获取弹幕消息，开播下播响应慢，理论可无限订阅",
-			)
-			.deprecated(),
-	])
-		.role("radio")
-		.description("直播检测模式")
-		.default("WS"),
-
 	restartPush: Schema.boolean()
 		.default(true)
 		.description(
@@ -448,9 +428,9 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	customLive: Schema.string()
-		.default("-name正在直播，目前已播-time，累计看过人数：-watched\\n-link")
+		.default("-name正在直播，目前已播-time，累计观看人数：-watched\\n-link")
 		.description(
-			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
+			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计观看人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
 		),
 
 	customLiveEnd: Schema.string()
@@ -461,7 +441,7 @@ export const Config: Schema<Config> = Schema.object({
 
 	followerDisplay: Schema.boolean()
 		.default(true)
-		.description("粉丝数变化和看过本场直播的人数是否显示在推送卡片中"),
+		.description("粉丝数变化和累积观看本场直播的人数是否显示在推送卡片中"),
 
 	hideDesc: Schema.boolean()
 		.default(false)
@@ -524,6 +504,7 @@ export const Config: Schema<Config> = Schema.object({
 				forward: Schema.boolean()
 					.default(false)
 					.description("是否屏蔽转发动态"),
+				article: Schema.boolean().default(false).description("是否屏蔽专栏"),
 			}),
 			Schema.object({}),
 		]),

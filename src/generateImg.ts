@@ -597,8 +597,13 @@ class GenerateImg extends Service {
 						`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`,
 						link,
 					];
-				case DYNAMIC_TYPE_ARTICLE:
+				case DYNAMIC_TYPE_ARTICLE: {
+					//转发动态屏蔽
+					if (this.giConfig.filter.enable && this.giConfig.filter.article) {
+						throw new Error("已屏蔽专栏动态");
+					}
 					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`, link];
+				}
 				case DYNAMIC_TYPE_MUSIC:
 					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`, link];
 				case DYNAMIC_TYPE_COMMON_SQUARE:
@@ -1543,6 +1548,7 @@ namespace GenerateImg {
 			regex: string;
 			keywords: Array<string>;
 			forward: boolean;
+			article: boolean;
 		};
 		removeBorder: boolean;
 		cardColorStart: string;
@@ -1562,6 +1568,7 @@ namespace GenerateImg {
 			regex: Schema.string(),
 			keywords: Schema.array(String),
 			forward: Schema.boolean(),
+			article: Schema.boolean(),
 		}),
 		removeBorder: Schema.boolean(),
 		cardColorStart: Schema.string(),

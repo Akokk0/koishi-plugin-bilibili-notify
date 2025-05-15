@@ -233,6 +233,15 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.0-alpha.0 修复：新插件在第一次订阅时提示 `订阅失败，错误信息：该分组已经存在`； 移除：消息重发功能； 重构：将消息发送模式改为 `broadcast`
 - ver 3.1.0-alpha.1 修复：无法发送 `@全体成员` 消息，将消息发送模式改回
 - ver 3.1.0 修复：订阅某位UP主直播和动态后，某些群聊只开启推送直播也会推送动态
+- ver 3.1.1-alpha.0 修复：稿件重投后，会将之前日期的动态一起推送； 优化：加强动态debug输出； 移除：不必要选项 `live.liveDetectMode`
+- ver 3.1.2-alpha.0 重构：对消息发送模块进行小型重构，多群多平台推送将不再支持艾特全体成员，仅单平台单群聊支持； 移除：群聊 `all` 选项
+- ver 3.1.3-alpha.0 移除：订阅超时； 新增：屏蔽专栏动态功能； 优化：改进了加载插件的错误提示；
+- ver 3.1.4-alpha.0 修复：动态只推送视频； 优化：动态视频链接将直接发送为视频链接；
+- ver 3.1.5-alpha.0 修复：潜在动态推送bug； 优化：现在动态监测无需等待，当插件初始化完成即开始监测、移除多余依赖、移除对 `cron` 服务的依赖、移除选项 `超时订阅`
+- ver 3.1.5-alpha.1 修复：动态不推送的bug；
+- ver 3.1.5-alpha.2 修复：潜在动态推送bug；
+- ver 3.1.5-alpha.3 修复：动态推送时报错：dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：Cannot read properties of undefined (reading 'card')；
+- ver 3.1.5 修复：非 `debug` 模式下动态推送，如果在一个监测周期内同一个订阅的up主发送多条动态，下一个监测周期会重复推送;
 
 ## 交流群
 
@@ -245,6 +254,8 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 [blive-message-listener](https://github.com/ddiu8081/blive-message-listener) 感谢 `ddiu8081` 提供简单方便的B站直播监听依赖
 
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 感谢 `SocialSisterYi` 提供B站API参考
+
+[bilibili-dynamic-mirai-plugin](https://github.com/Colter23/bilibili-dynamic-mirai-plugin) 感谢 `Colter23` 提供推送卡片灵感参考
 
 ## License
 
