@@ -782,8 +782,11 @@ class ComRegister {
 								}
 							}
 						}
-						// 将当前动态存入currentPushDyn
-						currentPushDyn[uid] = item;
+						// 如果当前订阅对象已存在更早推送，则无需再更新时间线
+						if (!currentPushDyn[uid]) {
+							// 将当前动态存入currentPushDyn
+							currentPushDyn[uid] = item;
+						}
 						// logger
 						this.logger.info("动态推送完毕！");
 					}

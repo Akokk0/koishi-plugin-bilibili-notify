@@ -428,9 +428,9 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	customLive: Schema.string()
-		.default("-name正在直播，目前已播-time，累计看过人数：-watched\\n-link")
+		.default("-name正在直播，目前已播-time，累计观看人数：-watched\\n-link")
 		.description(
-			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计看过人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
+			"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计观看人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
 		),
 
 	customLiveEnd: Schema.string()
@@ -441,7 +441,7 @@ export const Config: Schema<Config> = Schema.object({
 
 	followerDisplay: Schema.boolean()
 		.default(true)
-		.description("粉丝数变化和看过本场直播的人数是否显示在推送卡片中"),
+		.description("粉丝数变化和累积观看本场直播的人数是否显示在推送卡片中"),
 
 	hideDesc: Schema.boolean()
 		.default(false)
