@@ -748,7 +748,7 @@ class ComRegister {
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
@@ -978,7 +978,7 @@ class ComRegister {
 							this.logger.info("需要发送动态链接，开始生成链接...");
 							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：${item.modules.module_dynamic.major.archive.jump_url}`;
+								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
