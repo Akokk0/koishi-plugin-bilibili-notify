@@ -242,6 +242,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.5-alpha.2 修复：潜在动态推送bug；
 - ver 3.1.5-alpha.3 修复：动态推送时报错：dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：Cannot read properties of undefined (reading 'card')；
 - ver 3.1.5 修复：非 `debug` 模式下动态推送，如果在一个监测周期内同一个订阅的up主发送多条动态，下一个监测周期会重复推送;
+- ver 3.1.6 修复：视频类动态推送时，发送的视频链接有误；
 
 ## 交流群
 
