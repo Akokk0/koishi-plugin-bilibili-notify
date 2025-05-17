@@ -72,7 +72,12 @@ class GenerateImg extends Service {
 			cardColorEnd = this.giConfig.cardColorEnd,
 			cardBasePlateColor = this.giConfig.cardBasePlateColor,
 			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
-		},
+		}: {
+			cardColorStart?: string;
+			cardColorEnd?: string;
+			cardBasePlateColor?: string;
+			cardBasePlateBorder?: string;
+		} = {},
 	) {
 		const [titleStatus, liveTime, cover] = await this.getLiveStatus(
 			data.live_time,
