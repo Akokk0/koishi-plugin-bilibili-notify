@@ -302,7 +302,7 @@ class GenerateImg extends Service {
 			// 最基本的图文处理
 			const basicDynamic = () => {
 				const module_dynamic = dynamic.modules.module_dynamic;
-				if (module_dynamic.major.opus.summary) {
+				if (module_dynamic?.major?.opus?.summary) {
 					const richText = module_dynamic.major.opus.summary.rich_text_nodes.reduce(
 						(accumulator, currentValue) => {
 							if (currentValue.emoji) {
@@ -346,7 +346,7 @@ class GenerateImg extends Service {
 				let major = "";
 				const arrowImg = pathToFileURL(resolve(__dirname, "img/arrow.png"));
 
-				if (module_dynamic.major?.opus.pics) {
+				if (module_dynamic?.major?.opus?.pics) {
 					if (module_dynamic.major.opus.pics.length === 1) {
 						const height = module_dynamic.major.opus.pics[0].height;
 						if (height > 3000) {
