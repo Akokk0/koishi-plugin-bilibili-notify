@@ -1153,7 +1153,7 @@ class ComRegister {
 					masterInfo.userface,
 					followerDisplay,
 					liveType,
-					cardStyle,
+					cardStyle.enable ? cardStyle : undefined,
 				);
 			}, 1).catch((e) => {
 				this.logger.error(
