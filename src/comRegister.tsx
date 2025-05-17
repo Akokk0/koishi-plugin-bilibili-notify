@@ -699,7 +699,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card.enable ? sub.card : undefined);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -924,7 +924,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card.enable ? sub.card : undefined);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;

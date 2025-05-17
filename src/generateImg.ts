@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
+import type { Dynamic } from "./type";
 
 declare module "koishi" {
 	interface Context {
@@ -246,8 +247,7 @@ class GenerateImg extends Service {
 	}
 
 	async generateDynamicImg(
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		data: any,
+		data: Dynamic,
 		{
 			cardColorStart = this.giConfig.cardColorStart,
 			cardColorEnd = this.giConfig.cardColorEnd,
@@ -285,8 +285,7 @@ class GenerateImg extends Service {
 			: "";
 
 		const getDynamicMajor = async (
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-			dynamicMajorData: any,
+			dynamic: Dynamic,
 			forward: boolean,
 		): Promise<[string, string, string?]> => {
 			// 定义返回值
@@ -297,9 +296,9 @@ class GenerateImg extends Service {
 
 			// 最基本的图文处理
 			const basicDynamic = () => {
-				const module_dynamic = dynamicMajorData.modules.module_dynamic;
-				if (module_dynamic.desc) {
-					const richText = module_dynamic.desc.rich_text_nodes.reduce(
+				const module_dynamic = dynamic.modules.module_dynamic;
+				if (module_dynamic.major.opus.summary) {
+					const richText = module_dynamic.major.opus.summary.rich_text_nodes.reduce(
 						(accumulator, currentValue) => {
 							if (currentValue.emoji) {
 								return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
@@ -331,6 +330,7 @@ class GenerateImg extends Service {
 					if (text) {
 						main += /* html */ `
                             <div class="card-details">
+                                ${module_dynamic.major.opus.title ? `<h1 class="dyn-title">${module_dynamic.major.opus.title}</h1>` : ""}
                                 ${text}
                             </div>
                         `;
@@ -341,13 +341,13 @@ class GenerateImg extends Service {
 				let major = "";
 				const arrowImg = pathToFileURL(resolve(__dirname, "img/arrow.png"));
 
-				if (module_dynamic.major?.draw) {
-					if (module_dynamic.major.draw.items.length === 1) {
-						const height = module_dynamic.major.draw.items[0].height;
+				if (module_dynamic.major?.opus.pics) {
+					if (module_dynamic.major.opus.pics.length === 1) {
+						const height = module_dynamic.major.opus.pics[0].height;
 						if (height > 3000) {
 							major += /* html */ `
                                 <div class="single-photo-container">
-                                    <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
+                                    <img class="single-photo-item" src="${module_dynamic.major.opus.pics[0].url}"/>
                                     <div class="single-photo-mask">
                                         <span class="single-photo-mask-text">点击链接浏览全部</span>
                                     </div>
@@ -357,17 +357,17 @@ class GenerateImg extends Service {
 						} else {
 							major += /* html */ `
                                 <div class="single-photo-container">
-                                    <img class="single-photo-item" src="${module_dynamic.major.draw.items[0].src}"/>
+                                    <img class="single-photo-item" src="${module_dynamic.major.opus.pics[0].url}"/>
                                 </div>
                             `;
 						}
-					} else if (module_dynamic.major.draw.items.length === 4) {
-						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-							return /* html */ `${acc}<img class="four-photo-item" src="${cV.src}"/>`;
+					} else if (module_dynamic.major.opus.pics.length === 4) {
+						major += module_dynamic.major.opus.pics.reduce((acc, cV) => {
+							return /* html */ `${acc}<img class="four-photo-item" src="${cV.url}"/>`;
 						}, "");
 					} else {
-						major += module_dynamic.major.draw.items.reduce((acc, cV) => {
-							return /* html */ `${acc}<img class="photo-item" src="${cV.src}"/>`;
+						major += module_dynamic.major.opus.pics.reduce((acc, cV) => {
+							return /* html */ `${acc}<img class="photo-item" src="${cV.url}"/>`;
 						}, "");
 					}
 
@@ -380,27 +380,27 @@ class GenerateImg extends Service {
 			};
 
 			// 判断动态类型
-			switch (dynamicMajorData.type) {
+			switch (dynamic.type) {
 				case DYNAMIC_TYPE_WORD:
 				case DYNAMIC_TYPE_DRAW:
 				case DYNAMIC_TYPE_FORWARD: {
 					// DYNAMIC_TYPE_DRAW 带图动态 DYNAMIC_TYPE_WORD 文字动态 DYNAMIC_TYPE_FORWARD 转发动态
 					basicDynamic();
 					// 转发动态
-					if (dynamicMajorData.type === DYNAMIC_TYPE_FORWARD) {
+					if (dynamic.type === DYNAMIC_TYPE_FORWARD) {
 						//转发动态屏蔽
 						if (this.giConfig.filter.enable && this.giConfig.filter.forward) {
 							throw new Error("已屏蔽转发动态");
 						}
 						// User info
 						const forward_module_author =
-							dynamicMajorData.orig.modules.module_author;
+							dynamic.orig.modules.module_author;
 						const forwardUserAvatarUrl = forward_module_author.face;
 						const forwardUserName = forward_module_author.name;
 						// 获取转发的动态
 						// eslint-disable-next-line @typescript-eslint/no-unused-vars
 						const [forwardMain, _, forwardInfo] = await getDynamicMajor(
-							dynamicMajorData.orig,
+							dynamic.orig,
 							true,
 						);
 						// 拼接main
@@ -417,9 +417,9 @@ class GenerateImg extends Service {
                         `;
 					}
 					// 判断是否有附加信息
-					if (dynamicMajorData.modules.module_dynamic.additional) {
+					if (dynamic.modules.module_dynamic.additional) {
 						const additional =
-							dynamicMajorData.modules.module_dynamic.additional;
+							dynamic.modules.module_dynamic.additional;
 						// 有附加信息，判断类型
 						switch (additional.type) {
 							case ADDITIONAL_TYPE_RESERVE: {
@@ -511,14 +511,14 @@ class GenerateImg extends Service {
 						}
 					}
 
-					link += `请将$替换为. www$bilibili$com/opus/${dynamicMajorData.id_str}`;
+					link += `请将$替换为. www$bilibili$com/opus/${dynamic.id_str}`;
 					break;
 				}
 				case DYNAMIC_TYPE_AV: {
 					// 投稿新视频
 					// 处理文字
 					basicDynamic();
-					const archive = dynamicMajorData.modules.module_dynamic.major.archive;
+					const archive = dynamic.modules.module_dynamic.major.archive;
 					if (archive.badge.text === "投稿视频") {
 						if (forward) {
 							forwardInfo = "投稿了视频";
@@ -740,6 +740,11 @@ class GenerateImg extends Service {
                 color: ${dynamicCardColor};
                 right: 67px;
                 top: 24px;
+            }
+
+            .card .dyn-title {
+                font-size: 27px;
+                margin-bottom: 10px;
             }
 
             .card .card-topic {
@@ -1108,6 +1113,11 @@ class GenerateImg extends Service {
                 color: ${dynamicCardColor};
                 right: 37px;
                 top: 5px;
+            }
+
+            .card .dyn-title {
+                font-size: 27px;
+                margin-bottom: 10px;
             }
 
             .card .card-topic {
