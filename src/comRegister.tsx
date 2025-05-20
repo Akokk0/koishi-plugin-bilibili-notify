@@ -1471,10 +1471,7 @@ class ComRegister {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
 			// 判断是否有数据
-			if (
-				this.loginDBData.dynamic_group_id === "" ||
-				this.loginDBData.dynamic_group_id === null
-			) {
+			if (!this.loginDBData?.dynamic_group_id) {
 				// 没有数据，没有创建分组，尝试创建分组
 				const createGroupData = await this.ctx.ba.createGroup("订阅");
 				// 如果分组已创建，则获取分组id

@@ -247,6 +247,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.7-alpha.1 修复：启用自定义卡片样式后取消仍是自定义样式；
 - ver 3.1.7-alpha.2 修复：`liveDetect generateLiveImg() 推送卡片生成失败，原因：Cannot read properties of undefined (reading 'cardColorStart')`；
 - ver 3.1.7-alpha.3 修复：推送视频类动态报错；
+- ver 3.1.7 修复：第一次使用插件报错 `TypeError: Cannot read properties of undefined (reading 'dynamic_group_id')`
 
 ## 交流群
 
