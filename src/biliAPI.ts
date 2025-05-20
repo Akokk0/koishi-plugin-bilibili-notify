@@ -25,9 +25,9 @@ const mixinKeyEncTab = [
 const bangumiTripData = { code: 0, data: { live_room: { roomid: 931774 } } };
 
 const GET_USER_SPACE_DYNAMIC_LIST =
-	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space";
+	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?platform=web&features=itemOpusStyle";
 const GET_ALL_DYNAMIC_LIST =
-	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all";
+	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?platform=web&features=itemOpusStyle";
 const HAS_NEW_DYNAMIC =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all/update";
 const GET_COOKIES_INFO =
@@ -295,7 +295,7 @@ class BiliAPI extends Service {
 	})
 	async getUserSpaceDynamic(mid: string) {
 		const { data } = await this.client.get(
-			`${GET_USER_SPACE_DYNAMIC_LIST}?host_mid=${mid}`,
+			`${GET_USER_SPACE_DYNAMIC_LIST}&host_mid=${mid}`,
 		);
 		return data;
 	}
@@ -330,12 +330,8 @@ class BiliAPI extends Service {
 			);
 		},
 	})
-	async getAllDynamic(updateBaseline?: string) {
-		let url = GET_ALL_DYNAMIC_LIST;
-		if (updateBaseline) {
-			url += `?update_baseline=${updateBaseline}`;
-		}
-		const { data } = await this.client.get(url);
+	async getAllDynamic() {
+		const { data } = await this.client.get(GET_ALL_DYNAMIC_LIST);
 		return data;
 	}
 

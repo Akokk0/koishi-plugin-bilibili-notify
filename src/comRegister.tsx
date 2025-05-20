@@ -699,7 +699,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card.enable ? sub.card : undefined);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -924,7 +924,7 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(item, sub.card);
+							return await this.ctx.gi.generateDynamicImg(item, sub.card.enable ? sub.card : undefined);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
@@ -1153,7 +1153,7 @@ class ComRegister {
 					masterInfo.userface,
 					followerDisplay,
 					liveType,
-					cardStyle,
+					cardStyle.enable ? cardStyle : undefined,
 				);
 			}, 1).catch((e) => {
 				this.logger.error(
@@ -1471,10 +1471,7 @@ class ComRegister {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
 			// 判断是否有数据
-			if (
-				this.loginDBData.dynamic_group_id === "" ||
-				this.loginDBData.dynamic_group_id === null
-			) {
+			if (!this.loginDBData?.dynamic_group_id) {
 				// 没有数据，没有创建分组，尝试创建分组
 				const createGroupData = await this.ctx.ba.createGroup("订阅");
 				// 如果分组已创建，则获取分组id
