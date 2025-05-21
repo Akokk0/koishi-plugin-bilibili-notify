@@ -126,7 +126,7 @@ export type Dynamic = {
 								size: number;
 								text: string;
 								type: number;
-							}
+							};
 							orig_text: string;
 							text: string;
 							type: string;
@@ -139,7 +139,7 @@ export type Dynamic = {
 					jump_url: string;
 					badge: {
 						text: string;
-					}
+					};
 					cover: string;
 					duration_text: string;
 					title: string;
@@ -147,7 +147,7 @@ export type Dynamic = {
 					stat: {
 						play: number;
 						danmaku: number;
-					}
+					};
 					bvid: string;
 				};
 				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -172,6 +172,50 @@ export type Dynamic = {
 	orig?: Dynamic;
 	type: string;
 	visible: boolean;
+};
+
+export type Live = {
+	code: number;
+	message: string;
+	msg: string;
+	data: {
+		[key: string]: {
+			title: string;
+			room_id: number;
+			uid: number;
+			online: number;
+			live_time: number;
+			live_status: number;
+			short_id: number;
+			area: number;
+			area_name: string;
+			area_v2_id: number;
+			area_v2_name: string;
+			area_v2_parent_name: string;
+			area_v2_parent_id: number;
+			uname: string;
+			face: string;
+			tag_name: string;
+			tags: string;
+			cover_from_user: string;
+			keyframe: string;
+			lock_till: string;
+			hidden_till: string;
+			broadcast_type: number;
+		};
+	};
+};
+
+export type LiveStatus = {
+	live: boolean;
+	roomId: string;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	liveRoomInfo: any;
+	masterInfo: MasterInfo;
+	watchedNum: string;
+	liveStartTimeInit: boolean;
+	liveStartTime: string;
+	push: number;
 };
 
 export type AllDynamicInfo = {

@@ -105,6 +105,7 @@ class ServerManager extends Service {
 			const cr = this.ctx.plugin(ComRegister, {
 				sub: globalConfig.sub,
 				master: globalConfig.master,
+				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
@@ -233,6 +234,7 @@ export interface Config {
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
+	liveDetectType: "WS" | "API";
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -407,6 +409,13 @@ export const Config: Schema<Config> = Schema.object({
 		),
 
 	live: Schema.object({}).description("直播推送设置"),
+
+	liveDetectType: Schema.union(["WS", "API"])
+		.role("radio")
+		.default("WS")
+		.description(
+			"直播检测方式，WS为连接到B站弹幕服务器，API为通过轮询发送请求监测，默认使用WS检测",
+		),
 
 	restartPush: Schema.boolean()
 		.default(true)

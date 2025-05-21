@@ -60,6 +60,8 @@ const GET_RELATION_GROUP_DETAIL = "https://api.bilibili.com/x/relation/tag";
 // 直播
 const GET_LIVE_ROOM_INFO_STREAM_KEY =
 	"https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo";
+const GET_LIVE_ROOMS_INFO =
+	"https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids";
 
 class BiliAPI extends Service {
 	static inject = ["database", "notifier"];
@@ -185,6 +187,25 @@ class BiliAPI extends Service {
 			`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`,
 		);
 		// 返回data
+		return data;
+	}
+
+	@Retry({
+		attempts: 3,
+		onFailure(error, attempts) {
+			this.logger.error(
+				`getLiveRoomInfoByUids() 第${attempts}次失败: ${error.message}`,
+			);
+		},
+	})
+	async getLiveRoomInfoByUids(uids: string[]) {
+		// 构建查询参数
+		const params = uids.map((uid) => `uids[]=${uid}`).join("&");
+		// 获取直播间信息
+		const { data } = await this.client.get(
+			`${GET_LIVE_ROOMS_INFO}?${params}`,
+		);
+		// 返回数据
 		return data;
 	}
 
