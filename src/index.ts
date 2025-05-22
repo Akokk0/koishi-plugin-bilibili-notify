@@ -415,7 +415,8 @@ export const Config: Schema<Config> = Schema.object({
 		.default("WS")
 		.description(
 			"直播检测方式，WS为连接到B站弹幕服务器，API为通过轮询发送请求监测，默认使用WS检测",
-		),
+		)
+		.experimental(),
 
 	restartPush: Schema.boolean()
 		.default(true)
@@ -525,6 +526,5 @@ export const Config: Schema<Config> = Schema.object({
 		.default(false)
 		.description(
 			"动态调试模式，开启后会在控制台输出动态推送的详细信息，用于调试",
-		)
-		.experimental(),
+		),
 });

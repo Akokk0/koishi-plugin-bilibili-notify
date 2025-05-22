@@ -228,7 +228,7 @@ class GenerateImg extends Service {
 																					liveStatus === 1
 																						? `当前粉丝数：${followerDisplay}`
 																						: liveStatus === 2
-																							? `累计观看人数：${followerDisplay}`
+																							? `${followerDisplay !== "API" ? `粉丝数变化：${followerDisplay}` : ""}`
 																							: liveStatus === 3
 																								? `粉丝数变化：${followerDisplay}`
 																								: ""
@@ -303,15 +303,16 @@ class GenerateImg extends Service {
 			const basicDynamic = () => {
 				const module_dynamic = dynamic.modules.module_dynamic;
 				if (module_dynamic?.major?.opus?.summary) {
-					const richText = module_dynamic.major.opus.summary.rich_text_nodes.reduce(
-						(accumulator, currentValue) => {
-							if (currentValue.emoji) {
-								return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
-							}
-							return accumulator + currentValue.text;
-						},
-						"",
-					);
+					const richText =
+						module_dynamic.major.opus.summary.rich_text_nodes.reduce(
+							(accumulator, currentValue) => {
+								if (currentValue.emoji) {
+									return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
+								}
+								return accumulator + currentValue.text;
+							},
+							"",
+						);
 					// 关键字和正则屏蔽
 					if (this.giConfig.filter.enable) {
 						// 开启动态屏蔽功能
@@ -398,8 +399,7 @@ class GenerateImg extends Service {
 							throw new Error("已屏蔽转发动态");
 						}
 						// User info
-						const forward_module_author =
-							dynamic.orig.modules.module_author;
+						const forward_module_author = dynamic.orig.modules.module_author;
 						const forwardUserAvatarUrl = forward_module_author.face;
 						const forwardUserName = forward_module_author.name;
 						// 获取转发的动态
@@ -423,8 +423,7 @@ class GenerateImg extends Service {
 					}
 					// 判断是否有附加信息
 					if (dynamic.modules.module_dynamic.additional) {
-						const additional =
-							dynamic.modules.module_dynamic.additional;
+						const additional = dynamic.modules.module_dynamic.additional;
 						// 有附加信息，判断类型
 						switch (additional.type) {
 							case ADDITIONAL_TYPE_RESERVE: {

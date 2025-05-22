@@ -1555,7 +1555,14 @@ class ComRegister {
 				// 将直播状态改为true
 				liveStatus.live = true;
 				// 初始化主播和直播间信息
-				await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast, liveStatus)
+				await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast, liveStatus);
+				// 判断是否需要设置开播时间
+				if (!liveStatus.liveStartTimeInit) {
+					// 设置开播时间
+					liveStatus.liveStartTime = liveStatus.liveRoomInfo.live_time;
+					// 设置开播时间初始化状态
+					liveStatus.liveStartTimeInit = true;
+				}
 				// 设置直播中消息
 				const liveMsg = this.config.customLive
 					? this.config.customLive
@@ -1564,7 +1571,7 @@ class ComRegister {
 								"-time",
 								await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 							)
-							.replace("-watched", "暂未获取到")
+							.replace("-watched", "")
 							.replace("\\n", "\n")
 							.replace(
 								"-link",
@@ -1574,7 +1581,7 @@ class ComRegister {
 				// 发送直播通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					"暂未获取到",
+					"API",
 					{
 						liveRoomInfo: liveStatus.liveRoomInfo,
 						masterInfo: liveStatus.masterInfo,
@@ -1583,8 +1590,6 @@ class ComRegister {
 					sub.target,
 					liveMsg,
 				);
-			} else {
-				useMasterAndLiveRoomInfo(LiveType.NotLiveBroadcast, liveStatus);
 			}
 		}
 
@@ -1761,8 +1766,6 @@ class ComRegister {
 								// 设置开播时间初始化状态
 								liveStatus.liveStartTimeInit = true;
 							}
-							// 获取watched
-							const watched = "暂未获取到";
 							// 设置直播中消息
 							const liveMsg = this.config.customLive
 								? this.config.customLive
@@ -1773,7 +1776,7 @@ class ComRegister {
 												liveStatus.liveStartTime,
 											),
 										)
-										.replace("-watched", watched)
+										.replace("-watched", "")
 										.replace("\\n", "\n")
 										.replace(
 											"-link",
@@ -1783,7 +1786,7 @@ class ComRegister {
 							// 发送直播通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.LiveBroadcast,
-								watched,
+								"API",
 								{
 									liveRoomInfo: liveStatus.liveRoomInfo,
 									masterInfo: liveStatus.masterInfo,
