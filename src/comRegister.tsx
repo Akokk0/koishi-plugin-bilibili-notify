@@ -1234,7 +1234,9 @@ class ComRegister {
 			// 判断是否信息是否获取成功
 			if (!(await useMasterAndLiveRoomInfo(LiveType.LiveBroadcast))) {
 				// 未获取成功，直接返回
-				return this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
+				await this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
+				// 停止服务
+				return await this.sendPrivateMsgAndStopService();
 			}
 			// 判断是否已经下播
 			if (liveRoomInfo.live_status === 0) {
@@ -1343,9 +1345,11 @@ class ComRegister {
 					// 设置开播状态为false
 					liveStatus = false;
 					// 未获取成功，直接返回
-					return await this.sendPrivateMsg(
+					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播开播卡片失败！",
 					);
+					// 停止服务
+					return await this.sendPrivateMsgAndStopService();
 				}
 				// 设置开播时间
 				liveTime = liveRoomInfo.live_time;
@@ -1393,9 +1397,11 @@ class ComRegister {
 				// 判断是否信息是否获取成功
 				if (!(await useMasterAndLiveRoomInfo(LiveType.StopBroadcast))) {
 					// 未获取成功，直接返回
-					return this.sendPrivateMsg(
+					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播下播卡片失败！",
 					);
+					// 停止服务
+					return await this.sendPrivateMsgAndStopService();
 				}
 				// 更改直播时长
 				liveRoomInfo.live_time = liveTime;
@@ -1539,10 +1545,29 @@ class ComRegister {
 			uids.push(uid);
 		}
 
-		// 初始化
-		// 发送请求
-		const { data } = (await this.ctx.ba.getLiveRoomInfoByUids(uids)) as Live;
+		const useLiveInfo = async () => {
+			// 发送请求
+			const { data }: Live | undefined = await withRetry(
+				async () => (await this.ctx.ba.getLiveRoomInfoByUids(uids)) as Live,
+				3,
+			).catch(async () => {
+				// 返回undefined
+				return undefined;
+			});
 
+			if (!data) {
+				// 停止服务
+				await this.sendPrivateMsgAndStopService();
+				// 返回
+				return;
+			}
+
+			return data;
+		};
+
+		// 获取信息
+		const data = await useLiveInfo();
+		// 初始化
 		for (const item of Object.values(data)) {
 			// 将用户uid转换为string
 			const uid = item.uid.toString();
@@ -1596,7 +1621,7 @@ class ComRegister {
 		// 定义函数
 		const handler = async () => {
 			// 发送请求
-			const { data } = (await this.ctx.ba.getLiveRoomInfoByUids(uids)) as Live;
+			const data = await useLiveInfo();
 			// 进行处理
 			for (const item of Object.values(data)) {
 				// 将用户uid转换为string
@@ -1622,9 +1647,11 @@ class ComRegister {
 								))
 							) {
 								// 未获取成功，直接返回
-								return await this.sendPrivateMsg(
+								await this.sendPrivateMsg(
 									"获取直播间信息失败，推送直播下播卡片失败！",
 								);
+								// 停止服务
+								return await this.sendPrivateMsgAndStopService();
 							}
 							// 更改直播时长
 							if (liveStatus.liveStartTimeInit) {
@@ -1693,9 +1720,11 @@ class ComRegister {
 								))
 							) {
 								// 未获取成功，直接返回
-								return await this.sendPrivateMsg(
-									"获取直播间信息失败，推送直播下播卡片失败！",
+								await this.sendPrivateMsg(
+									"获取直播间信息失败，推送直播开播卡片失败！",
 								);
+								// 停止服务
+								return await this.sendPrivateMsgAndStopService();
 							}
 							// 设置开播时间
 							liveStatus.liveStartTime = liveStatus.liveRoomInfo.live_time;
@@ -1755,9 +1784,11 @@ class ComRegister {
 								))
 							) {
 								// 未获取成功，直接返回
-								return this.sendPrivateMsg(
+								await this.sendPrivateMsg(
 									"获取直播间信息失败，推送直播卡片失败！",
 								);
+								// 停止服务
+								return await this.sendPrivateMsgAndStopService();
 							}
 							// 判断是否需要设置开播时间
 							if (!liveStatus.liveStartTimeInit) {
