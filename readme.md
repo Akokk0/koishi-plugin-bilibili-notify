@@ -250,7 +250,8 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.7 修复：第一次使用插件报错 `TypeError: Cannot read properties of undefined (reading 'dynamic_group_id')`
 - ver 3.2.0-alpha.0 新增：直播检测 `API` 模式； 优化：提升直播检测 `WS` 模式使用体验；
 - ver 3.2.0-alpha.1 修复：直播检测 `API` 模式，中途加入推送语无法正确显示直播时长；
-- ver 3.2.0-alpha.2 修复：直播检测 `API` 模式，请求错误优化(防止不停向QQ发送消息);
+- ver 3.2.0-alpha.2 修复：直播检测 `API` 模式，请求错误优化(防止不停向QQ发送消息)；
+- ver 3.2.0-alpha.3 优化：增加直播检测 `API` 模式轮询时间，防止被暂时风控；
 
 ## 交流群
 

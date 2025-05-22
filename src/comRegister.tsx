@@ -2178,7 +2178,7 @@ class ComRegister {
 	async enableLiveDetect() {
 		// 定义Job
 		this.liveJob = new CronJob(
-			"*/10 * * * * *",
+			"*/20 * * * * *",
 			await this.liveDetectWithAPI(),
 		);
 		// logger
