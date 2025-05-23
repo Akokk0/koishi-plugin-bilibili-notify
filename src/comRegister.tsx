@@ -1770,7 +1770,7 @@ class ComRegister {
 
 						if (liveStatus.live === true) {
 							// 还在直播
-							if (liveStatus.push < (this.config.pushTime * 60 * 60) / 10) {
+							if (liveStatus.push < (this.config.pushTime * 60 * 60) / 30) {
 								// push++
 								liveStatus.push++;
 								// 结束本次循环
@@ -2178,7 +2178,7 @@ class ComRegister {
 	async enableLiveDetect() {
 		// 定义Job
 		this.liveJob = new CronJob(
-			"*/20 * * * * *",
+			"*/30 * * * * *",
 			await this.liveDetectWithAPI(),
 		);
 		// logger
