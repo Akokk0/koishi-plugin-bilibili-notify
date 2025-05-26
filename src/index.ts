@@ -405,18 +405,20 @@ export const Config: Schema<Config> = Schema.object({
 	pushImgsInDynamic: Schema.boolean()
 		.default(false)
 		.description(
-			"是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片",
+			"是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片，该功能容易导致QQ风控",
 		),
 
 	live: Schema.object({}).description("直播推送设置"),
 
-	liveDetectType: Schema.union(["WS", "API"])
+	liveDetectType: Schema.union([
+		Schema.const("WS").description("使用WebSocket连接到B站消息服务器进行直播检测，推荐使用"),
+		Schema.const("API").description("通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面").experimental(),
+	])
 		.role("radio")
 		.default("WS")
 		.description(
-			"直播检测方式，WS为连接到B站弹幕服务器，API为通过轮询发送请求监测，默认使用WS检测",
-		)
-		.experimental(),
+			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
+		),
 
 	restartPush: Schema.boolean()
 		.default(true)
