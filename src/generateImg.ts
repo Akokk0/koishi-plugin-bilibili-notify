@@ -4,7 +4,7 @@ import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
-import type { Dynamic } from "./type";
+import type { Dynamic, RichTextNode } from "./type";
 
 declare module "koishi" {
 	interface Context {
@@ -228,7 +228,7 @@ class GenerateImg extends Service {
 																					liveStatus === 1
 																						? `当前粉丝数：${followerDisplay}`
 																						: liveStatus === 2
-																							? `${followerDisplay !== "API" ? `粉丝数变化：${followerDisplay}` : ""}`
+																							? `${followerDisplay !== "API" ? `累计观看人数：${followerDisplay}` : ""}`
 																							: liveStatus === 3
 																								? `粉丝数变化：${followerDisplay}`
 																								: ""
@@ -249,6 +249,41 @@ class GenerateImg extends Service {
 			// 已尝试三次
 			throw new Error(`生成图片失败！错误: ${e.toString()}`);
 		});
+	}
+
+	richTextParser(rt: RichTextNode, title?: string) {
+		const richText = rt.reduce((accumulator, currentValue) => {
+			if (currentValue.emoji) {
+				return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
+			}
+			return accumulator + currentValue.text;
+		}, "");
+		// 关键字和正则屏蔽
+		if (this.giConfig.filter.enable) {
+			// 开启动态屏蔽功能
+			if (this.giConfig.filter.regex) {
+				// 正则屏蔽
+				const reg = new RegExp(this.giConfig.filter.regex);
+				if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
+			}
+			if (
+				this.giConfig.filter.keywords.length !== 0 &&
+				this.giConfig.filter.keywords.some((keyword) =>
+					richText.includes(keyword),
+				)
+			) {
+				throw new Error("出现关键词，屏蔽该动态");
+			}
+		}
+		// 查找\n
+		const text = richText.replace(/\n/g, "<br>");
+		// 拼接字符串
+		return /* html */ `
+            <div class="card-details">
+                ${title ? `<h1 class="dyn-title">${title}</h1>` : ""}
+                ${text}
+            </div>
+        `;
 	}
 
 	async generateDynamicImg(
@@ -292,57 +327,30 @@ class GenerateImg extends Service {
 		const getDynamicMajor = async (
 			dynamic: Dynamic,
 			forward: boolean,
-		): Promise<[string, string, string?]> => {
+		): Promise<[string, string?]> => {
 			// 定义返回值
 			let main = "";
-			let link = "";
 			// 定义forward类型返回值
 			let forwardInfo: string;
-
 			// 最基本的图文处理
 			const basicDynamic = () => {
+				// 获取动态内容
 				const module_dynamic = dynamic.modules.module_dynamic;
-				if (module_dynamic?.major?.opus?.summary) {
-					const richText =
-						module_dynamic.major.opus.summary.rich_text_nodes.reduce(
-							(accumulator, currentValue) => {
-								if (currentValue.emoji) {
-									return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
-								}
-								return accumulator + currentValue.text;
-							},
-							"",
-						);
-					// 关键字和正则屏蔽
-					if (this.giConfig.filter.enable) {
-						// 开启动态屏蔽功能
-						if (this.giConfig.filter.regex) {
-							// 正则屏蔽
-							const reg = new RegExp(this.giConfig.filter.regex);
-							if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
-						}
-						if (
-							this.giConfig.filter.keywords.length !== 0 &&
-							this.giConfig.filter.keywords.some((keyword) =>
-								richText.includes(keyword),
-							)
-						) {
-							throw new Error("出现关键词，屏蔽该动态");
-						}
-					}
-					// 查找\n
-					const text = richText.replace(/\n/g, "<br>");
-					// 拼接字符串
-					if (text) {
-						main += /* html */ `
-                            <div class="card-details">
-                                ${module_dynamic.major.opus.title ? `<h1 class="dyn-title">${module_dynamic.major.opus.title}</h1>` : ""}
-                                ${text}
-                            </div>
-                        `;
-					}
+				// 判断是否有desc
+				if (module_dynamic?.desc?.rich_text_nodes) {
+					const content = this.richTextParser(
+						module_dynamic.desc.rich_text_nodes,
+					);
+					main += content;
 				}
-
+				// 判断是否有summary
+				if (module_dynamic?.major?.opus?.summary?.rich_text_nodes) {
+					const content = this.richTextParser(
+						module_dynamic.major.opus.summary.rich_text_nodes,
+						module_dynamic.major.opus.title,
+					);
+					main += content;
+				}
 				// 图片
 				let major = "";
 				const arrowImg = pathToFileURL(resolve(__dirname, "img/arrow.png"));
@@ -404,7 +412,7 @@ class GenerateImg extends Service {
 						const forwardUserName = forward_module_author.name;
 						// 获取转发的动态
 						// eslint-disable-next-line @typescript-eslint/no-unused-vars
-						const [forwardMain, _, forwardInfo] = await getDynamicMajor(
+						const [forwardMain, forwardInfo] = await getDynamicMajor(
 							dynamic.orig,
 							true,
 						);
@@ -515,7 +523,6 @@ class GenerateImg extends Service {
 						}
 					}
 
-					link += `请将$替换为. www$bilibili$com/opus/${dynamic.id_str}`;
 					break;
 				}
 				case DYNAMIC_TYPE_AV: {
@@ -589,49 +596,46 @@ class GenerateImg extends Service {
                     </div>
                     `;
 
-					link = `请将$替换为. www$bilibili$com/video/${archive.bvid}`;
 					break;
 				}
 				case DYNAMIC_TYPE_LIVE:
-					return [`${upName}发起了直播预约，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}发起了直播预约，我暂时无法渲染，请自行查看`];
 				case DYNAMIC_TYPE_MEDIALIST:
-					return [`${upName}分享了收藏夹，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}分享了收藏夹，我暂时无法渲染，请自行查看`];
 				case DYNAMIC_TYPE_PGC:
 					return [
 						`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`,
-						link,
 					];
 				case DYNAMIC_TYPE_ARTICLE: {
 					//转发动态屏蔽
 					if (this.giConfig.filter.enable && this.giConfig.filter.article) {
 						throw new Error("已屏蔽专栏动态");
 					}
-					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`];
 				}
 				case DYNAMIC_TYPE_MUSIC:
-					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`];
 				case DYNAMIC_TYPE_COMMON_SQUARE:
 					return [
 						`${upName}发布了装扮｜剧集｜点评｜普通分享，我暂时无法渲染，请自行查看`,
-						link,
 					];
 				case DYNAMIC_TYPE_COURSES_SEASON:
-					return [`${upName}发布了新课程，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}发布了新课程，我暂时无法渲染，请自行查看`];
 				case DYNAMIC_TYPE_UGC_SEASON:
-					return [`${upName}更新了合集，我暂时无法渲染，请自行查看`, link];
+					return [`${upName}更新了合集，我暂时无法渲染，请自行查看`];
 				case DYNAMIC_TYPE_NONE:
-					return [`${upName}发布了一条无效动态`, link];
+					return [`${upName}发布了一条无效动态`];
 				// 直播开播，不做处理
 				case DYNAMIC_TYPE_LIVE_RCMD:
 					throw new Error("直播开播动态，不做处理");
 				default:
-					return [`${upName}发布了一条我无法识别的动态，请自行查看`, ""];
+					return [`${upName}发布了一条我无法识别的动态，请自行查看`];
 			}
-			return [main, link, forwardInfo];
+			return [main, forwardInfo];
 		};
 
 		// 获取动态主要内容
-		const [main, link] = await getDynamicMajor(data, false);
+		const [main] = await getDynamicMajor(data, false);
 		// 加载字体
 		const fontURL = pathToFileURL(
 			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
@@ -747,7 +751,7 @@ class GenerateImg extends Service {
             }
 
             .card .dyn-title {
-                font-size: 27px;
+                font-size: 20px;
                 margin-bottom: 10px;
             }
 
@@ -1120,7 +1124,7 @@ class GenerateImg extends Service {
             }
 
             .card .dyn-title {
-                font-size: 27px;
+                font-size: 20px;
                 margin-bottom: 10px;
             }
 

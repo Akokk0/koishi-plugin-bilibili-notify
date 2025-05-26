@@ -68,6 +68,18 @@ export type LiveUsers = {
 	items: Array<LiveUsersItem>;
 };
 
+export type RichTextNode = Array<{
+	emoji?: {
+		icon_url: string;
+		size: number;
+		text: string;
+		type: number;
+	};
+	orig_text: string;
+	text: string;
+	type: string;
+}>;
+
 export type Dynamic = {
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	basic: Object;
@@ -107,7 +119,27 @@ export type Dynamic = {
 		module_dynamic: {
 			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 			additional: any;
-			desc: null;
+			desc: {
+				rich_text_nodes: Array<{
+					orig_text: string;
+					text: string;
+					type: string;
+					emoji: {
+						icon_url: string;
+						size: number;
+						text: string;
+						type: number;
+					};
+					jump_url: string;
+					rid: string;
+					goods: {
+						jump_url: string;
+						type: number;
+					};
+					icon_name: string;
+				}>;
+				text: string;
+			};
 			major: {
 				opus: {
 					fold_action: Array<string>;
@@ -120,17 +152,7 @@ export type Dynamic = {
 						width: number;
 					}>;
 					summary: {
-						rich_text_nodes: Array<{
-							emoji?: {
-								icon_url: string;
-								size: number;
-								text: string;
-								type: number;
-							};
-							orig_text: string;
-							text: string;
-							type: string;
-						}>;
+						rich_text_nodes: RichTextNode;
 						text: string;
 					};
 					title: string;

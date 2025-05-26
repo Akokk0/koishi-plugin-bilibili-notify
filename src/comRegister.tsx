@@ -314,9 +314,34 @@ class ComRegister {
 				// 获取动态内容
 				const item = content.data.items[i];
 				// 生成图片
-				const buffer = await this.ctx.gi.generateDynamicImg(item);
+				const buffer = await withRetry(async () => {
+					// 渲染图片
+					return await this.ctx.gi.generateDynamicImg(item);
+				}, 1).catch(async (e) => {
+					// 直播开播动态，不做处理
+					if (e.message === "直播开播动态，不做处理") {
+						await session.send("直播开播动态，不做处理");
+						return;
+					}
+					if (e.message === "出现关键词，屏蔽该动态") {
+						await session.send("已屏蔽该动态");
+						return;
+					}
+					if (e.message === "已屏蔽转发动态") {
+						await session.send("已屏蔽转发动态");
+						return;
+					}
+					if (e.message === "已屏蔽专栏动态") {
+						await session.send("已屏蔽专栏动态");
+						return;
+					}
+					// 未知错误
+					this.logger.error(
+						`dynamicDetect generateDynamicImg() 推送卡片发送失败，原因：${e.message}`,
+					);
+				});
 				// 发送图片
-				await session.send(h.image(buffer, "image/jpeg"));
+				buffer && (await session.send(h.image(buffer, "image/jpeg")));
 			});
 	}
 
@@ -1596,7 +1621,7 @@ class ComRegister {
 								"-time",
 								await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 							)
-							.replace("-watched", "")
+							.replace("-watched", "API模式无法获取")
 							.replace("\\n", "\n")
 							.replace(
 								"-link",
@@ -1807,7 +1832,7 @@ class ComRegister {
 												liveStatus.liveStartTime,
 											),
 										)
-										.replace("-watched", "")
+										.replace("-watched", "API模式无法获取")
 										.replace("\\n", "\n")
 										.replace(
 											"-link",
