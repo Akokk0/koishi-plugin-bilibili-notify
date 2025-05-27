@@ -817,18 +817,18 @@ class ComRegister {
 						);
 						// 判断是否需要发送动态中的图片
 						if (this.config.pushImgsInDynamic) {
-							// 判断是否为图文动态，且存在draw
-							if (
-								item.type === "DYNAMIC_TYPE_DRAW" &&
-								item.modules.module_dynamic.major?.draw
-							) {
-								for (const img of item.modules.module_dynamic.major.draw
-									.items) {
+							// 获取pics
+							const pics = item.modules.module_dynamic.major.opus?.pics;
+							// 判断是否为图文动态，且存在pics
+							if (item.type === "DYNAMIC_TYPE_DRAW" && pics) {
+								for (const pic of pics) {
 									await this.broadcastToTargets(
 										sub.target,
-										<img src={img.src} alt="动态图片" />,
+										<img src={pic.url} alt="动态图片" />,
 										PushType.Dynamic,
 									);
+									// 随机睡眠1-3秒
+									await this.ctx.sleep(Math.floor(Math.random() * 2000) + 1000);
 								}
 							}
 						}
@@ -1054,18 +1054,18 @@ class ComRegister {
 						if (this.config.pushImgsInDynamic) {
 							// logger
 							this.logger.info("需要发送动态中的图片，开始发送...");
-							// 判断是否为图文动态，且存在draw
-							if (
-								item.type === "DYNAMIC_TYPE_DRAW" &&
-								item.modules.module_dynamic.major?.draw
-							) {
-								for (const img of item.modules.module_dynamic.major.draw
-									.items) {
+							// 获取pics
+							const pics = item.modules.module_dynamic.major.opus?.pics;
+							// 判断是否为图文动态，且存在pics
+							if (item.type === "DYNAMIC_TYPE_DRAW" && pics) {
+								for (const pic of pics) {
 									await this.broadcastToTargets(
 										sub.target,
-										<img src={img.src} alt="动态图片" />,
+										<img src={pic.url} alt="动态图片" />,
 										PushType.Dynamic,
 									);
+									// 随机睡眠1-3秒
+									await this.ctx.sleep(Math.floor(Math.random() * 2000) + 1000);
 								}
 							}
 							// logger
