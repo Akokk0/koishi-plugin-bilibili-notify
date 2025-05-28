@@ -266,3 +266,24 @@ export type Result = {
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	data?: any;
 };
+
+export type CreateGroup = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: {
+		tagid: number;
+	};
+};
+
+export type GroupList = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: Array<{
+		tagid: number;
+		name: string;
+		count: number;
+		tip: string;
+	}>;
+};

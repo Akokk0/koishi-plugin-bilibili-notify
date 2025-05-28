@@ -3,7 +3,7 @@ import {
 	type MessageListener,
 	startListen,
 	type MsgHandler,
-} from "blive-message-listener";
+} from "@akokko/blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
@@ -48,8 +48,6 @@ class BLive extends Service {
 				},
 			},
 		);
-		// logger
-		this.logger.info(`[${roomId}]开始监听直播间消息！`);
 	}
 
 	closeListener(roomId: string) {

@@ -1,8 +1,6 @@
-import { type Awaitable, type Context, Schema, Service } from "koishi";
+import { type Context, Schema, Service } from "koishi";
 import md5 from "md5";
 import crypto from "node:crypto";
-import http from "node:http";
-import https from "node:https";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
@@ -85,28 +83,10 @@ class BiliAPI extends Service {
 	}
 
 	protected start(): void | Promise<void> {
-		// init
-		this.init();
 		// 创建新的http客户端(axios)
 		this.createNewClient();
 		// 从数据库加载cookies
 		this.loadCookiesFromDatabase();
-	}
-
-	protected stop(): Awaitable<void> {
-		// 将DNS缓存卸载
-		this.cacheable.uninstall(http.globalAgent);
-		this.cacheable.uninstall(https.globalAgent);
-	}
-
-	async init() {
-		// 导入纯ESM模块Cacheable
-		const { default: CacheableLookup } = await import("cacheable-lookup");
-		// 创建Cacheable
-		this.cacheable = new CacheableLookup();
-		// 安装到http和https
-		this.cacheable.install(http.globalAgent);
-		this.cacheable.install(https.globalAgent);
 	}
 
 	// WBI签名

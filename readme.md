@@ -261,6 +261,9 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.1-alpha.2 调整：将项目构建产物调整回 `cjs` 、将依赖 `cacheable-lookup` 导入方式更改为动态导入；
 - ver 3.2.1-alpha.3 修复：直播检测 `WS` 初始化后自动断开连接；
 - ver 3.2.1-alpha.4 优化：直播监听初始化没有提示；
+- ver 3.2.1-alpha.4 - ver 3.2.1-alpha.8 `deprecate`
+- ver 3.2.1-alpha.9 修复：`bugs`
+- ver 3.2.1-alpha.10 修复：临时切换依赖 `blive-message-listener` 为 `@akokko/blive-message-listener` 以解决直播检测模式 `WS` 掉线问题、第一次使用插件报错 `TypeError: Cannot set properties of undefined (setting 'dynamic_group_id')`；
 
 ## 交流群
 

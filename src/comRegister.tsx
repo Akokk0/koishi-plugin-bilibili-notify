@@ -11,7 +11,7 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
 // 外部依赖
-import type { MsgHandler } from "blive-message-listener";
+import type { MsgHandler } from "@akokko/blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
@@ -19,6 +19,8 @@ import { withLock, withRetry } from "./utils";
 // Types
 import {
 	type AllDynamicInfo,
+	type CreateGroup,
+	type GroupList,
 	type Live,
 	type LiveStatus,
 	LiveType,
@@ -1253,6 +1255,10 @@ class ComRegister {
 		let pushAtTimeTimer: () => void;
 		// 定义弹幕存放数组
 		const currentLiveDanmakuArr: Array<string> = [];
+		// init flag
+        let initFlag = false;
+        // 连接中断flag
+        let connFlag = false;
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义channelIdArr总长度
@@ -1363,6 +1369,31 @@ class ComRegister {
 		};
 		// 构建消息处理函数
 		const handler: MsgHandler = {
+			onOpen: () => {
+                if (!initFlag) {
+                    // init flag设置为true
+                    initFlag = true;
+                    // connFlag设置为false
+                    connFlag = false;
+                    // logger
+                    this.logger.info(`[${roomId}]直播间连接已建立！`);
+                }
+            },
+            onClose: async () => {
+                if (!connFlag) {
+                    // 更直播状态
+                    liveStatus = false;
+                    // 关闭定时推送
+                    pushAtTimeTimer?.();
+                    // 停止服务
+                    this.ctx.bl.closeListener(roomId);
+                    // 更改connFlag
+                    connFlag = true;
+                    // 发送消息
+                    await this.sendPrivateMsg(`[${roomId}]直播间连接已中断！`);
+                    this.logger.error(`[${roomId}]直播间连接已中断！`);
+                }
+            },
 			onError: async () => {
 				// 更直播状态
 				liveStatus = false;
@@ -1962,17 +1993,19 @@ class ComRegister {
 			// 判断是否有数据
 			if (!this.loginDBData?.dynamic_group_id) {
 				// 没有数据，没有创建分组，尝试创建分组
-				const createGroupData = await this.ctx.ba.createGroup("订阅");
+				const createGroupData = (await this.ctx.ba.createGroup(
+					"订阅",
+				)) as CreateGroup;
 				// 如果分组已创建，则获取分组id
 				if (createGroupData.code === 22106) {
 					// 分组已存在，拿到之前的分组id
-					const allGroupData = await this.ctx.ba.getAllGroup();
+					const allGroupData = (await this.ctx.ba.getAllGroup()) as GroupList;
 					// 遍历所有分组
 					for (const group of allGroupData.data) {
 						// 找到订阅分组
 						if (group.name === "订阅") {
 							// 拿到分组id
-							this.loginDBData.dynamic_group_id = group.tagid;
+							this.loginDBData.dynamic_group_id = group.tagid.toString();
 							// 保存到数据库
 							this.ctx.database.set("loginBili", 1, {
 								dynamic_group_id: this.loginDBData.dynamic_group_id,
@@ -1987,7 +2020,7 @@ class ComRegister {
 				}
 				// 创建成功，保存到数据库
 				this.ctx.database.set("loginBili", 1, {
-					dynamic_group_id: this.loginDBData.dynamic_group_id,
+					dynamic_group_id: createGroupData.data.tagid.toString(),
 				});
 				// 创建成功
 				return { code: createGroupData.code, msg: createGroupData.message };
