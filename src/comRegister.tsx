@@ -9,11 +9,9 @@ import {
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
-// 数据库
 import type { LoginBili } from "./database";
-// 外部依赖：B站直播监听
+// 外部依赖
 import type { MsgHandler } from "blive-message-listener";
-// 外部依赖：qrcode
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
@@ -432,8 +430,16 @@ class ComRegister {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	getBot(pf: string): Bot<Context, any> {
-		return this.ctx.bots.find((bot) => bot.platform === pf);
+	getBot(pf: string, selfId?: string): Bot<Context, any> {
+		// 判断是否存在selfId
+		if (!selfId || selfId === "") {
+			// 不存在则默认第一个bot
+			return this.ctx.bots.find((bot) => bot.platform === pf);
+		}
+		// 存在则返回对应bot
+		return this.ctx.bots.find(
+			(bot) => bot.platform === pf && bot.selfId === selfId,
+		);
 	}
 
 	async sendPrivateMsg(content: string) {
@@ -592,7 +598,16 @@ class ComRegister {
 		// 获取目标
 		const targetChannel = targets[0].channelArr[0];
 		// 获取机器人实例
-		const bot = this.getBot(targets[0].platform);
+		const bot = this.getBot(targets[0].platform, targetChannel.bot);
+		// 判断bot是否存在
+		if (!bot) {
+			// 发送私聊消息
+			this.sendPrivateMsg("未找到对应bot实例，本次消息推送取消！");
+			// logger
+			this.logger.warn("未找到对应bot实例，本次消息推送取消！");
+			// 直接返回
+			return;
+		}
 		// 模式匹配
 		const pushTypePatternMatching = {
 			[PushType.Live]: async () => {
@@ -817,18 +832,23 @@ class ComRegister {
 						);
 						// 判断是否需要发送动态中的图片
 						if (this.config.pushImgsInDynamic) {
-							// 获取pics
-							const pics = item.modules.module_dynamic.major.opus?.pics;
-							// 判断是否为图文动态，且存在pics
-							if (item.type === "DYNAMIC_TYPE_DRAW" && pics) {
-								for (const pic of pics) {
-									await this.broadcastToTargets(
-										sub.target,
-										<img src={pic.url} alt="动态图片" />,
-										PushType.Dynamic,
-									);
-									// 随机睡眠1-3秒
-									await this.ctx.sleep(Math.floor(Math.random() * 2000) + 1000);
+							// 判断是否为图文动态
+							if (item.type === "DYNAMIC_TYPE_DRAW") {
+								// 获取pics
+								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
+								// 判断pics是否存在
+								if (pics) {
+									for (const pic of pics) {
+										await this.broadcastToTargets(
+											sub.target,
+											<img src={pic.url} alt="动态图片" />,
+											PushType.Dynamic,
+										);
+										// 随机睡眠1-3秒
+										await this.ctx.sleep(
+											Math.floor(Math.random() * 2000) + 1000,
+										);
+									}
 								}
 							}
 						}
@@ -1054,18 +1074,23 @@ class ComRegister {
 						if (this.config.pushImgsInDynamic) {
 							// logger
 							this.logger.info("需要发送动态中的图片，开始发送...");
-							// 获取pics
-							const pics = item.modules.module_dynamic.major.opus?.pics;
-							// 判断是否为图文动态，且存在pics
-							if (item.type === "DYNAMIC_TYPE_DRAW" && pics) {
-								for (const pic of pics) {
-									await this.broadcastToTargets(
-										sub.target,
-										<img src={pic.url} alt="动态图片" />,
-										PushType.Dynamic,
-									);
-									// 随机睡眠1-3秒
-									await this.ctx.sleep(Math.floor(Math.random() * 2000) + 1000);
+							// 判断是否为图文动态
+							if (item.type === "DYNAMIC_TYPE_DRAW") {
+								// 获取pics
+								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
+								// 判断pics是否存在
+								if (pics) {
+									for (const pic of pics) {
+										await this.broadcastToTargets(
+											sub.target,
+											<img src={pic.url} alt="动态图片" />,
+											PushType.Dynamic,
+										);
+										// 随机睡眠1-3秒
+										await this.ctx.sleep(
+											Math.floor(Math.random() * 2000) + 1000,
+										);
+									}
 								}
 							}
 							// logger
@@ -1228,9 +1253,12 @@ class ComRegister {
 		let pushAtTimeTimer: () => void;
 		// 定义弹幕存放数组
 		const currentLiveDanmakuArr: Array<string> = [];
+		// init flag
+		let initFlag = false;
+		// 连接中断flag
+		let connFlag = false;
 		// 定义开播状态
 		let liveStatus = false;
-		// 处理target
 		// 定义channelIdArr总长度
 		let channelArrLen = 0;
 		// 定义数据
@@ -1264,15 +1292,17 @@ class ComRegister {
 				return await this.sendPrivateMsgAndStopService();
 			}
 			// 判断是否已经下播
-			if (liveRoomInfo.live_status === 0) {
+			if (liveRoomInfo.live_status === 0 || liveRoomInfo.live_status === 2) {
 				// 设置开播状态为false
 				liveStatus = false;
 				// 清除定时器
 				pushAtTimeTimer?.();
 				// 发送私聊消息
 				await this.sendPrivateMsg(
-					"直播间已下播，定时推送已停止！与直播间的连接可能已断开，请使用指令 sys restart 重启插件",
+					"直播间已下播！与直播间的连接可能已断开，请使用指令 sys restart 重启插件",
 				);
+				// 返回
+				return;
 			}
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
@@ -1337,6 +1367,31 @@ class ComRegister {
 		};
 		// 构建消息处理函数
 		const handler: MsgHandler = {
+			onOpen: () => {
+				if (!initFlag) {
+					// init flag设置为true
+					initFlag = true;
+					// connFlag设置为false
+					connFlag = false;
+					// logger
+					this.logger.info(`${roomId}直播间连接已建立！`);
+				}
+			},
+			onClose: async () => {
+				if (!connFlag) {
+					// 更直播状态
+					liveStatus = false;
+					// 关闭定时推送
+					pushAtTimeTimer?.();
+					// 停止服务
+					this.ctx.bl.closeListener(roomId);
+					// 更改connFlag
+					connFlag = true;
+					// 发送消息
+					await this.sendPrivateMsg(`${roomId}直播间连接已中断！`);
+					this.logger.error(`${roomId}直播间连接已中断！`);
+				}
+			},
 			onIncomeDanmu: ({ body }) => {
 				// 保存消息到数组
 				currentLiveDanmakuArr.push(body.content);
@@ -2238,6 +2293,7 @@ namespace ComRegister {
 					live: boolean;
 					liveGuardBuy: boolean;
 					atAll: boolean;
+					bot: string;
 				}>;
 				platform: string;
 			}>;
@@ -2295,6 +2351,9 @@ namespace ComRegister {
 								),
 								atAll: Schema.boolean().description(
 									"推送开播通知时是否艾特全体成员",
+								),
+								bot: Schema.string().description(
+									"若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个",
 								),
 							}),
 						).description("频道/群组信息"),

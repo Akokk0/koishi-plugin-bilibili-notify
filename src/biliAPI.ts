@@ -1,7 +1,10 @@
-import { type Context, Schema, Service } from "koishi";
+import { type Awaitable, type Context, Schema, Service } from "koishi";
 import md5 from "md5";
 import crypto from "node:crypto";
-import axios from "axios";
+import http from "node:http";
+import https from "node:https";
+import CacheableLookup from "cacheable-lookup";
+import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
 import { JSDOM } from "jsdom";
@@ -67,8 +70,8 @@ class BiliAPI extends Service {
 	static inject = ["database", "notifier"];
 
 	jar: CookieJar;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	client: any;
+	client: AxiosInstance;
+	cacheable: CacheableLookup;
 	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	loginData: any;
@@ -86,6 +89,12 @@ class BiliAPI extends Service {
 		this.createNewClient();
 		// 从数据库加载cookies
 		this.loadCookiesFromDatabase();
+	}
+
+	protected stop(): Awaitable<void> {
+		// 将DNS缓存卸载
+		this.cacheable.uninstall(http.globalAgent);
+		this.cacheable.uninstall(https.globalAgent);
 	}
 
 	// WBI签名
@@ -202,9 +211,7 @@ class BiliAPI extends Service {
 		// 构建查询参数
 		const params = uids.map((uid) => `uids[]=${uid}`).join("&");
 		// 获取直播间信息
-		const { data } = await this.client.get(
-			`${GET_LIVE_ROOMS_INFO}?${params}`,
-		);
+		const { data } = await this.client.get(`${GET_LIVE_ROOMS_INFO}?${params}`);
 		// 返回数据
 		return data;
 	}
@@ -559,7 +566,14 @@ class BiliAPI extends Service {
 	}
 
 	createNewClient() {
+		// 创建DNS缓存
+		this.cacheable = new CacheableLookup();
+		// 安装到http和https
+		this.cacheable.install(http.globalAgent);
+		this.cacheable.install(https.globalAgent);
+		// 创建cookieJar
 		this.jar = new CookieJar();
+		// 包装cookieJar
 		this.client = wrapper(
 			axios.create({
 				jar: this.jar,

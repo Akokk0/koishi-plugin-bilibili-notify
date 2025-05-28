@@ -12,6 +12,7 @@ export type Channel = {
 	live: boolean;
 	liveGuardBuy: boolean;
 	atAll: boolean;
+	bot: string;
 };
 
 export type ChannelArr = Array<Channel>;

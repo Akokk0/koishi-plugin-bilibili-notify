@@ -174,18 +174,10 @@ export function apply(ctx: Context, config: Config) {
 	globalConfig = config;
 	// 设置提示
 	ctx.notifier.create({
-		type: "danger",
-		content:
-			"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1及以后版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
-	});
-	ctx.notifier.create({
 		type: "warning",
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
-	ctx.logger.warn(
-		"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
-	);
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -224,6 +216,7 @@ export interface Config {
 				live: boolean;
 				liveGuardBuy: boolean;
 				atAll: boolean;
+				bot: string;
 			}>;
 			platform: string;
 		}>;
@@ -347,6 +340,8 @@ export const Config: Schema<Config> = Schema.object({
 							atAll: Schema.boolean()
 								.default(false)
 								.description("推送开播通知时是否艾特全体成员"),
+							bot: Schema.string()
+								.description("若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个")
 						}),
 					)
 						.role("table")

@@ -48,16 +48,13 @@ class BLive extends Service {
 				},
 			},
 		);
-		// logger
-		this.logger.info(`${roomId}直播间监听已开启`);
 	}
 
 	closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
 		if (
 			!this.listenerRecord ||
-			!this.listenerRecord[roomId] ||
-			!this.listenerRecord[roomId].closed
+			!this.listenerRecord[roomId]?.closed
 		) {
 			// 输出logger
 			this.logger.info(`${roomId}直播间弹幕监听器无需关闭`);
