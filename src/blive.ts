@@ -48,6 +48,8 @@ class BLive extends Service {
 				},
 			},
 		);
+		// logger
+		this.logger.info(`[${roomId}]开始监听直播间消息！`);
 	}
 
 	closeListener(roomId: string) {

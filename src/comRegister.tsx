@@ -1363,9 +1363,6 @@ class ComRegister {
 		};
 		// 构建消息处理函数
 		const handler: MsgHandler = {
-			onStartListen: () => {
-				this.logger.info(`[${roomId}]开始监听直播间消息！`);
-			},
 			onError: async () => {
 				// 更直播状态
 				liveStatus = false;
