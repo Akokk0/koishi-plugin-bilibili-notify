@@ -259,6 +259,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.1-alpha.0 新增：多个相同平台bot可以选择某个群聊/频道指定机器人发送； 优化：直播检测 `WS` 模式下播后仍推送、添加依赖 `cacheable-lookup` 优化网络； 修复：打开 `pushImagesInDynamic` 功能时，如果发送的动态里没有图片则会报错 `TypeError: Cannot read properties of null (reading 'opus')` 
 - ver 3.2.1-alpha.1 调整：将项目构建产物调整为 `esm`；
 - ver 3.2.1-alpha.2 调整：将项目构建产物调整回 `cjs` 、将依赖 `cacheable-lookup` 导入方式更改为动态导入；
+- ver 3.2.1-alpha.3 修复：直播检测 `WS` 初始化后自动断开连接；
 
 ## 交流群
 
