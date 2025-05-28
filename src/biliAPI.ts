@@ -3,7 +3,6 @@ import md5 from "md5";
 import crypto from "node:crypto";
 import http from "node:http";
 import https from "node:https";
-import CacheableLookup from "cacheable-lookup";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
@@ -71,7 +70,8 @@ class BiliAPI extends Service {
 
 	jar: CookieJar;
 	client: AxiosInstance;
-	cacheable: CacheableLookup;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	cacheable: any;
 	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	loginData: any;
@@ -85,6 +85,8 @@ class BiliAPI extends Service {
 	}
 
 	protected start(): void | Promise<void> {
+		// init
+		this.init();
 		// 创建新的http客户端(axios)
 		this.createNewClient();
 		// 从数据库加载cookies
@@ -95,6 +97,16 @@ class BiliAPI extends Service {
 		// 将DNS缓存卸载
 		this.cacheable.uninstall(http.globalAgent);
 		this.cacheable.uninstall(https.globalAgent);
+	}
+
+	async init() {
+		// 导入纯ESM模块Cacheable
+		const { default: CacheableLookup } = await import("cacheable-lookup");
+		// 创建Cacheable
+		this.cacheable = new CacheableLookup();
+		// 安装到http和https
+		this.cacheable.install(http.globalAgent);
+		this.cacheable.install(https.globalAgent);
 	}
 
 	// WBI签名
@@ -566,11 +578,6 @@ class BiliAPI extends Service {
 	}
 
 	createNewClient() {
-		// 创建DNS缓存
-		this.cacheable = new CacheableLookup();
-		// 安装到http和https
-		this.cacheable.install(http.globalAgent);
-		this.cacheable.install(https.globalAgent);
 		// 创建cookieJar
 		this.jar = new CookieJar();
 		// 包装cookieJar

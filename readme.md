@@ -256,8 +256,9 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.0-alpha.5 修复：直播检测 `WS` 模式下，直播中推送卡片 `累计观看人数` 位置错误显示为 `粉丝数变化` 、转发动态的留言文字不显示； 优化：直播检测 `API` 模式下，直播推送语 `-watched` 固定显示为 `API模式无法获取`； 
 - ver 3.2.0-alpha.6 优化：调整配置项；
 - ver 3.2.0-alpha.7 修复：自 `3.1.7` 版本 `pushImagesInDynamic` 功能失效；
-- ver 3.2.1-alpha.0 新增：多个相同平台bot可以选择某个群聊/频道指定机器人发送； 优化：直播检测 `WS` 模式下播后仍推送； 修复：打开 `pushImagesInDynamic` 功能时，如果发送的动态里没有图片则会报错 `TypeError: Cannot read properties of null (reading 'opus')` 
+- ver 3.2.1-alpha.0 新增：多个相同平台bot可以选择某个群聊/频道指定机器人发送； 优化：直播检测 `WS` 模式下播后仍推送、添加依赖 `cacheable-lookup` 优化网络； 修复：打开 `pushImagesInDynamic` 功能时，如果发送的动态里没有图片则会报错 `TypeError: Cannot read properties of null (reading 'opus')` 
 - ver 3.2.1-alpha.1 调整：将项目构建产物调整为 `esm`；
+- ver 3.2.1-alpha.2 调整：将项目构建产物调整回 `cjs` 、将依赖 `cacheable-lookup` 导入方式更改为动态导入；
 
 ## 交流群
 
