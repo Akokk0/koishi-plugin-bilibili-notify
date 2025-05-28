@@ -257,6 +257,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.0-alpha.6 优化：调整配置项；
 - ver 3.2.0-alpha.7 修复：自 `3.1.7` 版本 `pushImagesInDynamic` 功能失效；
 - ver 3.2.1-alpha.0 新增：多个相同平台bot可以选择某个群聊/频道指定机器人发送； 优化：直播检测 `WS` 模式下播后仍推送； 修复：打开 `pushImagesInDynamic` 功能时，如果发送的动态里没有图片则会报错 `TypeError: Cannot read properties of null (reading 'opus')` 
+- ver 3.2.1-alpha.1 调整：将项目构建产物调整为 `esm`；
 
 ## 交流群
 
