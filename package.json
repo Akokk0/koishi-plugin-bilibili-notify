@@ -46,6 +46,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@koishijs/cache": "^2.1.0",
+    "@koishijs/client": "^5.30.7",
+    "@koishijs/plugin-notifier": "^1.2.1",
+    "@koishijs/scripts": "^4.6.1",
     "@types/luxon": "^3.4.2",
     "@types/md5": "^2.3.5",
     "@types/qrcode": "^1.5.5",
@@ -53,6 +57,7 @@
     "esbuild": "^0.25.5",
     "esbuild-register": "^3.6.0",
     "globals": "^15.14.0",
+    "koishi": "^4.18.8",
     "koishi-plugin-puppeteer": "^3.9.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
