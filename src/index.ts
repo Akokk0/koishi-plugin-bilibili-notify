@@ -105,6 +105,7 @@ class ServerManager extends Service {
 			const cr = this.ctx.plugin(ComRegister, {
 				sub: globalConfig.sub,
 				master: globalConfig.master,
+				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
@@ -173,18 +174,10 @@ export function apply(ctx: Context, config: Config) {
 	globalConfig = config;
 	// 设置提示
 	ctx.notifier.create({
-		type: "danger",
-		content:
-			"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1及以后版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
-	});
-	ctx.notifier.create({
 		type: "warning",
 		content:
 			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
 	});
-	ctx.logger.warn(
-		"从3.1.0-alpha.0及以前版本升级到3.1.0-alpha.1版本必定报错，请重新填写订阅配置中sub.target.channelArr的内容",
-	);
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -223,6 +216,7 @@ export interface Config {
 				live: boolean;
 				liveGuardBuy: boolean;
 				atAll: boolean;
+				bot: string;
 			}>;
 			platform: string;
 		}>;
@@ -233,6 +227,7 @@ export interface Config {
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
+	liveDetectType: "WS" | "API";
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -345,6 +340,8 @@ export const Config: Schema<Config> = Schema.object({
 							atAll: Schema.boolean()
 								.default(false)
 								.description("推送开播通知时是否艾特全体成员"),
+							bot: Schema.string()
+								.description("若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个")
 						}),
 					)
 						.role("table")
@@ -403,10 +400,20 @@ export const Config: Schema<Config> = Schema.object({
 	pushImgsInDynamic: Schema.boolean()
 		.default(false)
 		.description(
-			"是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片",
+			"是否推送动态中的图片，默认不开启。开启后会单独推送动态中的图片，该功能容易导致QQ风控",
 		),
 
 	live: Schema.object({}).description("直播推送设置"),
+
+	liveDetectType: Schema.union([
+		Schema.const("WS").description("使用WebSocket连接到B站消息服务器进行直播检测，推荐使用"),
+		Schema.const("API").description("通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面").experimental(),
+	])
+		.role("radio")
+		.default("WS")
+		.description(
+			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
+		),
 
 	restartPush: Schema.boolean()
 		.default(true)
@@ -516,6 +523,5 @@ export const Config: Schema<Config> = Schema.object({
 		.default(false)
 		.description(
 			"动态调试模式，开启后会在控制台输出动态推送的详细信息，用于调试",
-		)
-		.experimental(),
+		),
 });

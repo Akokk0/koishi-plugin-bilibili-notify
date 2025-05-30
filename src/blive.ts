@@ -3,7 +3,7 @@ import {
 	type MessageListener,
 	startListen,
 	type MsgHandler,
-} from "blive-message-listener";
+} from "@akokko/blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
@@ -48,19 +48,17 @@ class BLive extends Service {
 				},
 			},
 		);
-		// logger
-		this.logger.info(`${roomId}直播间监听已开启`);
+		this.logger.info(`[${roomId}]直播间连接已建立！`)
 	}
 
 	closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
 		if (
 			!this.listenerRecord ||
-			!this.listenerRecord[roomId] ||
-			!this.listenerRecord[roomId].closed
+			!this.listenerRecord[roomId]?.closed
 		) {
 			// 输出logger
-			this.logger.info(`${roomId}直播间弹幕监听器无需关闭`);
+			this.logger.info(`${roomId}直播间连接无需关闭`);
 		}
 		// 关闭直播间监听器
 		this.listenerRecord[roomId].close();
@@ -69,12 +67,12 @@ class BLive extends Service {
 			// 删除直播间监听器
 			delete this.listenerRecord[roomId];
 			// 输出logger
-			this.logger.info(`${roomId}直播间弹幕监听已关闭`);
+			this.logger.info(`${roomId}直播间连接已关闭`);
 			// 直接返回
 			return;
 		}
 		// 未关闭成功
-		this.logger.warn(`${roomId}直播间弹幕监听未成功关闭`);
+		this.logger.warn(`${roomId}直播间连接未成功关闭`);
 	}
 }
 

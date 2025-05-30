@@ -248,6 +248,26 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.1.7-alpha.2 修复：`liveDetect generateLiveImg() 推送卡片生成失败，原因：Cannot read properties of undefined (reading 'cardColorStart')`；
 - ver 3.1.7-alpha.3 修复：推送视频类动态报错；
 - ver 3.1.7 修复：第一次使用插件报错 `TypeError: Cannot read properties of undefined (reading 'dynamic_group_id')`
+- ver 3.2.0-alpha.0 新增：直播检测 `API` 模式； 优化：提升直播检测 `WS` 模式使用体验；
+- ver 3.2.0-alpha.1 修复：直播检测 `API` 模式，中途加入推送语无法正确显示直播时长；
+- ver 3.2.0-alpha.2 修复：直播检测 `API` 模式，请求错误优化(防止不停向QQ发送消息)；
+- ver 3.2.0-alpha.3 优化：增加直播检测 `API` 模式轮询时间，防止被暂时风控；
+- ver 3.2.0-alpha.4 修复：直播卡片推送时间会是设置的 `pushTime` 的两倍；
+- ver 3.2.0-alpha.5 修复：直播检测 `WS` 模式下，直播中推送卡片 `累计观看人数` 位置错误显示为 `粉丝数变化` 、转发动态的留言文字不显示； 优化：直播检测 `API` 模式下，直播推送语 `-watched` 固定显示为 `API模式无法获取`； 
+- ver 3.2.0-alpha.6 优化：调整配置项；
+- ver 3.2.0-alpha.7 修复：自 `3.1.7` 版本 `pushImagesInDynamic` 功能失效；
+- ver 3.2.1-alpha.0 新增：多个相同平台bot可以选择某个群聊/频道指定机器人发送； 优化：直播检测 `WS` 模式下播后仍推送、添加依赖 `cacheable-lookup` 优化网络； 修复：打开 `pushImagesInDynamic` 功能时，如果发送的动态里没有图片则会报错 `TypeError: Cannot read properties of null (reading 'opus')` 
+- ver 3.2.1-alpha.1 调整：将项目构建产物调整为 `esm`；
+- ver 3.2.1-alpha.2 调整：将项目构建产物调整回 `cjs` 、将依赖 `cacheable-lookup` 导入方式更改为动态导入；
+- ver 3.2.1-alpha.3 修复：直播检测 `WS` 初始化后自动断开连接；
+- ver 3.2.1-alpha.4 优化：直播监听初始化没有提示；
+- ver 3.2.1-alpha.4 - ver 3.2.1-alpha.8 `deprecate`
+- ver 3.2.1-alpha.9 修复：`bugs`
+- ver 3.2.1-alpha.10 修复：临时切换依赖 `blive-message-listener` 为 `@akokko/blive-message-listener` 以解决直播检测模式 `WS` 掉线问题、第一次使用插件报错 `TypeError: Cannot set properties of undefined (setting 'dynamic_group_id')`；
+- ver 3.2.1-alpha.11 WARNING:测试版本；
+- ver 3.2.1 优化：移除不必要成员变量、创建自动上传npm `github actions`，添加相关开发依赖；
+- ver 3.2.2 调整：修改 `github actions`；
+- ver 3.2.3 优化：移除不必要的代码；
 
 ## 交流群
 
