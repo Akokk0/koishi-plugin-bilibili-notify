@@ -815,7 +815,19 @@ class ComRegister {
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								// 判断是否开启url to bv
+								if (this.config.dynamicVideoUrlToBV) {
+									// 截取bv号
+									const bv =
+										item.modules.module_dynamic.major.archive.jump_url.match(
+											/BV[0-9A-Za-z]+/,
+										);
+									// 获取bv号
+									dUrl = bv ? bv[0] : "";
+								} else {
+									// 生成视频链接
+									dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								}
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
@@ -840,17 +852,20 @@ class ComRegister {
 								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
 								// 判断pics是否存在
 								if (pics) {
-									for (const pic of pics) {
-										await this.broadcastToTargets(
-											sub.target,
-											<img src={pic.url} alt="动态图片" />,
-											PushType.Dynamic,
-										);
-										// 随机睡眠1-3秒
-										await this.ctx.sleep(
-											Math.floor(Math.random() * 2000) + 1000,
-										);
-									}
+									// 组合消息
+									const picsMsg = (
+										<message forward>
+											{pics.map((pic) => (
+												<img key={pic.url} src={pic.url} alt="动态图片" />
+											))}
+										</message>
+									);
+									// 发送消息
+									await this.broadcastToTargets(
+										sub.target,
+										picsMsg,
+										PushType.Dynamic,
+									);
 								}
 							}
 						}
@@ -1053,7 +1068,19 @@ class ComRegister {
 							this.logger.info("需要发送动态链接，开始生成链接...");
 							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								// 判断是否开启url to bv
+								if (this.config.dynamicVideoUrlToBV) {
+									// 截取bv号
+									const bv =
+										item.modules.module_dynamic.major.archive.jump_url.match(
+											/BV[0-9A-Za-z]+/,
+										);
+									// 获取bv号
+									dUrl = bv ? bv[0] : "";
+								} else {
+									// 生成视频链接
+									dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								}
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
@@ -1082,17 +1109,20 @@ class ComRegister {
 								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
 								// 判断pics是否存在
 								if (pics) {
-									for (const pic of pics) {
-										await this.broadcastToTargets(
-											sub.target,
-											<img src={pic.url} alt="动态图片" />,
-											PushType.Dynamic,
-										);
-										// 随机睡眠1-3秒
-										await this.ctx.sleep(
-											Math.floor(Math.random() * 2000) + 1000,
-										);
-									}
+									// 组合消息
+									const picsMsg = (
+										<message forward>
+											{pics.map((pic) => (
+												<img key={pic.url} src={pic.url} alt="动态图片" />
+											))}
+										</message>
+									);
+									// 发送消息
+									await this.broadcastToTargets(
+										sub.target,
+										picsMsg,
+										PushType.Dynamic,
+									);
 								}
 							}
 							// logger
@@ -2306,6 +2336,7 @@ namespace ComRegister {
 		customLive: string;
 		customLiveEnd: string;
 		dynamicUrl: boolean;
+		dynamicVideoUrlToBV: boolean;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -2376,6 +2407,7 @@ namespace ComRegister {
 		customLive: Schema.string(),
 		customLiveEnd: Schema.string().required(),
 		dynamicUrl: Schema.boolean().required(),
+		dynamicVideoUrlToBV: Schema.boolean().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

@@ -268,6 +268,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.1 优化：移除不必要成员变量、创建自动上传npm `github actions`，添加相关开发依赖；
 - ver 3.2.2 调整：修改 `github actions`；
 - ver 3.2.3 优化：移除不必要的代码；
+- ver 3.2.4-alpha.0 优化：选项 `pushImagesInDynamic` 发送多图会以转发消息的格式发送； 新增：选项 `dynamicVideoUrlToBV` 开启后将链接转换为bv号以用作特殊用途；
 
 ## 交流群
 
