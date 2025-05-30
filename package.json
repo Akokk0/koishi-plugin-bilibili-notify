@@ -48,6 +48,8 @@
     "@biomejs/biome": "1.9.4",
     "@koishijs/cache": "^2.1.0",
     "@koishijs/client": "^5.30.7",
+    "@koishijs/plugin-help": "^2.4.5",
+    "@koishijs/plugin-hmr": "^1.2.9",
     "@koishijs/plugin-notifier": "^1.2.1",
     "@koishijs/scripts": "^4.6.1",
     "@types/luxon": "^3.4.2",
