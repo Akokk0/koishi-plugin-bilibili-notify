@@ -266,6 +266,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.1-alpha.10 修复：临时切换依赖 `blive-message-listener` 为 `@akokko/blive-message-listener` 以解决直播检测模式 `WS` 掉线问题、第一次使用插件报错 `TypeError: Cannot set properties of undefined (setting 'dynamic_group_id')`；
 - ver 3.2.1-alpha.11 WARNING:测试版本；
 - ver 3.2.1 优化：移除不必要成员变量、创建自动上传npm `github actions`，添加相关开发依赖；
+- ver 3.2.2 调整：修改 `github actions`；
 
 ## 交流群
 
