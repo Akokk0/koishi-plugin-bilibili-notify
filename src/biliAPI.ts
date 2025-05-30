@@ -68,8 +68,6 @@ class BiliAPI extends Service {
 
 	jar: CookieJar;
 	client: AxiosInstance;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	cacheable: any;
 	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	loginData: any;

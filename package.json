@@ -1,12 +1,19 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.2.1-alpha.10",
+  "version": "3.2.1",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
+  "scripts": {
+    "build": "yakumo build",
+    "clean": "yakumo clean",
+    "bump": "yakumo version",
+    "dep": "yakumo upgrade",
+    "pub": "yakumo publish"
+  },
   "files": [
     "lib",
     "dist"
@@ -43,8 +50,19 @@
     "@types/md5": "^2.3.5",
     "@types/qrcode": "^1.5.5",
     "@types/tough-cookie": "^4.0.5",
+    "esbuild": "^0.25.5",
+    "esbuild-register": "^3.6.0",
     "globals": "^15.14.0",
-    "koishi-plugin-puppeteer": "^3.9.0"
+    "koishi-plugin-puppeteer": "^3.9.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "yakumo": "^1.0.0",
+    "yakumo-esbuild": "^1.0.0",
+    "yakumo-tsc": "^1.0.0",
+    "yml-register": "^1.2.5"
+  },
+  "engines": {
+    "node": ">= 18.0.0"
   },
   "koishi": {
     "service": {
