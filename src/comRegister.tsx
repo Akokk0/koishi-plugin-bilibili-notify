@@ -1255,10 +1255,6 @@ class ComRegister {
 		let pushAtTimeTimer: () => void;
 		// 定义弹幕存放数组
 		const currentLiveDanmakuArr: Array<string> = [];
-		// init flag
-        let initFlag = false;
-        // 连接中断flag
-        let connFlag = false;
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义channelIdArr总长度
@@ -1369,31 +1365,6 @@ class ComRegister {
 		};
 		// 构建消息处理函数
 		const handler: MsgHandler = {
-			onOpen: () => {
-                if (!initFlag) {
-                    // init flag设置为true
-                    initFlag = true;
-                    // connFlag设置为false
-                    connFlag = false;
-                    // logger
-                    this.logger.info(`[${roomId}]直播间连接已建立！`);
-                }
-            },
-            onClose: async () => {
-                if (!connFlag) {
-                    // 更直播状态
-                    liveStatus = false;
-                    // 关闭定时推送
-                    pushAtTimeTimer?.();
-                    // 停止服务
-                    this.ctx.bl.closeListener(roomId);
-                    // 更改connFlag
-                    connFlag = true;
-                    // 发送消息
-                    await this.sendPrivateMsg(`[${roomId}]直播间连接已中断！`);
-                    this.logger.error(`[${roomId}]直播间连接已中断！`);
-                }
-            },
 			onError: async () => {
 				// 更直播状态
 				liveStatus = false;
