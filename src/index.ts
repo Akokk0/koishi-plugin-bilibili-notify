@@ -12,6 +12,11 @@ export const inject = ["puppeteer", "database", "notifier"];
 
 export const name = "bilibili-notify";
 
+export const usage = `
+	Bilibili-Notify
+	如遇到使用问题或bug，请加群咨询 801338523
+`;
+
 let globalConfig: Config;
 
 declare module "koishi" {
@@ -173,12 +178,6 @@ class ServerManager extends Service {
 export function apply(ctx: Context, config: Config) {
 	// 设置config
 	globalConfig = config;
-	// 设置提示
-	ctx.notifier.create({
-		type: "warning",
-		content:
-			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
-	});
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager

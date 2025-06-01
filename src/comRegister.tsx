@@ -207,6 +207,16 @@ class ComRegister {
 									bili_refresh_token: encryptedRefreshToken,
 								},
 							]);
+							// 检查登录数据库是否有数据
+							this.loginDBData = (
+								await this.ctx.database.get("loginBili", 1, [
+									"dynamic_group_id",
+								])
+							)[0];
+							// ba重新加载登录信息
+							await this.ctx.ba.loadCookiesFromDatabase()
+							// 判断登录信息是否已加载完毕
+							await this.checkIfLoginInfoIsLoaded();
 							// 销毁定时器
 							this.loginTimer();
 							// 订阅手动订阅中的订阅
@@ -218,7 +228,7 @@ class ComRegister {
 							// 发送成功登录推送
 							await session.send("登录成功");
 							// bili show
-							await session.execute("bili show");
+							await session.execute("bili list");
 							// 开启cookies刷新检测
 							ctx.ba.enableRefreshCookiesDetect();
 						}
@@ -602,7 +612,7 @@ class ComRegister {
 		// 获取机器人实例
 		const bot = this.getBot(targets[0].platform, targetChannel.bot);
 		// 判断bot是否存在
-		if (!bot) {
+		if (!bot || !bot.isActive) {
 			// 发送私聊消息
 			this.sendPrivateMsg("未找到对应bot实例，本次消息推送取消！");
 			// logger
@@ -1162,7 +1172,6 @@ class ComRegister {
 		return withLock(handler);
 	}
 
-	// 定义获取主播信息方法
 	async useMasterInfo(
 		uid: string,
 		masterInfo: MasterInfo,
