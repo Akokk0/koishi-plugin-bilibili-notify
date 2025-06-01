@@ -207,6 +207,16 @@ class ComRegister {
 									bili_refresh_token: encryptedRefreshToken,
 								},
 							]);
+							// 检查登录数据库是否有数据
+							this.loginDBData = (
+								await this.ctx.database.get("loginBili", 1, [
+									"dynamic_group_id",
+								])
+							)[0];
+							// ba重新加载登录信息
+							await this.ctx.ba.loadCookiesFromDatabase()
+							// 判断登录信息是否已加载完毕
+							await this.checkIfLoginInfoIsLoaded();
 							// 销毁定时器
 							this.loginTimer();
 							// 订阅手动订阅中的订阅
@@ -218,7 +228,7 @@ class ComRegister {
 							// 发送成功登录推送
 							await session.send("登录成功");
 							// bili show
-							await session.execute("bili show");
+							await session.execute("bili list");
 							// 开启cookies刷新检测
 							ctx.ba.enableRefreshCookiesDetect();
 						}
@@ -602,7 +612,7 @@ class ComRegister {
 		// 获取机器人实例
 		const bot = this.getBot(targets[0].platform, targetChannel.bot);
 		// 判断bot是否存在
-		if (!bot) {
+		if (!bot || !bot.isActive) {
 			// 发送私聊消息
 			this.sendPrivateMsg("未找到对应bot实例，本次消息推送取消！");
 			// logger
@@ -815,7 +825,19 @@ class ComRegister {
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								// 判断是否开启url to bv
+								if (this.config.dynamicVideoUrlToBV) {
+									// 截取bv号
+									const bv =
+										item.modules.module_dynamic.major.archive.jump_url.match(
+											/BV[0-9A-Za-z]+/,
+										);
+									// 获取bv号
+									dUrl = bv ? bv[0] : "";
+								} else {
+									// 生成视频链接
+									dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								}
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
@@ -840,17 +862,20 @@ class ComRegister {
 								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
 								// 判断pics是否存在
 								if (pics) {
-									for (const pic of pics) {
-										await this.broadcastToTargets(
-											sub.target,
-											<img src={pic.url} alt="动态图片" />,
-											PushType.Dynamic,
-										);
-										// 随机睡眠1-3秒
-										await this.ctx.sleep(
-											Math.floor(Math.random() * 2000) + 1000,
-										);
-									}
+									// 组合消息
+									const picsMsg = (
+										<message forward>
+											{pics.map((pic) => (
+												<img key={pic.url} src={pic.url} alt="动态图片" />
+											))}
+										</message>
+									);
+									// 发送消息
+									await this.broadcastToTargets(
+										sub.target,
+										picsMsg,
+										PushType.Dynamic,
+									);
 								}
 							}
 						}
@@ -1053,7 +1078,19 @@ class ComRegister {
 							this.logger.info("需要发送动态链接，开始生成链接...");
 							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
-								dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								// 判断是否开启url to bv
+								if (this.config.dynamicVideoUrlToBV) {
+									// 截取bv号
+									const bv =
+										item.modules.module_dynamic.major.archive.jump_url.match(
+											/BV[0-9A-Za-z]+/,
+										);
+									// 获取bv号
+									dUrl = bv ? bv[0] : "";
+								} else {
+									// 生成视频链接
+									dUrl = `${name}发布了新视频：https:${item.modules.module_dynamic.major.archive.jump_url}`;
+								}
 							} else {
 								// 生成动态链接
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
@@ -1082,17 +1119,20 @@ class ComRegister {
 								const pics = item.modules?.module_dynamic?.major?.opus?.pics;
 								// 判断pics是否存在
 								if (pics) {
-									for (const pic of pics) {
-										await this.broadcastToTargets(
-											sub.target,
-											<img src={pic.url} alt="动态图片" />,
-											PushType.Dynamic,
-										);
-										// 随机睡眠1-3秒
-										await this.ctx.sleep(
-											Math.floor(Math.random() * 2000) + 1000,
-										);
-									}
+									// 组合消息
+									const picsMsg = (
+										<message forward>
+											{pics.map((pic) => (
+												<img key={pic.url} src={pic.url} alt="动态图片" />
+											))}
+										</message>
+									);
+									// 发送消息
+									await this.broadcastToTargets(
+										sub.target,
+										picsMsg,
+										PushType.Dynamic,
+									);
 								}
 							}
 							// logger
@@ -1132,7 +1172,6 @@ class ComRegister {
 		return withLock(handler);
 	}
 
-	// 定义获取主播信息方法
 	async useMasterInfo(
 		uid: string,
 		masterInfo: MasterInfo,
@@ -2306,6 +2345,7 @@ namespace ComRegister {
 		customLive: string;
 		customLiveEnd: string;
 		dynamicUrl: boolean;
+		dynamicVideoUrlToBV: boolean;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -2376,6 +2416,7 @@ namespace ComRegister {
 		customLive: Schema.string(),
 		customLiveEnd: Schema.string().required(),
 		dynamicUrl: Schema.boolean().required(),
+		dynamicVideoUrlToBV: Schema.boolean().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

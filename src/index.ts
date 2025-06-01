@@ -12,6 +12,11 @@ export const inject = ["puppeteer", "database", "notifier"];
 
 export const name = "bilibili-notify";
 
+export const usage = `
+	Bilibili-Notify
+	如遇到使用问题或bug，请加群咨询 801338523
+`;
+
 let globalConfig: Config;
 
 declare module "koishi" {
@@ -113,6 +118,7 @@ class ServerManager extends Service {
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
 				dynamicUrl: globalConfig.dynamicUrl,
+				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
 				filter: globalConfig.filter,
 				dynamicDebugMode: globalConfig.dynamicDebugMode,
 			});
@@ -172,12 +178,6 @@ class ServerManager extends Service {
 export function apply(ctx: Context, config: Config) {
 	// 设置config
 	globalConfig = config;
-	// 设置提示
-	ctx.notifier.create({
-		type: "warning",
-		content:
-			"请使用Auth插件创建超级管理员账号，没有权限将无法使用该插件提供的指令",
-	});
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
@@ -224,6 +224,7 @@ export interface Config {
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	dynamic: {};
 	dynamicUrl: boolean;
+	dynamicVideoUrlToBV: boolean;
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	live: {};
@@ -395,6 +396,12 @@ export const Config: Schema<Config> = Schema.object({
 		.default(false)
 		.description(
 			"发送动态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！",
+		),
+
+	dynamicVideoUrlToBV: Schema.boolean()
+		.default(false)
+		.description(
+			"如果推送的动态是视频动态，且开启了发送链接选项，开启此选项则会将链接转换为BV号以便其他用途",
 		),
 
 	pushImgsInDynamic: Schema.boolean()
