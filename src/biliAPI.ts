@@ -1,6 +1,8 @@
-import { type Context, Schema, Service } from "koishi";
+import { type Awaitable, type Context, Schema, Service } from "koishi";
 import md5 from "md5";
 import crypto from "node:crypto";
+import http from "node:http";
+import https from "node:https";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { wrapper } from "axios-cookiejar-support";
@@ -70,6 +72,8 @@ class BiliAPI extends Service {
 	client: AxiosInstance;
 	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	cacheable: any;
+	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	loginData: any;
 	loginNotifier: Notifier;
 	refreshCookieTimer: () => void;
@@ -80,11 +84,24 @@ class BiliAPI extends Service {
 		this.apiConfig = config;
 	}
 
-	protected start(): void | Promise<void> {
+	protected async start(): Promise<void> {
+		// 导入dns缓存
+		const CacheableLookup = (await import("cacheable-lookup")).default;
+		// 注册dns缓存
+		this.cacheable = new CacheableLookup();
+		// 安装缓存
+		this.cacheable.install(http.globalAgent);
+		this.cacheable.install(https.globalAgent);
 		// 创建新的http客户端(axios)
 		this.createNewClient();
 		// 从数据库加载cookies
 		this.loadCookiesFromDatabase();
+	}
+
+	protected stop(): Awaitable<void> {
+		// 卸载dns缓存
+		this.cacheable.uninstall(http.globalAgent);
+		this.cacheable.uninstall(https.globalAgent);
 	}
 
 	// WBI签名
