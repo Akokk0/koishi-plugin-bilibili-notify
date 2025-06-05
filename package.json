@@ -67,7 +67,7 @@
     "koishi-plugin-puppeteer": "^3.9.0",
     "tsdown": "^0.12.6",
     "tsx": "^4.19.4",
-    "typescript": "^5.9.0-dev.20250603",
+    "typescript": "5.8.3",
     "yakumo": "^1.0.0",
     "yakumo-esbuild": "^1.0.0",
     "yakumo-tsc": "^1.0.0",
