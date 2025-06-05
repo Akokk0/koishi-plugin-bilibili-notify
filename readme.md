@@ -5,6 +5,7 @@
 ---
 
 - koishi-plugin-bilibili-notify [![npm](https://img.shields.io/npm/v/koishi-plugin-bilibili-notify?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-bilibili-notify)
+  - [重要通知](#重要通知)
   - [重新订阅](#重新订阅)
   - [功能](#功能)
   - [注意事项](#注意事项)
@@ -14,6 +15,10 @@
   - [交流群](#交流群)
   - [感谢](#感谢)
   - [License](#License)
+
+## 重要通知
+> [!important]
+> `3.2.5-alpha.x` 目前均为测试版本，请不要更新🙅
 
 ## 重新订阅
 > [!important]
@@ -270,7 +275,11 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 - ver 3.2.3 优化：移除不必要的代码；
 - ver 3.2.4-alpha.0 优化：选项 `pushImgsInDynamic` 发送多图会以转发消息的格式发送； 新增：选项 `dynamicVideoUrlToBV` 开启后将链接转换为bv号以用作特殊用途；
 - ver 3.2.4 修复：第一次使用插件时，使用登录指令报错； 插件配置页新增和删除提示信息；
-- ver 3.2.5 优化：新增 `DNS` 缓存，以减少DNS错误；
+
+> [!important]
+> `3.2.5-alpha.x` 目前均为测试版本，请不要更新🙅
+> - ver 3.2.5-alpha.0 优化：新增 `DNS` 缓存，以减少DNS错误；
+> - ver 3.2.5-alpha.1 测试版本
 
 ## 交流群
 
