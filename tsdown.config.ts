@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	format: ["esm", "cjs"],
-	entry: ["./src"],
+	entry: ["./src/index.ts"],
 	dts: true,
 	clean: true,
 	outDir: "lib",
