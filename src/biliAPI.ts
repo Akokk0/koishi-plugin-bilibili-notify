@@ -5,7 +5,6 @@ import http from "node:http";
 import https from "node:https";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
-import { wrapper } from "axios-cookiejar-support";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import { Retry } from "./utils";
@@ -93,7 +92,7 @@ class BiliAPI extends Service {
 		this.cacheable.install(http.globalAgent);
 		this.cacheable.install(https.globalAgent);
 		// 创建新的http客户端(axios)
-		this.createNewClient();
+		await this.createNewClient();
 		// 从数据库加载cookies
 		this.loadCookiesFromDatabase();
 	}
@@ -572,7 +571,9 @@ class BiliAPI extends Service {
 		return userAgents[index];
 	}
 
-	createNewClient() {
+	async createNewClient() {
+		// import wrapper
+		const wrapper = (await import("axios-cookiejar-support")).wrapper;
 		// 创建cookieJar
 		this.jar = new CookieJar();
 		// 包装cookieJar
@@ -762,14 +763,14 @@ class BiliAPI extends Service {
 
 	async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times = 3) {
 		// 定义方法
-		const notifyAndError = (info: string) => {
+		const notifyAndError = async (info: string) => {
 			// 设置控制台通知
 			this.loginNotifier = this.ctx.notifier.create({
 				type: "warning",
 				content: info,
 			});
 			// 重置为未登录状态
-			this.createNewClient();
+			await this.createNewClient();
 			// 关闭定时器
 			this.refreshCookieTimer();
 			// 抛出错误
@@ -844,7 +845,7 @@ class BiliAPI extends Service {
 		switch (refreshData.code) {
 			// 账号未登录
 			case -101:
-				return this.createNewClient();
+				return await this.createNewClient();
 			case -111: {
 				await this.ctx.database.remove("loginBili", [1]);
 				notifyAndError("csrf 校验错误，请重新登录");

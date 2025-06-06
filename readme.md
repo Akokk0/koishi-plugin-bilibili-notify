@@ -281,6 +281,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.5-alpha.0 优化：新增 `DNS` 缓存，以减少DNS错误；
 > - ver 3.2.5-alpha.1 测试版本
 > - ver 3.2.5-alpha.2 测试版本
+> - ver 3.2.5-alpha.3 更新依赖版本
 
 ## 交流群
 
