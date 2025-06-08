@@ -214,7 +214,7 @@ class ComRegister {
 								])
 							)[0];
 							// ba重新加载登录信息
-							await this.ctx.ba.loadCookiesFromDatabase()
+							await this.ctx.ba.loadCookiesFromDatabase();
 							// 判断登录信息是否已加载完毕
 							await this.checkIfLoginInfoIsLoaded();
 							// 销毁定时器
@@ -554,11 +554,29 @@ class ComRegister {
 		);
 	}
 
-	getGroupsThatMeetCriteria(targets: Target, type: PushType) {
+	getGroupsThatMeetCriteria(
+		targets: Target,
+		type: PushType,
+	): [Array<string>, Array<string>?] {
 		// 定义数组
 		const pushArr: Array<string> = [];
 		// 判断类型
-		if (type === PushType.Live || type === PushType.StartBroadcasting) {
+		if (type === PushType.StartBroadcasting) {
+			const atAllArr: Array<string> = [];
+			for (const target of targets) {
+				for (const channel of target.channelArr) {
+					if (channel.atAll && channel.dynamic) {
+						atAllArr.push(`${target.platform}:${channel.channelId}`);
+						continue;
+					}
+					if (channel.dynamic) {
+						pushArr.push(`${target.platform}:${channel.channelId}`);
+					}
+				}
+			}
+			return [pushArr, atAllArr];
+		}
+		if (type === PushType.Live) {
 			for (const target of targets) {
 				for (const channel of target.channelArr) {
 					if (channel.live) {
@@ -566,7 +584,7 @@ class ComRegister {
 					}
 				}
 			}
-			return pushArr;
+			return [pushArr];
 		}
 		if (type === PushType.Dynamic) {
 			for (const target of targets) {
@@ -576,7 +594,7 @@ class ComRegister {
 					}
 				}
 			}
-			return pushArr;
+			return [pushArr];
 		}
 		if (type === PushType.LiveGuardBuy) {
 			for (const target of targets) {
@@ -586,7 +604,7 @@ class ComRegister {
 					}
 				}
 			}
-			return pushArr;
+			return [pushArr];
 		}
 	}
 
@@ -595,15 +613,28 @@ class ComRegister {
 		// 不止一个目标平台或一个目标频道
 		if (targets.length !== 1 || targets[0].channelArr.length !== 1) {
 			// 直接使用broadcast
-			const pushArr = this.getGroupsThatMeetCriteria(targets, type);
+			const [pushArr, atAllArr] = this.getGroupsThatMeetCriteria(targets, type);
 			// logger
 			this.logger.info(
 				`推送消息到 ${pushArr.length} 个目标频道，目标频道为：${pushArr.join(", ")}`,
 			);
+			// 判断是否需要艾特全体成员
+			if (type === PushType.StartBroadcasting && atAllArr?.length >= 1) {
+				// 推送消息
+				await withRetry(async () => {
+					await this.ctx.broadcast(atAllArr, h.at("all"));
+				}, 1);
+				// 推送消息
+				await withRetry(async () => {
+					await this.ctx.broadcast(atAllArr, content);
+				}, 1);
+			}
 			// 推送消息
-			await withRetry(async () => {
-				await this.ctx.broadcast(pushArr, content);
-			}, 1);
+			if (pushArr?.length >= 1) {
+				await withRetry(async () => {
+					await this.ctx.broadcast(pushArr, content);
+				}, 1);
+			}
 			// 结束
 			return;
 		}
