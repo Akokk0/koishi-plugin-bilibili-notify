@@ -403,8 +403,6 @@ class ComRegister {
 		}
 		// 初始化管理器
 		this.initManager();
-		// 初始化pushRecord
-		this.initPushRecord(this.subManager);
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 检查是否需要直播监测(仅API模式)
@@ -560,7 +558,7 @@ class ComRegister {
 		);
 	}
 
-	initPushRecord(subs: SubManager) {
+	initPushRecord(subs: ComRegister.Config["sub"]) {
 		// 定义Record
 		const pushRecord: PushRecord = {};
 		// 遍历subs
@@ -646,7 +644,10 @@ class ComRegister {
 		) {
 			// 推送直播
 			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(record.liveArr, <message>{content}</message>);
+				return await this.ctx.broadcast(
+					record.liveArr,
+					<message>{content}</message>,
+				);
 			}, 1);
 			// 发送成功群组
 			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
@@ -2146,6 +2147,9 @@ class ComRegister {
 	}
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]): Promise<Result> {
+		// 初始化pushRecord
+		this.initPushRecord(subs);
+		// 加载订阅
 		for (const sub of subs) {
 			// logger
 			this.logger.info(`加载订阅UID:${sub.uid}中...`);
