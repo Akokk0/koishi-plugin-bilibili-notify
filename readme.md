@@ -286,6 +286,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.5-alpha.5 测试版本
 > - ver 3.2.5-alpha.6 测试版本
 > - ver 3.2.5-alpha.7 测试版本
+> - ver 3.2.5-alpha.8 测试版本
 
 ## 交流群
 

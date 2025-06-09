@@ -601,17 +601,32 @@ class ComRegister {
 		this.logger.info(this.pushRecord);
 	}
 
+	checkAllBotsAreReady() {
+		const bot = this.ctx.bots.some((bot) => !bot.isActive);
+		return !bot;
+	}
+
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async broadcastToTargets(uid: string, content: any, type: PushType) {
+	async broadcastToTargets(uid: string, content: any, type: PushType, retry = 3000) {
+		// 检查所有bot是否准备好
+		if (!this.checkAllBotsAreReady()) {
+			// 有机器人未准备好，直接返回
+			this.logger.error(`有机器人未准备好，无法进行推送，${retry / 1000}秒后重试`);
+			// 重试
+			this.ctx.setTimeout(() => {
+				this.broadcastToTargets(uid, content, type, retry * 2);
+			}, retry);
+			return;
+		}
 		// 发起推送
 		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
 		// 拿到需要推送的record
 		const record = this.pushRecord[uid];
 		// 推送record
 		this.logger.info("本次推送目标：");
-		this.logger.info(record);
 		// 判断是否需要艾特全体成员
 		if (type === PushType.StartBroadcasting && record.atAllArr?.length >= 1) {
+			this.logger.info(record.atAllArr);
 			// 艾特全体
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
@@ -627,6 +642,7 @@ class ComRegister {
 		}
 		// 推送消息
 		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
+			this.logger.info(record.dynamicArr);
 			// 推送动态
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
@@ -635,13 +651,14 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+			this.logger.info(`成功推送动态消息群组/频道：${success}`);
 		}
 		// 推送直播
 		if (
 			(type === PushType.Live || type === PushType.StartBroadcasting) &&
 			record.liveArr?.length >= 1
 		) {
+			this.logger.info(record.liveArr);
 			// 推送直播
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
@@ -650,10 +667,11 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+			this.logger.info(`成功推送直播消息群组/频道：${success}`);
 		}
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
+			this.logger.info(record.liveGuardBuyArr);
 			// 推送直播守护购买
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
@@ -662,7 +680,7 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+			this.logger.info(`成功推送上舰消息群组/频道：${success}`);
 		}
 		// 结束
 		return;
