@@ -631,23 +631,6 @@ class ComRegister {
 		const record = this.pushRecord[uid];
 		// 推送record
 		this.logger.info("本次推送目标：");
-		
-		// TEST
-		{
-			this.logger.info(record.atAllArr);
-			// 艾特全体
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					record.atAllArr,
-					<message>
-						<at type="all" />
-					</message>,
-				);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
-		}
-
 		// 判断是否需要艾特全体成员
 		if (type === PushType.StartBroadcasting && record.atAllArr?.length >= 1) {
 			this.logger.info(record.atAllArr);
@@ -663,7 +646,7 @@ class ComRegister {
 			// 发送成功群组
 			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
 		}
-		// 推送消息
+		// 推送动态
 		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
 			this.logger.info(record.dynamicArr);
 			// 推送动态
