@@ -26,7 +26,9 @@ import {
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
+	type PushRecord,
 	PushType,
+	PushTypeMsg,
 	type Result,
 	type SubItem,
 	type SubManager,
@@ -65,6 +67,8 @@ class ComRegister {
 	dynamicTimelineManager: Map<string, number> = new Map();
 	// 直播状态管理器
 	liveStatusManager: Map<string, LiveStatus> = new Map();
+	// PushRecord
+	pushRecord: PushRecord = {};
 	// 检查登录数据库是否有数据
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// 机器人实例
@@ -399,6 +403,8 @@ class ComRegister {
 		}
 		// 初始化管理器
 		this.initManager();
+		// 初始化pushRecord
+		this.initPushRecord(this.subManager);
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 检查是否需要直播监测(仅API模式)
@@ -554,155 +560,111 @@ class ComRegister {
 		);
 	}
 
-	getGroupsThatMeetCriteria(
-		targets: Target,
-		type: PushType,
-	): [Array<string>, Array<string>?] {
-		// 定义数组
-		const pushArr: Array<string> = [];
-		// 判断类型
-		if (type === PushType.StartBroadcasting) {
+	initPushRecord(subs: SubManager) {
+		// 定义Record
+		const pushRecord: PushRecord = {};
+		// 遍历subs
+		for (const sub of subs) {
+			// 定义数组
 			const atAllArr: Array<string> = [];
-			for (const target of targets) {
-				for (const channel of target.channelArr) {
-					if (channel.atAll && channel.dynamic) {
-						atAllArr.push(`${target.platform}:${channel.channelId}`);
-						continue;
+			const dynamicArr: Array<string> = [];
+			const liveArr: Array<string> = [];
+			const liveGuardBuyArr: Array<string> = [];
+			// 遍历target
+			for (const platform of sub.target) {
+				// 遍历channelArr
+				for (const channel of platform.channelArr) {
+					if (channel.atAll) {
+						atAllArr.push(`${platform.platform}:${channel.channelId}`);
 					}
 					if (channel.dynamic) {
-						pushArr.push(`${target.platform}:${channel.channelId}`);
+						dynamicArr.push(`${platform.platform}:${channel.channelId}`);
 					}
-				}
-			}
-			return [pushArr, atAllArr];
-		}
-		if (type === PushType.Live) {
-			for (const target of targets) {
-				for (const channel of target.channelArr) {
 					if (channel.live) {
-						pushArr.push(`${target.platform}:${channel.channelId}`);
+						liveArr.push(`${platform.platform}:${channel.channelId}`);
 					}
-				}
-			}
-			return [pushArr];
-		}
-		if (type === PushType.Dynamic) {
-			for (const target of targets) {
-				for (const channel of target.channelArr) {
-					if (channel.dynamic) {
-						pushArr.push(`${target.platform}:${channel.channelId}`);
-					}
-				}
-			}
-			return [pushArr];
-		}
-		if (type === PushType.LiveGuardBuy) {
-			for (const target of targets) {
-				for (const channel of target.channelArr) {
 					if (channel.liveGuardBuy) {
-						pushArr.push(`${target.platform}:${channel.channelId}`);
+						liveGuardBuyArr.push(`${platform.platform}:${channel.channelId}`);
 					}
 				}
 			}
-			return [pushArr];
+			// 组装record
+			pushRecord[sub.uid] = {
+				atAllArr,
+				dynamicArr,
+				liveArr,
+				liveGuardBuyArr,
+			};
 		}
+		// 赋值record
+		this.pushRecord = pushRecord;
+		// logger
+		this.logger.info("初始化推送群组/频道信息：");
+		this.logger.info(this.pushRecord);
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async broadcastToTargets(targets: Target, content: any, type: PushType) {
-		// 不止一个目标平台或一个目标频道
-		if (targets.length !== 1 || targets[0].channelArr.length !== 1) {
-			// 直接使用broadcast
-			const [pushArr, atAllArr] = this.getGroupsThatMeetCriteria(targets, type);
-			// logger
-			this.logger.info(
-				`推送消息到 ${pushArr.length} 个目标频道，目标频道为：${pushArr.join(", ")}`,
-			);
-			// 判断是否需要艾特全体成员
-			if (type === PushType.StartBroadcasting && atAllArr?.length >= 1) {
-				// 推送消息
-				await withRetry(async () => {
-					await this.ctx.broadcast(atAllArr, h.at("all"));
-				}, 1);
-				// 推送消息
-				await withRetry(async () => {
-					await this.ctx.broadcast(atAllArr, content);
-				}, 1);
-			}
-			// 推送消息
-			if (pushArr?.length >= 1) {
-				await withRetry(async () => {
-					await this.ctx.broadcast(pushArr, content);
-				}, 1);
-			}
-			// 结束
-			return;
+	async broadcastToTargets(uid: string, content: any, type: PushType) {
+		// 发起推送
+		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
+		// 拿到需要推送的record
+		const record = this.pushRecord[uid];
+		// 推送record
+		this.logger.info("本次推送目标：");
+		this.logger.info(record);
+		// 判断是否需要艾特全体成员
+		if (type === PushType.StartBroadcasting && record.atAllArr?.length >= 1) {
+			// 艾特全体
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(
+					record.atAllArr,
+					<message>
+						<at type="all" />
+						<message>{content}</message>
+					</message>,
+				);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
 		}
-		// 获取目标
-		const targetChannel = targets[0].channelArr[0];
-		// 获取机器人实例
-		const bot = this.getBot(targets[0].platform, targetChannel.bot);
-		// 判断bot是否存在
-		if (!bot || !bot.isActive) {
-			// 发送私聊消息
-			this.sendPrivateMsg("未找到对应bot实例，本次消息推送取消！");
-			// logger
-			this.logger.warn("未找到对应bot实例，本次消息推送取消！");
-			// 直接返回
-			return;
+		// 推送消息
+		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
+			// 推送动态
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(
+					record.dynamicArr,
+					<message>{content}</message>,
+				);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
 		}
-		// 模式匹配
-		const pushTypePatternMatching = {
-			[PushType.Live]: async () => {
-				if (targetChannel.live) {
-					// 直接推送
-					await this.sendMessageWithRetry(
-						bot,
-						targetChannel.channelId,
-						content,
-					);
-				}
-			},
-			[PushType.Dynamic]: async () => {
-				if (targetChannel.dynamic) {
-					await this.sendMessageWithRetry(
-						bot,
-						targetChannel.channelId,
-						content,
-					);
-				}
-			},
-			[PushType.StartBroadcasting]: async () => {
-				// 判断是否需要推送直播消息
-				if (targetChannel.live) {
-					await this.sendMessageWithRetry(
-						bot,
-						targetChannel.channelId,
-						content,
-					);
-				}
-				// 判断是否需要艾特全体成员
-				if (targetChannel.atAll) {
-					await this.sendMessageWithRetry(
-						bot,
-						targetChannel.channelId,
-						<at type="all" />,
-					);
-				}
-			},
-			[PushType.LiveGuardBuy]: async () => {
-				// 判断是否需要推送直播消息
-				if (targetChannel.liveGuardBuy) {
-					await this.sendMessageWithRetry(
-						bot,
-						targetChannel.channelId,
-						content,
-					);
-				}
-			},
-		};
-		// 推送
-		await pushTypePatternMatching[type]();
+		// 推送直播
+		if (
+			(type === PushType.Live || type === PushType.StartBroadcasting) &&
+			record.liveArr?.length >= 1
+		) {
+			// 推送直播
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(record.liveArr, <message>{content}</message>);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+		}
+		// 推送直播守护购买
+		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
+			// 推送直播守护购买
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(
+					record.liveGuardBuyArr,
+					<message>{content}</message>,
+				);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+		}
+		// 结束
+		return;
 	}
 
 	dynamicDetect() {
@@ -815,7 +777,7 @@ class ComRegister {
 								// 如果需要发送才发送
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}发布了一条含有屏蔽关键字的动态`,
 										PushType.Dynamic,
 									);
@@ -825,7 +787,7 @@ class ComRegister {
 							if (e.message === "已屏蔽转发动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}转发了一条动态，已屏蔽`,
 										PushType.Dynamic,
 									);
@@ -835,7 +797,7 @@ class ComRegister {
 							if (e.message === "已屏蔽专栏动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}投稿了一条专栏，已屏蔽`,
 										PushType.Dynamic,
 									);
@@ -878,7 +840,7 @@ class ComRegister {
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
-							sub.target,
+							sub.uid,
 							<>
 								{h.image(buffer, "image/jpeg")}
 								{dUrl}
@@ -903,7 +865,7 @@ class ComRegister {
 									);
 									// 发送消息
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										picsMsg,
 										PushType.Dynamic,
 									);
@@ -1063,7 +1025,7 @@ class ComRegister {
 								// 如果需要发送才发送
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}发布了一条含有屏蔽关键字的动态`,
 										PushType.Dynamic,
 									);
@@ -1073,7 +1035,7 @@ class ComRegister {
 							if (e.message === "已屏蔽转发动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}转发了一条动态，已屏蔽`,
 										PushType.Dynamic,
 									);
@@ -1083,7 +1045,7 @@ class ComRegister {
 							if (e.message === "已屏蔽专栏动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										`${name}投稿了一条专栏，已屏蔽`,
 										PushType.Dynamic,
 									);
@@ -1133,7 +1095,7 @@ class ComRegister {
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
-							sub.target,
+							sub.uid,
 							<>
 								{h.image(buffer, "image/jpeg")}
 								{dUrl}
@@ -1160,7 +1122,7 @@ class ComRegister {
 									);
 									// 发送消息
 									await this.broadcastToTargets(
-										sub.target,
+										sub.uid,
 										picsMsg,
 										PushType.Dynamic,
 									);
@@ -1276,7 +1238,7 @@ class ComRegister {
 			masterInfo: MasterInfo;
 			cardStyle: SubItem["card"];
 		},
-		target: Target,
+		uid: string,
 		liveNotifyMsg: string,
 	) {
 		// 生成图片
@@ -1306,7 +1268,7 @@ class ComRegister {
 		);
 		// 只有在开播时才艾特全体成员
 		return await this.broadcastToTargets(
-			target,
+			uid,
 			msg,
 			liveType === LiveType.StartBroadcasting
 				? PushType.StartBroadcasting
@@ -1316,7 +1278,7 @@ class ComRegister {
 
 	async liveDetectWithListener(
 		roomId: string,
-		target: Target,
+		uid: string,
 		cardStyle: SubItem["card"],
 	) {
 		// 定义开播时间
@@ -1327,29 +1289,11 @@ class ComRegister {
 		const currentLiveDanmakuArr: Array<string> = [];
 		// 定义开播状态
 		let liveStatus = false;
-		// 定义channelIdArr总长度
-		let channelArrLen = 0;
 		// 定义数据
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
-		// 定义发送直播通知卡片方法
-
-		// 找到频道/群组对应的
-		const liveGuardBuyPushTargetArr: Target = target.map((channel) => {
-			// 获取符合条件的target
-			const liveGuardBuyArr = channel.channelArr.filter(
-				(channelId) => channelId.liveGuardBuy,
-			);
-			// 将当前liveDanmakuArr的长度+到channelIdArrLen中
-			channelArrLen += liveGuardBuyArr.length;
-			// 返回符合的target
-			return {
-				channelArr: liveGuardBuyArr,
-				platform: channel.platform,
-			};
-		});
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
@@ -1397,7 +1341,7 @@ class ComRegister {
 					masterInfo,
 					cardStyle,
 				},
-				target,
+				uid,
 				liveMsg,
 			);
 		};
@@ -1462,12 +1406,7 @@ class ComRegister {
 				// 定义消息
 				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
 				// 直接发送消息
-				channelArrLen > 0 &&
-					this.broadcastToTargets(
-						liveGuardBuyPushTargetArr,
-						content,
-						PushType.LiveGuardBuy,
-					);
+				this.broadcastToTargets(uid, content, PushType.LiveGuardBuy);
 			},
 			onLiveStart: async () => {
 				// 判断是否已经开播
@@ -1513,7 +1452,7 @@ class ComRegister {
 						masterInfo,
 						cardStyle,
 					},
-					target,
+					uid,
 					liveStartMsg,
 				);
 				// 判断定时器是否已开启
@@ -1572,7 +1511,7 @@ class ComRegister {
 						masterInfo,
 						cardStyle,
 					},
-					target,
+					uid,
 					liveEndMsg,
 				);
 				// 关闭定时推送定时器
@@ -1618,7 +1557,7 @@ class ComRegister {
 						masterInfo,
 						cardStyle,
 					},
-					target,
+					uid,
 					liveMsg,
 				);
 			}
@@ -1746,7 +1685,7 @@ class ComRegister {
 						masterInfo: liveStatus.masterInfo,
 						cardStyle: sub.card,
 					},
-					sub.target,
+					sub.uid,
 					liveMsg,
 				);
 			}
@@ -1833,7 +1772,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.card,
 								},
-								sub.target,
+								sub.uid,
 								liveEndMsg,
 							);
 							// 更改直播状态
@@ -1895,7 +1834,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.card,
 								},
-								sub.target,
+								sub.uid,
 								liveStartMsg,
 							);
 							// 设置开播状态为true
@@ -1957,7 +1896,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.card,
 								},
-								sub.target,
+								sub.uid,
 								liveMsg,
 							);
 							// push归零
@@ -2245,7 +2184,7 @@ class ComRegister {
 					// 启动直播监测
 					await this.liveDetectWithListener(
 						userInfoData.live_room.roomid,
-						sub.target,
+						sub.uid,
 						sub.card,
 					);
 				}
