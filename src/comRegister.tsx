@@ -6,7 +6,7 @@ import {
 	type Logger,
 	Schema,
 	h,
-	Universal
+	Universal,
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
@@ -606,12 +606,19 @@ class ComRegister {
 		return !this.ctx.bots.some((bot) => bot.status !== Universal.Status.ONLINE);
 	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-	async broadcastToTargets(uid: string, content: any, type: PushType, retry = 3000) {
+	async broadcastToTargets(
+		uid: string,
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		content: any,
+		type: PushType,
+		retry = 3000,
+	) {
 		// 检查所有bot是否准备好
 		if (!this.checkAllBotsAreReady()) {
 			// 有机器人未准备好，直接返回
-			this.logger.error(`有机器人未准备好，无法进行推送，${retry / 1000}秒后重试`);
+			this.logger.error(
+				`有机器人未准备好，无法进行推送，${retry / 1000}秒后重试`,
+			);
 			// 重试
 			this.ctx.setTimeout(() => {
 				this.broadcastToTargets(uid, content, type, retry * 2);
@@ -624,6 +631,23 @@ class ComRegister {
 		const record = this.pushRecord[uid];
 		// 推送record
 		this.logger.info("本次推送目标：");
+		
+		// TEST
+		{
+			this.logger.info(record.atAllArr);
+			// 艾特全体
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(
+					record.atAllArr,
+					<message>
+						<at type="all" />
+					</message>,
+				);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+		}
+
 		// 判断是否需要艾特全体成员
 		if (type === PushType.StartBroadcasting && record.atAllArr?.length >= 1) {
 			this.logger.info(record.atAllArr);
@@ -633,7 +657,6 @@ class ComRegister {
 					record.atAllArr,
 					<message>
 						<at type="all" />
-						<message>{content}</message>
 					</message>,
 				);
 			}, 1);
