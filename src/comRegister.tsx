@@ -6,6 +6,7 @@ import {
 	type Logger,
 	Schema,
 	h,
+	Universal
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
@@ -602,8 +603,7 @@ class ComRegister {
 	}
 
 	checkAllBotsAreReady() {
-		const bot = this.ctx.bots.some((bot) => !bot.isActive);
-		return !bot;
+		return !this.ctx.bots.some((bot) => bot.status !== Universal.Status.ONLINE);
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
