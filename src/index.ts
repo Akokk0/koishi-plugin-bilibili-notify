@@ -118,6 +118,7 @@ class ServerManager extends Service {
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
 				dynamicUrl: globalConfig.dynamicUrl,
+				dynamicCron: globalConfig.dynamicCron,
 				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
 				filter: globalConfig.filter,
 				dynamicDebugMode: globalConfig.dynamicDebugMode,
@@ -224,6 +225,7 @@ export interface Config {
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	dynamic: {};
 	dynamicUrl: boolean;
+	dynamicCron: string;
 	dynamicVideoUrlToBV: boolean;
 	pushImgsInDynamic: boolean;
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
@@ -396,6 +398,12 @@ export const Config: Schema<Config> = Schema.object({
 		.default(false)
 		.description(
 			"发送动态时是否同时发送链接。注意：如果使用的是QQ官方机器人不能开启此项！",
+		),
+
+	dynamicCron: Schema.string()
+		.default("*/2 * * * *")
+		.description(
+			"动态监测时间，请填入cron表达式，请勿填入过短时间"
 		),
 
 	dynamicVideoUrlToBV: Schema.boolean()

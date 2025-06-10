@@ -260,6 +260,13 @@ export enum PushType {
 	LiveGuardBuy = 3,
 }
 
+export const PushTypeMsg = {
+	[PushType.Live]: "直播推送",
+	[PushType.Dynamic]: "动态推送",
+	[PushType.StartBroadcasting]: "开播推送",
+	[PushType.LiveGuardBuy]: "上舰推送",
+};
+
 export type Result = {
 	code: number;
 	msg?: string;
@@ -287,3 +294,13 @@ export type GroupList = {
 		tip: string;
 	}>;
 };
+
+export type PushArrMap = Map<
+	string,
+	{
+		atAllArr?: Array<string>;
+		dynamicArr?: Array<string>;
+		liveArr?: Array<string>;
+		liveGuardBuyArr?: Array<string>;
+	}
+>;

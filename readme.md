@@ -284,6 +284,16 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.5-alpha.3 更新依赖版本
 > - ver 3.2.5-alpha.4 测试版本
 > - ver 3.2.5-alpha.5 测试版本
+> - ver 3.2.5-alpha.6 测试版本
+> - ver 3.2.5-alpha.7 测试版本
+> - ver 3.2.5-alpha.8 测试版本
+> - ver 3.2.5-alpha.9 测试版本
+> - ver 3.2.5-alpha.10 测试版本
+> - ver 3.2.5-alpha.11 测试版本
+> - ver 3.2.5-alpha.12 测试版本
+> - ver 3.2.5-alpha.13 测试版本
+
+- ver 3.2.5 重构：消息推送逻辑； 新增：选项 `dynamicCron`；
 
 ## 交流群
 
