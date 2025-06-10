@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.2.5-alpha.13",
+  "version": "3.2.5",
   "contributors": [
     "Akokko <admin@akokko.com>"
   ],
@@ -48,7 +48,7 @@
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
+    "@biomejs/biome": "^1.9.4",
     "@koishijs/cache": "^2.1.0",
     "@koishijs/client": "^5.30.8",
     "@koishijs/plugin-help": "^2.4.5",

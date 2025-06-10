@@ -867,8 +867,8 @@ class ComRegister {
 						await this.broadcastToTargets(
 							sub.uid,
 							<message>
-								<message>{h.image(buffer, "image/jpeg")}</message>
-								<message>{dUrl}</message>
+								{h.image(buffer, "image/jpeg")}
+								{dUrl}
 							</message>,
 							PushType.Dynamic,
 						);
@@ -1122,8 +1122,8 @@ class ComRegister {
 						await this.broadcastToTargets(
 							sub.uid,
 							<message>
-								<message>{h.image(buffer, "image/jpeg")}</message>
-								<message>{dUrl}</message>
+								{h.image(buffer, "image/jpeg")}
+								{dUrl}
 							</message>,
 							PushType.Dynamic,
 						);
@@ -1287,8 +1287,8 @@ class ComRegister {
 		// 推送直播信息
 		const msg = (
 			<message>
-				<message>{h.image(buffer, "image/jpeg")}</message>
-				<message>{liveNotifyMsg || ""}</message>
+				{h.image(buffer, "image/jpeg")}
+				{liveNotifyMsg || ""}
 			</message>
 		);
 		// 只有在开播时才艾特全体成员
@@ -2272,7 +2272,7 @@ class ComRegister {
 	enableDynamicDetect() {
 		// 定义Job
 		this.dynamicJob = new CronJob(
-			"*/2 * * * *",
+			this.config.dynamicCron,
 			this.config.dynamicDebugMode
 				? this.debug_dynamicDetect()
 				: this.dynamicDetect(),
@@ -2348,6 +2348,7 @@ namespace ComRegister {
 		customLive: string;
 		customLiveEnd: string;
 		dynamicUrl: boolean;
+		dynamicCron: string;
 		dynamicVideoUrlToBV: boolean;
 		filter: {
 			enable: boolean;
@@ -2419,6 +2420,7 @@ namespace ComRegister {
 		customLive: Schema.string(),
 		customLiveEnd: Schema.string().required(),
 		dynamicUrl: Schema.boolean().required(),
+		dynamicCron: Schema.string().required(),
 		dynamicVideoUrlToBV: Schema.boolean().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
