@@ -629,10 +629,12 @@ class ComRegister {
 		// 判断是否需要艾特全体成员
 		if (type === PushType.StartBroadcasting && record.atAllArr?.length >= 1) {
 			this.logger.info(record.atAllArr);
+			// 深拷贝
+			const atAllArr = structuredClone(record.atAllArr);
 			// 艾特全体
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
-					record.atAllArr,
+					atAllArr,
 					<message>
 						<at type="all" />
 					</message>,
@@ -644,10 +646,12 @@ class ComRegister {
 		// 推送动态
 		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
 			this.logger.info(record.dynamicArr);
+			// 深拷贝
+			const dynamicArr = structuredClone(record.dynamicArr);
 			// 推送动态
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
-					record.dynamicArr,
+					dynamicArr,
 					<message>{content}</message>,
 				);
 			}, 1);
@@ -660,12 +664,11 @@ class ComRegister {
 			record.liveArr?.length >= 1
 		) {
 			this.logger.info(record.liveArr);
+			// 深拷贝
+			const liveArr = structuredClone(record.liveArr);
 			// 推送直播
 			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					record.liveArr,
-					<message>{content}</message>,
-				);
+				return await this.ctx.broadcast(liveArr, <message>{content}</message>);
 			}, 1);
 			// 发送成功群组
 			this.logger.info(`成功推送直播消息群组/频道：${success}`);
@@ -673,10 +676,12 @@ class ComRegister {
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
 			this.logger.info(record.liveGuardBuyArr);
+			// 深拷贝
+			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			// 推送直播守护购买
 			const success = await withRetry(async () => {
 				return await this.ctx.broadcast(
-					record.liveGuardBuyArr,
+					liveGuardBuyArr,
 					<message>{content}</message>,
 				);
 			}, 1);
