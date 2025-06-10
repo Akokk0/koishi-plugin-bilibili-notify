@@ -27,13 +27,12 @@ import {
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
-	type PushRecord,
+	type PushArrMap,
 	PushType,
 	PushTypeMsg,
 	type Result,
 	type SubItem,
 	type SubManager,
-	type Target,
 } from "./type";
 import { DateTime } from "luxon";
 
@@ -68,8 +67,8 @@ class ComRegister {
 	dynamicTimelineManager: Map<string, number> = new Map();
 	// 直播状态管理器
 	liveStatusManager: Map<string, LiveStatus> = new Map();
-	// PushRecord
-	pushRecord: PushRecord = {};
+	// PushArrMap
+	pushArrMap: PushArrMap = new Map();
 	// 检查登录数据库是否有数据
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// 机器人实例
@@ -560,8 +559,6 @@ class ComRegister {
 	}
 
 	initPushRecord(subs: ComRegister.Config["sub"]) {
-		// 定义Record
-		const pushRecord: PushRecord = {};
 		// 遍历subs
 		for (const sub of subs) {
 			// 定义数组
@@ -588,18 +585,16 @@ class ComRegister {
 				}
 			}
 			// 组装record
-			pushRecord[sub.uid] = {
+			this.pushArrMap.set(sub.uid, {
 				atAllArr,
 				dynamicArr,
 				liveArr,
 				liveGuardBuyArr,
-			};
+			});
 		}
-		// 赋值record
-		this.pushRecord = pushRecord;
 		// logger
 		this.logger.info("初始化推送群组/频道信息：");
-		this.logger.info(this.pushRecord);
+		this.logger.info(this.pushArrMap);
 	}
 
 	checkAllBotsAreReady() {
@@ -628,7 +623,7 @@ class ComRegister {
 		// 发起推送
 		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
 		// 拿到需要推送的record
-		const record = this.pushRecord[uid];
+		const record = this.pushArrMap.get(uid);
 		// 推送record
 		this.logger.info("本次推送目标：");
 		// 判断是否需要艾特全体成员
@@ -803,7 +798,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}发布了一条含有屏蔽关键字的动态`,
+										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -813,7 +808,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}转发了一条动态，已屏蔽`,
+										<message>{name}转发了一条动态，已屏蔽</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -823,7 +818,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}投稿了一条专栏，已屏蔽`,
+										<message>{name}投稿了一条专栏，已屏蔽</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -866,10 +861,10 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							sub.uid,
-							<>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</>,
+							<message>
+								<message>{h.image(buffer, "image/jpeg")}</message>
+								<message>{dUrl}</message>
+							</message>,
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1051,7 +1046,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}发布了一条含有屏蔽关键字的动态`,
+										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -1061,7 +1056,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}转发了一条动态，已屏蔽`,
+										<message>{name}转发了一条动态，已屏蔽</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -1071,7 +1066,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										sub.uid,
-										`${name}投稿了一条专栏，已屏蔽`,
+										<message>{name}投稿了一条专栏，已屏蔽</message>,
 										PushType.Dynamic,
 									);
 								}
@@ -1121,10 +1116,10 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							sub.uid,
-							<>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</>,
+							<message>
+								<message>{h.image(buffer, "image/jpeg")}</message>
+								<message>{dUrl}</message>
+							</message>,
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1286,10 +1281,10 @@ class ComRegister {
 		if (!buffer) return await this.sendPrivateMsgAndStopService();
 		// 推送直播信息
 		const msg = (
-			<>
-				{h.image(buffer, "image/jpeg")}
-				{liveNotifyMsg || ""}
-			</>
+			<message>
+				<message>{h.image(buffer, "image/jpeg")}</message>
+				<message>{liveNotifyMsg || ""}</message>
+			</message>
 		);
 		// 只有在开播时才艾特全体成员
 		return await this.broadcastToTargets(
@@ -1429,7 +1424,12 @@ class ComRegister {
 			},
 			onGuardBuy: ({ body }) => {
 				// 定义消息
-				const content = `[${masterInfo.username}的直播间]「${body.user.uname}」加入了大航海（${body.gift_name}）`;
+				const content = (
+					<message>
+						【{masterInfo.username}的直播间】{body.user.uname}加入了大航海（
+						{body.gift_name}）
+					</message>
+				);
 				// 直接发送消息
 				this.broadcastToTargets(uid, content, PushType.LiveGuardBuy);
 			},

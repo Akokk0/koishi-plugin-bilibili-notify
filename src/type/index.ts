@@ -265,7 +265,7 @@ export const PushTypeMsg = {
 	[PushType.Dynamic]: "动态推送",
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
-}
+};
 
 export type Result = {
 	code: number;
@@ -295,7 +295,7 @@ export type GroupList = {
 	}>;
 };
 
-export type PushRecord = Record<
+export type PushArrMap = Map<
 	string,
 	{
 		atAllArr?: Array<string>;
