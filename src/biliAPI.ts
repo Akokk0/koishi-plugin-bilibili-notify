@@ -1,3 +1,4 @@
+// biome-ignore assist/source/organizeImports: <import>
 import { type Awaitable, type Context, Schema, Service } from "koishi";
 import md5 from "md5";
 import crypto from "node:crypto";
@@ -70,9 +71,9 @@ class BiliAPI extends Service {
 	jar: CookieJar;
 	client: AxiosInstance;
 	apiConfig: BiliAPI.Config;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	cacheable: any;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	loginData: any;
 	loginNotifier: Notifier;
 	refreshCookieTimer: () => void;
@@ -648,7 +649,7 @@ class BiliAPI extends Service {
 				cookies,
 				refresh_token: decryptedRefreshToken,
 			};
-		} catch (e) {
+		} catch (_) {
 			// 数据库被篡改，在控制台提示
 			this.loginNotifier = this.ctx.notifier.create({
 				type: "warning",
@@ -781,7 +782,7 @@ class BiliAPI extends Service {
 			const { data } = await this.getCookieInfo(refreshToken);
 			// 不需要刷新，直接返回
 			if (!data.refresh) return;
-		} catch (e) {
+		} catch (_) {
 			// 发送三次仍网络错误则直接刷新cookie
 			if (times >= 1) {
 				// 等待3秒再次尝试

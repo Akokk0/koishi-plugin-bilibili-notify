@@ -1,4 +1,5 @@
 // Koishi核心依赖
+// biome-ignore assist/source/organizeImports: <import>
 import {
 	type Bot,
 	type Context,
@@ -9,6 +10,7 @@ import {
 	Universal,
 } from "koishi";
 import type { Notifier } from "@koishijs/plugin-notifier";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
 // 外部依赖
@@ -142,11 +144,11 @@ class ComRegister {
 			.action(async ({ session }) => {
 				this.logger.info("调用bili login指令");
 				// 获取二维码
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+				// biome-ignore lint/suspicious/noExplicitAny: <any>
 				let content: any;
 				try {
 					content = await ctx.ba.getLoginQRCode();
-				} catch (e) {
+				} catch (_) {
 					return "bili login getLoginQRCode() 本次网络请求失败";
 				}
 				// 判断是否出问题
@@ -180,7 +182,7 @@ class ComRegister {
 						if (!flag) return;
 						flag = false;
 						// 获取登录信息
-						// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+						// biome-ignore lint/suspicious/noExplicitAny: <any>
 						let loginContent: any;
 						try {
 							loginContent = await ctx.ba.getLoginStatus(
@@ -445,7 +447,7 @@ class ComRegister {
 		}
 	}
 
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	getBot(pf: string, selfId?: string): Bot<Context, any> {
 		// 判断是否存在selfId
 		if (!selfId || selfId === "") {
@@ -534,7 +536,7 @@ class ComRegister {
 	async sendMessageWithRetry(
 		bot: Bot<Context>,
 		channelId: string,
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 	) {
 		withRetry(async () => await bot.sendMessage(channelId, content), 1).catch(
@@ -603,7 +605,7 @@ class ComRegister {
 
 	async broadcastToTargets(
 		uid: string,
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 		type: PushType,
 		retry = 3000,
@@ -1258,7 +1260,7 @@ class ComRegister {
 		liveType: LiveType,
 		followerDisplay: string,
 		liveInfo: {
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			liveRoomInfo: any;
 			masterInfo: MasterInfo;
 			cardStyle: SubItem["card"];
@@ -1315,7 +1317,7 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
@@ -1973,7 +1975,6 @@ class ComRegister {
 					<p>当前订阅对象：</p>
 					<ul>
 						{subTableArray.map((str) => (
-							// biome-ignore lint/correctness/useJsxKeyInIterable: <explanation>
 							<li>{str}</li>
 						))}
 					</ul>
@@ -2104,38 +2105,38 @@ class ComRegister {
 					msg: "账号被封停，无法进行订阅操作",
 				};
 			},
-			[22002]: () => {
+			22002: () => {
 				return {
 					code: subUserData.code,
 					msg: "因对方隐私设置，无法进行订阅操作",
 				};
 			},
-			[22003]: () => {
+			22003: () => {
 				return {
 					code: subUserData.code,
 					msg: "你已将对方拉黑，无法进行订阅操作",
 				};
 			},
-			[22013]: () => {
+			22013: () => {
 				return {
 					code: subUserData.code,
 					msg: "账号已注销，无法进行订阅操作",
 				};
 			},
-			[40061]: () => {
+			40061: () => {
 				return {
 					code: subUserData.code,
 					msg: "账号不存在，请检查uid输入是否正确或用户是否存在",
 				};
 			},
-			[22001]: () => {
+			22001: () => {
 				return {
 					code: 0,
 					msg: "订阅对象为自己，无需添加到分组",
 				};
 			},
 			// 已订阅该对象
-			[22014]: async () => {
+			22014: async () => {
 				// 把订阅对象添加到分组中
 				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
 					mid,
@@ -2153,7 +2154,7 @@ class ComRegister {
 				return { code: 0, msg: "订阅对象添加成功" };
 			},
 			// 订阅成功
-			[0]: async () => {
+			0: async () => {
 				// 把订阅对象添加到分组中
 				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
 					mid,

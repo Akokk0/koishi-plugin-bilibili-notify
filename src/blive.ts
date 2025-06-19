@@ -1,3 +1,4 @@
+// biome-ignore assist/source/organizeImports: <import>
 import { type Awaitable, type Context, Service } from "koishi";
 import {
 	type MessageListener,
@@ -48,15 +49,12 @@ class BLive extends Service {
 				},
 			},
 		);
-		this.logger.info(`[${roomId}]直播间连接已建立！`)
+		this.logger.info(`[${roomId}]直播间连接已建立！`);
 	}
 
 	closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
-		if (
-			!this.listenerRecord ||
-			!this.listenerRecord[roomId]?.closed
-		) {
+		if (!this.listenerRecord || !this.listenerRecord[roomId]?.closed) {
 			// 输出logger
 			this.logger.info(`${roomId}直播间连接无需关闭`);
 		}

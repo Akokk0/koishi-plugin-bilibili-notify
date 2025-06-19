@@ -82,12 +82,12 @@ export type RichTextNode = Array<{
 }>;
 
 export type Dynamic = {
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <Object>
 	basic: Object;
 	id_str: string;
 	modules: {
 		module_author: {
-			// biome-ignore lint/complexity/noBannedTypes: <explanation>
+			// biome-ignore lint/complexity/noBannedTypes: <Object>
 			avatar: Object;
 			decorate: {
 				card_url: string;
@@ -103,9 +103,9 @@ export type Dynamic = {
 			label: string;
 			mid: number;
 			name: string;
-			// biome-ignore lint/complexity/noBannedTypes: <explanation>
+			// biome-ignore lint/complexity/noBannedTypes: <Object>
 			official_verify: Object;
-			// biome-ignore lint/complexity/noBannedTypes: <explanation>
+			// biome-ignore lint/complexity/noBannedTypes: <Object>
 			pendant: Object;
 			pub_action: string;
 			pub_action_text: string;
@@ -118,7 +118,7 @@ export type Dynamic = {
 			};
 		};
 		module_dynamic: {
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			additional: any;
 			desc: {
 				rich_text_nodes: Array<{
@@ -173,11 +173,11 @@ export type Dynamic = {
 					};
 					bvid: string;
 				};
-				// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+				// biome-ignore lint/suspicious/noExplicitAny: <any>
 				draw: any;
 				type: string;
 			};
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			topic: any;
 		};
 		module_stat: {
@@ -232,7 +232,7 @@ export type Live = {
 export type LiveStatus = {
 	live: boolean;
 	roomId: string;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	liveRoomInfo: any;
 	masterInfo: MasterInfo;
 	watchedNum: string;
@@ -270,7 +270,7 @@ export const PushTypeMsg = {
 export type Result = {
 	code: number;
 	msg?: string;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	data?: any;
 };
 

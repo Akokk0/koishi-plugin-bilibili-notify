@@ -7,15 +7,15 @@ export function Retry(
 	options: RetryOptions = { attempts: 3 },
 ): MethodDecorator {
 	return (
-		// biome-ignore lint/complexity/noBannedTypes: <explanation>
-		target: Object,
-		propertyKey: string | symbol,
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/complexity/noBannedTypes: <Object>
+		_target: Object,
+		_propertyKey: string | symbol,
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		descriptor: TypedPropertyDescriptor<any>,
 	) => {
 		const originalMethod = descriptor.value;
 
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		descriptor.value = async function (...args: any[]) {
 			let lastError: Error;
 
@@ -30,7 +30,7 @@ export function Retry(
 				}
 			}
 
-			// biome-ignore lint/style/noNonNullAssertion: <explanation>
+			// biome-ignore lint/style/noNonNullAssertion: <error>
 			throw lastError!;
 		};
 

@@ -1,4 +1,6 @@
+// biome-ignore assist/source/organizeImports: <import>
 import { type Context, type ForkScope, Schema, Service } from "koishi";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-notifier";
 // import plugins
 import ComRegister from "./comRegister";
@@ -193,22 +195,22 @@ export function apply(ctx: Context, config: Config) {
 }
 
 export interface Config {
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	require: {};
 	key: string;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	master: {};
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	basicSettings: {};
 	userAgent: string;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	subTitle: {};
 	sub: Array<{
 		name: string;
 		uid: string;
 		dynamic: boolean;
 		live: boolean;
-		// biome-ignore lint/complexity/noBannedTypes: <explanation>
+		// biome-ignore lint/complexity/noBannedTypes: <obj>
 		card: {};
 		target: Array<{
 			channelArr: Array<{
@@ -222,13 +224,13 @@ export interface Config {
 			platform: string;
 		}>;
 	}>;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	dynamic: {};
 	dynamicUrl: boolean;
 	dynamicCron: string;
 	dynamicVideoUrlToBV: boolean;
 	pushImgsInDynamic: boolean;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
 	liveDetectType: "WS" | "API";
 	restartPush: boolean;
@@ -238,7 +240,7 @@ export interface Config {
 	customLiveEnd: string;
 	followerDisplay: boolean;
 	hideDesc: boolean;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	style: {};
 	removeBorder: boolean;
 	cardColorStart: string;
@@ -247,9 +249,9 @@ export interface Config {
 	cardBasePlateBorder: string;
 	enableLargeFont: boolean;
 	font: string;
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	filter: {};
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	debug: {};
 	dynamicDebugMode: boolean;
 }
@@ -343,8 +345,9 @@ export const Config: Schema<Config> = Schema.object({
 							atAll: Schema.boolean()
 								.default(false)
 								.description("推送开播通知时是否艾特全体成员"),
-							bot: Schema.string()
-								.description("若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个")
+							bot: Schema.string().description(
+								"若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个",
+							),
 						}),
 					)
 						.role("table")
@@ -402,9 +405,7 @@ export const Config: Schema<Config> = Schema.object({
 
 	dynamicCron: Schema.string()
 		.default("*/2 * * * *")
-		.description(
-			"动态监测时间，请填入cron表达式，请勿填入过短时间"
-		),
+		.description("动态监测时间，请填入cron表达式，请勿填入过短时间"),
 
 	dynamicVideoUrlToBV: Schema.boolean()
 		.default(false)
@@ -421,8 +422,14 @@ export const Config: Schema<Config> = Schema.object({
 	live: Schema.object({}).description("直播推送设置"),
 
 	liveDetectType: Schema.union([
-		Schema.const("WS").description("使用WebSocket连接到B站消息服务器进行直播检测，推荐使用"),
-		Schema.const("API").description("通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面").experimental(),
+		Schema.const("WS").description(
+			"使用WebSocket连接到B站消息服务器进行直播检测，推荐使用",
+		),
+		Schema.const("API")
+			.description(
+				"通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面",
+			)
+			.experimental(),
 	])
 		.role("radio")
 		.default("WS")

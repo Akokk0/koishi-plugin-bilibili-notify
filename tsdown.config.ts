@@ -6,6 +6,9 @@ export default defineConfig({
 	dts: true,
 	clean: true,
 	outDir: "lib",
-	copy: { from: "./src/page", to: "./lib/page" },
-	loader: { ".png": "base64", ".ttf": "asset" },
+	copy: [
+		{ from: "./src/page", to: "./lib/page" },
+		{ from: "./src/img", to: "./lib/img" },
+		{ from: "./src/font", to: "./lib/font" },
+	],
 });

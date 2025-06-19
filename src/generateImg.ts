@@ -1,4 +1,6 @@
+// biome-ignore assist/source/organizeImports: <import>
 import { type Context, Schema, Service } from "koishi";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
 import { resolve } from "node:path";
@@ -61,7 +63,7 @@ class GenerateImg extends Service {
 	}
 
 	async generateLiveImg(
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		data: any,
 		username: string,
 		userface: string,
