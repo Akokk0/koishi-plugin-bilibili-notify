@@ -304,3 +304,20 @@ export type PushArrMap = Map<
 		liveGuardBuyArr?: Array<string>;
 	}
 >;
+
+export type BiliTicket = {
+	code: number;
+	message: string;
+	data: {
+		ticket: string;
+		create_at: number;
+		ttl: number;
+		// biome-ignore lint/complexity/noBannedTypes: <obj>
+		context: {};
+		nav: {
+			img: string;
+			sub: string;
+		}
+	},
+	ttl: number;
+}

@@ -310,7 +310,6 @@ export const Config: Schema<Config> = Schema.object({
 	basicSettings: Schema.object({}).description("基本设置"),
 
 	userAgent: Schema.string()
-		.required()
 		.description(
 			"设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111",
 		),

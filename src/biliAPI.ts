@@ -9,6 +9,8 @@ import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import { Retry } from "./utils";
+import type { BiliTicket } from "./type";
+import { CronJob } from "cron";
 
 declare module "koishi" {
 	interface Context {
@@ -79,6 +81,10 @@ class BiliAPI extends Service {
 	refreshCookieTimer: () => void;
 	loginInfoIsLoaded = false;
 
+	wbiSign = { img_key: "", sub_key: "" };
+	// Cron job
+	updateJob: CronJob;
+
 	constructor(ctx: Context, config: BiliAPI.Config) {
 		super(ctx, "ba");
 		this.apiConfig = config;
@@ -95,13 +101,49 @@ class BiliAPI extends Service {
 		// 创建新的http客户端(axios)
 		await this.createNewClient();
 		// 从数据库加载cookies
-		this.loadCookiesFromDatabase();
+		await this.loadCookiesFromDatabase();
+		// 更新biliTicket
+		await this.updateBiliTicket();
+		// 开启定时任务更新biliTicket(每天凌晨0点进行更新)
+		this.updateJob = new CronJob("0 0 * * *", async () => {
+			await this.updateBiliTicket();
+		});
+		// 开启定时任务
+		this.updateJob.start();
 	}
 
 	protected stop(): Awaitable<void> {
 		// 卸载dns缓存
 		this.cacheable.uninstall(http.globalAgent);
 		this.cacheable.uninstall(https.globalAgent);
+		// 关闭定时任务
+		this.updateJob.stop();
+	}
+
+	async updateBiliTicket() {
+		// 获取csrf
+		const csrf = this.getCSRF();
+		// 获取biliTicket
+		const ticket = (await this.getBiliTicket(csrf)) as BiliTicket;
+		// 判断ticket是否成功
+		if (ticket.code !== 0) {
+			// 如果失败则抛出错误
+			throw new Error(`获取BiliTicket失败: ${ticket.message}`);
+		}
+		// 添加cookie到cookieJar
+		this.jar.setCookieSync(
+			`bili_ticket=${ticket.data.ticket}; path=/; domain=.bilibili.com`,
+			"https://www.bilibili.com",
+		);
+		// 获取wbi签名的img_key和sub_key
+		this.wbiSign.img_key = ticket.data.nav.img.slice(
+			ticket.data.nav.img.lastIndexOf("/") + 1,
+			ticket.data.nav.img.lastIndexOf("."),
+		);
+		this.wbiSign.sub_key = ticket.data.nav.sub.slice(
+			ticket.data.nav.sub.lastIndexOf("/") + 1,
+			ticket.data.nav.sub.lastIndexOf("."),
+		);
 	}
 
 	// WBI签名
@@ -139,7 +181,7 @@ class BiliAPI extends Service {
 	}
 
 	async getWbi(params: { [key: string]: string | number | object }) {
-		const web_keys = await this.getWbiKeys();
+		const web_keys = this.wbiSign || (await this.getWbiKeys());
 		const img_key = web_keys.img_key;
 		const sub_key = web_keys.sub_key;
 		const query = this.encWbi(params, img_key, sub_key);
@@ -464,7 +506,7 @@ class BiliAPI extends Service {
 			this.logger.error(`getWbiKeys() 第${attempts}次失败: ${error.message}`);
 		},
 	})
-	async getWbiKeys() {
+	async getWbiKeys(): Promise<{ img_key: string; sub_key: string }> {
 		const { data } = await this.client.get(
 			"https://api.bilibili.com/x/web-interface/nav",
 		);
@@ -559,17 +601,53 @@ class BiliAPI extends Service {
 		if (this.loginNotifier) this.loginNotifier.dispose();
 	}
 
-	getRandomUserAgent() {
-		const userAgents = [
-			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-		];
+	/**
+	 * Generate HMAC-SHA256 signature
+	 * @param {string} key     The key string to use for the HMAC-SHA256 hash
+	 * @param {string} message The message string to hash
+	 * @returns {string} The HMAC-SHA256 signature as a hex string
+	 */
+	hmacSha256(key: string, message: string): string {
+		const hmac = crypto.createHmac("sha256", key);
+		hmac.update(message);
+		return hmac.digest("hex");
+	}
 
-		const index = Math.floor(Math.random() * userAgents.length);
-		return userAgents[index];
+	/**
+	 * Get Bilibili web ticket
+	 * @param {string} csrf    CSRF token, can be empty or null
+	 * @returns {Promise<any>} Promise of the ticket response in JSON format
+	 */
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
+	async getBiliTicket(csrf?: string): Promise<any> {
+		const ts = Math.floor(Date.now() / 1000);
+		const hexSign = this.hmacSha256("XgwSnGZ1p", `ts${ts}`);
+		const params = new URLSearchParams({
+			key_id: "ec02",
+			hexsign: hexSign,
+			"context[ts]": ts.toString(),
+			csrf: csrf || "",
+		});
+
+		const url =
+			"https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket";
+		const resp = await this.client
+			.post(
+				`${url}?${params.toString()}`,
+				{},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+						"User-Agent":
+							"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
+					},
+				},
+			)
+			.catch((e) => {
+				throw e;
+			});
+
+		return resp.data;
 	}
 
 	async createNewClient() {
@@ -584,10 +662,8 @@ class BiliAPI extends Service {
 				headers: {
 					"Content-Type": "application/json",
 					"User-Agent":
-						this.apiConfig.userAgent !==
-						"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-							? this.apiConfig.userAgent
-							: this.getRandomUserAgent(),
+						this.apiConfig.userAgent ||
+						"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
 					Origin: "https://www.bilibili.com",
 					Referer: "https://www.bilibili.com/",
 				},
