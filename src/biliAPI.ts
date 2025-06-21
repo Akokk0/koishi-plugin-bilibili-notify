@@ -102,14 +102,14 @@ class BiliAPI extends Service {
 		await this.createNewClient();
 		// 从数据库加载cookies
 		await this.loadCookiesFromDatabase();
-		// 更新biliTicket
-		await this.updateBiliTicket();
 		// 开启定时任务更新biliTicket(每天凌晨0点进行更新)
 		this.updateJob = new CronJob("0 0 * * *", async () => {
 			await this.updateBiliTicket();
 		});
 		// 开启定时任务
 		this.updateJob.start();
+		// 更新biliTicket
+		await this.updateBiliTicket();
 	}
 
 	protected stop(): Awaitable<void> {
@@ -121,29 +121,34 @@ class BiliAPI extends Service {
 	}
 
 	async updateBiliTicket() {
-		// 获取csrf
-		const csrf = this.getCSRF();
-		// 获取biliTicket
-		const ticket = (await this.getBiliTicket(csrf)) as BiliTicket;
-		// 判断ticket是否成功
-		if (ticket.code !== 0) {
-			// 如果失败则抛出错误
-			throw new Error(`获取BiliTicket失败: ${ticket.message}`);
+		try {
+			// 获取csrf
+			const csrf = this.getCSRF();
+			// 获取biliTicket
+			const ticket = (await this.getBiliTicket(csrf)) as BiliTicket;
+			// 判断ticket是否成功
+			if (ticket.code !== 0) {
+				// 如果失败则抛出错误
+				throw new Error(`获取BiliTicket失败: ${ticket.message}`);
+			}
+			// 添加cookie到cookieJar
+			this.jar.setCookieSync(
+				`bili_ticket=${ticket.data.ticket}; path=/; domain=.bilibili.com`,
+				"https://www.bilibili.com",
+			);
+			// 获取wbi签名的img_key和sub_key
+			this.wbiSign.img_key = ticket.data.nav.img.slice(
+				ticket.data.nav.img.lastIndexOf("/") + 1,
+				ticket.data.nav.img.lastIndexOf("."),
+			);
+			this.wbiSign.sub_key = ticket.data.nav.sub.slice(
+				ticket.data.nav.sub.lastIndexOf("/") + 1,
+				ticket.data.nav.sub.lastIndexOf("."),
+			);
+		} catch (e) {
+			// 如果获取失败则在控制台输出错误
+			this.logger.error(`更新BiliTicket失败: ${e.message}`);
 		}
-		// 添加cookie到cookieJar
-		this.jar.setCookieSync(
-			`bili_ticket=${ticket.data.ticket}; path=/; domain=.bilibili.com`,
-			"https://www.bilibili.com",
-		);
-		// 获取wbi签名的img_key和sub_key
-		this.wbiSign.img_key = ticket.data.nav.img.slice(
-			ticket.data.nav.img.lastIndexOf("/") + 1,
-			ticket.data.nav.img.lastIndexOf("."),
-		);
-		this.wbiSign.sub_key = ticket.data.nav.sub.slice(
-			ticket.data.nav.sub.lastIndexOf("/") + 1,
-			ticket.data.nav.sub.lastIndexOf("."),
-		);
 	}
 
 	// WBI签名
