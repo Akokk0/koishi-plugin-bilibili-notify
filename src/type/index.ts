@@ -40,6 +40,12 @@ export type SubItem = {
 		cardBasePlateColor: string;
 		cardBasePlateBorder: string;
 	};
+	liveMsg: {
+		enable: boolean;
+		customLiveStart: string;
+		customLive: string;
+		customLiveEnd: string;
+	};
 };
 
 export type SubManager = Array<SubItem>;
@@ -229,6 +235,12 @@ export type Live = {
 	};
 };
 
+export type LiveMsg = {
+	customLiveStart: string;
+	customLive: string;
+	customLiveEnd: string;
+};
+
 export type LiveStatus = {
 	live: boolean;
 	roomId: string;
@@ -239,6 +251,7 @@ export type LiveStatus = {
 	liveStartTimeInit: boolean;
 	liveStartTime: string;
 	push: number;
+	liveMsg: LiveMsg;
 };
 
 export type AllDynamicInfo = {
@@ -317,7 +330,21 @@ export type BiliTicket = {
 		nav: {
 			img: string;
 			sub: string;
-		}
-	},
+		};
+	};
 	ttl: number;
-}
+};
+
+export type BACookie = {
+	key: string;
+	value: string;
+	expires: string;
+	domain: string;
+	path: string;
+	secure: boolean;
+	hostOnly: boolean;
+	httpOnly: boolean;
+	sameSite: string;
+	creation: string;
+	lastAccessed: string;
+};

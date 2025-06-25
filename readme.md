@@ -295,6 +295,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.6-alpha.0 优化：更新依赖； 修复：长图动态向下箭头无法显示的bug；
 > - ver 3.2.7-alpha.0 优化：将选项 `userAgent` 更改为可选项，在 `cookies` 中添加 `bili_ticket` 降低风控概率；
 > - ver 3.2.7-alpha.1 修复：加载 `bili_ticket` 失败会导致插件加载失败；
+> - ver 3.2.8-alpha.0 修复：插件重启报错 `RangeError: Invalid time value` ； 新增：选项 `sub.liveMsg` ，可自定义每个UP个性化的直播推送语；
 
 ## 交流群
 

@@ -4,12 +4,13 @@ import md5 from "md5";
 import crypto from "node:crypto";
 import http from "node:http";
 import https from "node:https";
+import { DateTime } from "luxon";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import { Retry } from "./utils";
-import type { BiliTicket } from "./type";
+import type { BACookie, BiliTicket } from "./type";
 import { CronJob } from "cron";
 
 declare module "koishi" {
@@ -166,7 +167,7 @@ class BiliAPI extends Service {
 		sub_key: string,
 	) {
 		const mixin_key = this.getMixinKey(img_key + sub_key);
-		const curr_time = Math.round(Date.now() / 1000);
+		const curr_time = Math.round(DateTime.now().toSeconds() / 1000);
 		const chr_filter = /[!'()*]/g;
 
 		Object.assign(params, { wts: curr_time }); // 添加 wts 字段
@@ -625,7 +626,7 @@ class BiliAPI extends Service {
 	 */
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	async getBiliTicket(csrf?: string): Promise<any> {
-		const ts = Math.floor(Date.now() / 1000);
+		const ts = Math.floor(DateTime.now().toSeconds() / 1000);
 		const hexSign = this.hmacSha256("XgwSnGZ1p", `ts${ts}`);
 		const params = new URLSearchParams({
 			key_id: "ec02",
@@ -677,8 +678,20 @@ class BiliAPI extends Service {
 	}
 
 	getCookies() {
-		const cookies = JSON.stringify(this.jar.serializeSync().cookies);
-		return cookies;
+		try {
+			// 获取cookies
+			const cookies = this.jar.serializeSync().cookies.map((cookie) => {
+				if (!cookie.expires) {
+					cookie.expires = "Infinity"; // 如果没有expires字段，则设置为Infinity
+				}
+				return cookie;
+			});
+			// 返回cookies的JSON字符串
+			return JSON.stringify(cookies);
+		} catch (e) {
+			console.error("获取cookies失败：", e);
+			return undefined;
+		}
 	}
 
 	async getCookiesForHeader() {
@@ -724,7 +737,7 @@ class BiliAPI extends Service {
 			// 解密refresh_token
 			const decryptedRefreshToken = this.decrypt(data.bili_refresh_token);
 			// 解析从数据库读到的cookies
-			const cookies = JSON.parse(decryptedCookies);
+			const cookies = JSON.parse(decryptedCookies) as Array<BACookie>;
 			// 返回值
 			return {
 				cookies,
@@ -764,7 +777,7 @@ class BiliAPI extends Service {
 		}
 		// 定义CSRF Token
 		let csrf: string;
-		let expires: Date;
+		let expires: Date | "Infinity";
 		let domain: string;
 		let path: string;
 		let secure: boolean;
@@ -775,7 +788,9 @@ class BiliAPI extends Service {
 			// 获取key为bili_jct的值
 			if (cookieData.key === "bili_jct") {
 				csrf = cookieData.value;
-				expires = new Date(cookieData.expires);
+				expires = cookieData.expires
+					? DateTime.fromISO(cookieData.expires).toJSDate()
+					: "Infinity";
 				domain = cookieData.domain;
 				path = cookieData.path;
 				secure = cookieData.secure;
@@ -786,7 +801,9 @@ class BiliAPI extends Service {
 			const cookie = new Cookie({
 				key: cookieData.key,
 				value: cookieData.value,
-				expires: new Date(cookieData.expires),
+				expires: cookieData.expires
+					? DateTime.fromISO(cookieData.expires).toJSDate()
+					: "Infinity",
 				domain: cookieData.domain,
 				path: cookieData.path,
 				secure: cookieData.secure,
@@ -796,7 +813,6 @@ class BiliAPI extends Service {
 			this.jar.setCookieSync(
 				cookie,
 				`http${cookie.secure ? "s" : ""}://${cookie.domain}${cookie.path}`,
-				{},
 			);
 		}
 		// 对于某些 IP 地址，需要在 Cookie 中提供任意非空的 buvid3 字段
@@ -813,7 +829,6 @@ class BiliAPI extends Service {
 		this.jar.setCookieSync(
 			buvid3Cookie,
 			`http${buvid3Cookie.secure ? "s" : ""}://${buvid3Cookie.domain}${buvid3Cookie.path}`,
-			{},
 		);
 		// Login info is loaded
 		this.loginInfoIsLoaded = true;
@@ -897,7 +912,7 @@ class BiliAPI extends Service {
 			);
 		}
 		// 获取CorrespondPath
-		const ts = Date.now();
+		const ts = DateTime.now().toSeconds();
 		const correspondPath = await getCorrespondPath(ts);
 		// 获取refresh_csrf
 		const { data: refreshCsrfHtml } = await this.client.get(

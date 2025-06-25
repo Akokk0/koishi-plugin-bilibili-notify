@@ -25,6 +25,7 @@ import {
 	type CreateGroup,
 	type GroupList,
 	type Live,
+	type LiveMsg,
 	type LiveStatus,
 	LiveType,
 	type LiveUsers,
@@ -426,13 +427,30 @@ class ComRegister {
 
 	initManager() {
 		for (const sub of this.subManager) {
+			// 判断是否订阅动态
 			if (sub.dynamic) {
 				this.dynamicTimelineManager.set(
 					sub.uid,
 					Math.floor(DateTime.now().toSeconds()),
 				);
 			}
+			// 判断是否订阅直播
 			if (sub.live) {
+				// 构建直播推送消息对象
+				const liveMsg: LiveMsg = {
+					customLiveStart: this.config.customLiveStart || "",
+					customLive: this.config.customLive || "",
+					customLiveEnd: this.config.customLiveEnd || "",
+				};
+				// 判断是否个性化推送消息
+				if (sub.liveMsg.enable) {
+					liveMsg.customLiveStart =
+						sub.liveMsg.customLiveStart || this.config.customLiveStart;
+					liveMsg.customLive = sub.liveMsg.customLive || this.config.customLive;
+					liveMsg.customLiveEnd =
+						sub.liveMsg.customLiveEnd || this.config.customLiveEnd;
+				}
+				// 设置到直播状态管理对象
 				this.liveStatusManager.set(sub.uid, {
 					roomId: sub.roomId,
 					live: false,
@@ -442,6 +460,7 @@ class ComRegister {
 					liveStartTime: "",
 					liveStartTimeInit: false,
 					push: 0,
+					liveMsg,
 				});
 			}
 		}
@@ -1321,6 +1340,8 @@ class ComRegister {
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
+		// 获取直播状态
+		const liveStatusObj = this.liveStatusManager.get(uid);
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
@@ -1348,17 +1369,15 @@ class ComRegister {
 			// 获取watched
 			const watched = watchedNum || "暂未获取到";
 			// 设置直播中消息
-			const liveMsg = this.config.customLive
-				? this.config.customLive
-						.replace("-name", masterInfo.username)
-						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-						.replace("-watched", watched)
-						.replace("\\n", "\n")
-						.replace(
-							"-link",
-							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
-						)
-				: null;
+			const liveMsg = liveStatusObj?.liveMsg?.customLive
+				.replace("-name", masterInfo.username)
+				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+				.replace("-watched", watched)
+				.replace("\\n", "\n")
+				.replace(
+					"-link",
+					`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+				);
 			// 发送直播通知卡片
 			await this.sendLiveNotifyCard(
 				LiveType.LiveBroadcast,
@@ -1464,17 +1483,15 @@ class ComRegister {
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
 				// 定义开播通知语
-				const liveStartMsg = this.config.customLiveStart
-					? this.config.customLiveStart
-							.replace("-name", masterInfo.username)
-							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-							.replace("-follower", follower)
-							.replace("\\n", "\n")
-							.replace(
-								"-link",
-								`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
-							)
-					: null;
+				const liveStartMsg = liveStatusObj?.liveMsg?.customLiveStart
+					.replace("-name", masterInfo.username)
+					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+					.replace("-follower", follower)
+					.replace("\\n", "\n")
+					.replace(
+						"-link",
+						`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+					);
 				// 推送开播通知
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
@@ -1527,13 +1544,11 @@ class ComRegister {
 						: liveFollowerChangeNum.toString();
 				})();
 				// 定义下播播通知语
-				const liveEndMsg = this.config.customLiveEnd
-					? this.config.customLiveEnd
-							.replace("-name", masterInfo.username)
-							.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-							.replace("-follower_change", followerChange)
-							.replace("\\n", "\n")
-					: null;
+				const liveEndMsg = liveStatusObj?.liveMsg?.customLiveEnd
+					.replace("-name", masterInfo.username)
+					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+					.replace("-follower_change", followerChange)
+					.replace("\\n", "\n");
 				// 推送通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
@@ -1568,17 +1583,15 @@ class ComRegister {
 			// 获取当前累计观看人数
 			const watched = watchedNum || "暂未获取到";
 			// 定义直播中通知消息
-			const liveMsg = this.config.customLive
-				? this.config.customLive
-						.replace("-name", masterInfo.username)
-						.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
-						.replace("-watched", watched)
-						.replace("\\n", "\n")
-						.replace(
-							"-link",
-							`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
-						)
-				: null;
+			const liveMsg = liveStatusObj?.liveMsg?.customLive
+				.replace("-name", masterInfo.username)
+				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+				.replace("-watched", watched)
+				.replace("\\n", "\n")
+				.replace(
+					"-link",
+					`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+				);
 			// 发送直播通知卡片
 			if (this.config.restartPush) {
 				await this.sendLiveNotifyCard(
@@ -1694,20 +1707,18 @@ class ComRegister {
 					liveStatus.liveStartTimeInit = true;
 				}
 				// 设置直播中消息
-				const liveMsg = this.config.customLive
-					? this.config.customLive
-							.replace("-name", liveStatus.masterInfo.username)
-							.replace(
-								"-time",
-								await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
-							)
-							.replace("-watched", "API模式无法获取")
-							.replace("\\n", "\n")
-							.replace(
-								"-link",
-								`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
-							)
-					: null;
+				const liveMsg = liveStatus.liveMsg?.customLive
+					.replace("-name", liveStatus.masterInfo.username)
+					.replace(
+						"-time",
+						await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+					)
+					.replace("-watched", "API模式无法获取")
+					.replace("\\n", "\n")
+					.replace(
+						"-link",
+						`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
+					);
 				// 发送直播通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
@@ -1783,18 +1794,14 @@ class ComRegister {
 									: liveFollowerChangeNum.toString();
 							})();
 							// 定义下播播通知语
-							const liveEndMsg = this.config.customLiveEnd
-								? this.config.customLiveEnd
-										.replace("-name", liveStatus.masterInfo.username)
-										.replace(
-											"-time",
-											await this.ctx.gi.getTimeDifference(
-												liveStatus.liveStartTime,
-											),
-										)
-										.replace("-follower_change", followerChange)
-										.replace("\\n", "\n")
-								: null;
+							const liveEndMsg = liveStatus.liveMsg?.customLiveEnd
+								.replace("-name", liveStatus.masterInfo.username)
+								.replace(
+									"-time",
+									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+								)
+								.replace("-follower_change", followerChange)
+								.replace("\\n", "\n");
 							// 推送通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.StopBroadcast,
@@ -1841,22 +1848,18 @@ class ComRegister {
 									? `${(liveStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 									: liveStatus.masterInfo.liveOpenFollowerNum.toString();
 							// 定义开播通知语
-							const liveStartMsg = this.config.customLiveStart
-								? this.config.customLiveStart
-										.replace("-name", liveStatus.masterInfo.username)
-										.replace(
-											"-time",
-											await this.ctx.gi.getTimeDifference(
-												liveStatus.liveStartTime,
-											),
-										)
-										.replace("-follower", follower)
-										.replace("\\n", "\n")
-										.replace(
-											"-link",
-											`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
-										)
-								: null;
+							const liveStartMsg = liveStatus.liveMsg?.customLiveStart
+								.replace("-name", liveStatus.masterInfo.username)
+								.replace(
+									"-time",
+									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+								)
+								.replace("-follower", follower)
+								.replace("\\n", "\n")
+								.replace(
+									"-link",
+									`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
+								);
 							// 推送开播通知
 							await this.sendLiveNotifyCard(
 								LiveType.StartBroadcasting,
@@ -1903,22 +1906,18 @@ class ComRegister {
 								liveStatus.liveStartTimeInit = true;
 							}
 							// 设置直播中消息
-							const liveMsg = this.config.customLive
-								? this.config.customLive
-										.replace("-name", liveStatus.masterInfo.username)
-										.replace(
-											"-time",
-											await this.ctx.gi.getTimeDifference(
-												liveStatus.liveStartTime,
-											),
-										)
-										.replace("-watched", "API模式无法获取")
-										.replace("\\n", "\n")
-										.replace(
-											"-link",
-											`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
-										)
-								: null;
+							const liveMsg = liveStatus.liveMsg?.customLive
+								.replace("-name", liveStatus.masterInfo.username)
+								.replace(
+									"-time",
+									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+								)
+								.replace("-watched", "API模式无法获取")
+								.replace("\\n", "\n")
+								.replace(
+									"-link",
+									`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
+								);
 							// 发送直播通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.LiveBroadcast,
@@ -2238,6 +2237,7 @@ class ComRegister {
 				live: sub.live,
 				dynamic: sub.dynamic,
 				card: sub.card,
+				liveMsg: sub.liveMsg,
 			});
 			// logger
 			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
@@ -2333,6 +2333,12 @@ namespace ComRegister {
 				cardBasePlateColor: string;
 				cardBasePlateBorder: string;
 			};
+			liveMsg: {
+				enable: boolean;
+				customLiveStart: string;
+				customLive: string;
+				customLiveEnd: string;
+			};
 		}>;
 		master: {
 			enable: boolean;
@@ -2400,6 +2406,12 @@ namespace ComRegister {
 				}).description(
 					"自定义推送卡片颜色，默认使用插件内置的颜色，设置后会覆盖插件内置的颜色",
 				),
+				liveMsg: Schema.object({
+					enable: Schema.boolean(),
+					customLiveStart: Schema.string(),
+					customLive: Schema.string(),
+					customLiveEnd: Schema.string(),
+				}),
 			}),
 		)
 			.role("table")
