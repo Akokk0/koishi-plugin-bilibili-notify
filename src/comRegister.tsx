@@ -70,6 +70,8 @@ class ComRegister {
 	dynamicTimelineManager: Map<string, number> = new Map();
 	// 直播状态管理器
 	liveStatusManager: Map<string, LiveStatus> = new Map();
+	// 直播推送消息管理器
+	liveMsgManager: Map<string, LiveMsg> = new Map();
 	// PushArrMap
 	pushArrMap: PushArrMap = new Map();
 	// 检查登录数据库是否有数据
@@ -436,20 +438,6 @@ class ComRegister {
 			}
 			// 判断是否订阅直播
 			if (sub.live) {
-				// 构建直播推送消息对象
-				const liveMsg: LiveMsg = {
-					customLiveStart: this.config.customLiveStart || "",
-					customLive: this.config.customLive || "",
-					customLiveEnd: this.config.customLiveEnd || "",
-				};
-				// 判断是否个性化推送消息
-				if (sub.liveMsg.enable) {
-					liveMsg.customLiveStart =
-						sub.liveMsg.customLiveStart || this.config.customLiveStart;
-					liveMsg.customLive = sub.liveMsg.customLive || this.config.customLive;
-					liveMsg.customLiveEnd =
-						sub.liveMsg.customLiveEnd || this.config.customLiveEnd;
-				}
 				// 设置到直播状态管理对象
 				this.liveStatusManager.set(sub.uid, {
 					roomId: sub.roomId,
@@ -460,7 +448,6 @@ class ComRegister {
 					liveStartTime: "",
 					liveStartTimeInit: false,
 					push: 0,
-					liveMsg,
 				});
 			}
 		}
@@ -579,9 +566,30 @@ class ComRegister {
 		);
 	}
 
-	initPushRecord(subs: ComRegister.Config["sub"]) {
+	preInitConfig(subs: ComRegister.Config["sub"]) {
 		// 遍历subs
 		for (const sub of subs) {
+			// liveMsg Part
+
+			// 构建直播推送消息对象
+			const liveMsg: LiveMsg = {
+				customLiveStart: this.config.customLiveStart || "",
+				customLive: this.config.customLive || "",
+				customLiveEnd: this.config.customLiveEnd || "",
+			};
+			// 判断是否个性化推送消息
+			if (sub.liveMsg.enable) {
+				liveMsg.customLiveStart =
+					sub.liveMsg.customLiveStart || this.config.customLiveStart;
+				liveMsg.customLive = sub.liveMsg.customLive || this.config.customLive;
+				liveMsg.customLiveEnd =
+					sub.liveMsg.customLiveEnd || this.config.customLiveEnd;
+			}
+			// 设置到直播推送消息管理对象
+			this.liveMsgManager.set(sub.uid, liveMsg);
+
+			// PushRecord part
+
 			// 定义数组
 			const atAllArr: Array<string> = [];
 			const dynamicArr: Array<string> = [];
@@ -1340,8 +1348,8 @@ class ComRegister {
 		let liveRoomInfo: any;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
-		// 获取直播状态
-		const liveStatusObj = this.liveStatusManager.get(uid);
+		// 获取推送信息对象
+		const liveMsgObj = this.liveMsgManager.get(uid);
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
@@ -1369,7 +1377,7 @@ class ComRegister {
 			// 获取watched
 			const watched = watchedNum || "暂未获取到";
 			// 设置直播中消息
-			const liveMsg = liveStatusObj?.liveMsg?.customLive
+			const liveMsg = liveMsgObj?.customLive
 				.replace("-name", masterInfo.username)
 				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 				.replace("-watched", watched)
@@ -1483,7 +1491,7 @@ class ComRegister {
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
 				// 定义开播通知语
-				const liveStartMsg = liveStatusObj?.liveMsg?.customLiveStart
+				const liveStartMsg = liveMsgObj?.customLiveStart
 					.replace("-name", masterInfo.username)
 					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 					.replace("-follower", follower)
@@ -1544,7 +1552,7 @@ class ComRegister {
 						: liveFollowerChangeNum.toString();
 				})();
 				// 定义下播播通知语
-				const liveEndMsg = liveStatusObj?.liveMsg?.customLiveEnd
+				const liveEndMsg = liveMsgObj?.customLiveEnd
 					.replace("-name", masterInfo.username)
 					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 					.replace("-follower_change", followerChange)
@@ -1583,7 +1591,7 @@ class ComRegister {
 			// 获取当前累计观看人数
 			const watched = watchedNum || "暂未获取到";
 			// 定义直播中通知消息
-			const liveMsg = liveStatusObj?.liveMsg?.customLive
+			const liveMsg = liveMsgObj?.customLive
 				.replace("-name", masterInfo.username)
 				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 				.replace("-watched", watched)
@@ -1691,6 +1699,8 @@ class ComRegister {
 			const uid = item.uid.toString();
 			// 获取用户直播状态
 			const liveStatus = this.liveStatusManager.get(uid);
+			// 获取用户推送消息对象
+			const liveMsgObj = this.liveMsgManager.get(uid);
 			// 获取用户sub
 			const sub = this.subManager.find((sub) => sub.uid === uid);
 			// 判断直播状态
@@ -1707,7 +1717,7 @@ class ComRegister {
 					liveStatus.liveStartTimeInit = true;
 				}
 				// 设置直播中消息
-				const liveMsg = liveStatus.liveMsg?.customLive
+				const liveMsg = liveMsgObj?.customLive
 					.replace("-name", liveStatus.masterInfo.username)
 					.replace(
 						"-time",
@@ -1744,6 +1754,8 @@ class ComRegister {
 				const uid = item.uid.toString();
 				// 获取用户直播状态
 				const liveStatus = this.liveStatusManager.get(uid);
+				// 获取用户推送消息对象
+				const liveMsgObj = this.liveMsgManager.get(uid);
 				// 获取sub
 				const sub = this.subManager.find((sub) => sub.uid === uid);
 				// 如果未找到sub直接返回
@@ -1794,7 +1806,7 @@ class ComRegister {
 									: liveFollowerChangeNum.toString();
 							})();
 							// 定义下播播通知语
-							const liveEndMsg = liveStatus.liveMsg?.customLiveEnd
+							const liveEndMsg = liveMsgObj?.customLiveEnd
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
@@ -1848,7 +1860,7 @@ class ComRegister {
 									? `${(liveStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 									: liveStatus.masterInfo.liveOpenFollowerNum.toString();
 							// 定义开播通知语
-							const liveStartMsg = liveStatus.liveMsg?.customLiveStart
+							const liveStartMsg = liveMsgObj?.customLiveStart
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
@@ -1906,7 +1918,7 @@ class ComRegister {
 								liveStatus.liveStartTimeInit = true;
 							}
 							// 设置直播中消息
-							const liveMsg = liveStatus.liveMsg?.customLive
+							const liveMsg = liveMsgObj?.customLive
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
@@ -2177,7 +2189,7 @@ class ComRegister {
 
 	async loadSubFromConfig(subs: ComRegister.Config["sub"]): Promise<Result> {
 		// 初始化pushRecord
-		this.initPushRecord(subs);
+		this.preInitConfig(subs);
 		// 加载订阅
 		for (const sub of subs) {
 			// logger

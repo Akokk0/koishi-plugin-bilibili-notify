@@ -172,25 +172,15 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 				Schema.union([
 					Schema.object({
 						enable: Schema.const(true).required(),
-						customLiveStart: Schema.string()
-							.default("-name开播啦，当前粉丝数：-follower\\n-link")
-							.description(
-								"自定义开播提示语，-name代表UP昵称，-follower代表当前粉丝数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name开播啦，会发送为xxxUP开播啦",
-							),
-						customLive: Schema.string()
-							.default(
-								"-name正在直播，目前已播-time，累计观看人数：-watched\\n-link",
-							)
-							.description(
-								"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计观看人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
-							),
-						customLiveEnd: Schema.string()
-							.default(
-								"-name下播啦，本次直播了-time，粉丝数变化-follower_change",
-							)
-							.description(
-								"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长，\\n为换行。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
-							),
+						customLiveStart: Schema.string().description(
+							"自定义开播提示语，-name代表UP昵称，-follower代表当前粉丝数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name开播啦，会发送为xxxUP开播啦",
+						),
+						customLive: Schema.string().description(
+							"自定义直播中提示语，-name代表UP昵称，-time代表开播时长，-watched代表累计观看人数，-link代表直播间链接（如果使用的是QQ官方机器人，请不要使用），\\n为换行。例如-name正在直播，会发送为xxxUP正在直播xxx",
+						),
+						customLiveEnd: Schema.string().description(
+							"自定义下播提示语，-name代表UP昵称，-follower_change代表本场直播粉丝数变，-time代表开播时长，\\n为换行。例如-name下播啦，本次直播了-time，会发送为xxxUP下播啦，直播时长为xx小时xx分钟xx秒",
+						),
 					}),
 					Schema.object({}),
 				]),

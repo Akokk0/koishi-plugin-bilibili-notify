@@ -251,7 +251,6 @@ export type LiveStatus = {
 	liveStartTimeInit: boolean;
 	liveStartTime: string;
 	push: number;
-	liveMsg: LiveMsg;
 };
 
 export type AllDynamicInfo = {
