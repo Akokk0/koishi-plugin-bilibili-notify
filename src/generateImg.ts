@@ -1481,6 +1481,121 @@ class GenerateImg extends Service {
 		});
 	}
 
+	async generateWordCloudImg(words: Array<[string, number]>, masterName: string) {
+		const html = /* html */ `
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+
+        <head>
+            <meta charset="UTF-8">
+            <title>高清词云展示</title>
+            <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap" rel="stylesheet">
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                html {
+                    width: 720px;
+                    height: 520px;
+                }
+
+                .wordcloud-bg {
+                    width: 720px;
+                    height: 520px;
+                    background: linear-gradient(to right, #e0eafc, #cfdef3);
+                    font-family: 'Quicksand', sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                }
+
+                .wordcloud-card {
+                    width: 700px;
+                    height: 500px;
+                    backdrop-filter: blur(10px);
+                    background: rgba(255, 255, 255, 0.25);
+                    border-radius: 20px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+                    padding: 20px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                h2 {
+                    margin: 0 0 10px;
+                    color: #333;
+                    font-size: 24px;
+                }
+
+                canvas {
+                    width: 100%;
+                    height: 100%;
+                    display: block;
+                }
+            </style>
+        </head>
+
+        <body>
+            <div class="wordcloud-bg">
+                <div class="wordcloud-card">
+                    <h2>${masterName}直播弹幕词云</h2>
+                    <canvas id="wordCloudCanvas"></canvas>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.1.2/src/wordcloud2.min.js"></script>
+            <script>
+                const canvas = document.getElementById('wordCloudCanvas');
+                const ctx = canvas.getContext('2d');
+
+                // 获取 CSS 大小
+                const style = getComputedStyle(canvas);
+                const cssWidth = parseInt(style.width);
+                const cssHeight = parseInt(style.height);
+                const ratio = window.devicePixelRatio || 1;
+
+                // 设置 canvas 分辨率 & 缩放
+                canvas.width = cssWidth * ratio;
+                canvas.height = cssHeight * ratio;
+                ctx.scale(ratio, ratio);
+
+                const words = ${JSON.stringify(words)}
+
+                WordCloud(canvas, {
+                    list: words,
+                    gridSize: Math.round(8 * (cssWidth / 1024)), // 自动适配大小
+                    weightFactor: size => size * (cssWidth / 1024) * 1.2,
+                    fontFamily: 'Quicksand, sans-serif',
+                    color: () => {
+                        const colors = ['#007CF0', '#00DFD8', '#7928CA', '#FF0080', '#FF4D4D', '#F9CB28'];
+                        return colors[Math.floor(Math.random() * colors.length)];
+                    },
+                    rotateRatio: 0.5,
+                    rotationSteps: 2,
+                    backgroundColor: 'transparent',
+                    drawOutOfBound: false,
+                    origin: [cssWidth / 2, cssHeight / 2], // 居中关键点
+                    // 明确告诉 wordcloud2 使用这个宽高（以 CSS 尺寸为准）
+                    width: cssWidth,
+                    height: cssHeight,
+                });
+            </script>
+        </body>
+
+        </html>
+        `;
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
+
 	async getLiveStatus(
 		time: string,
 		liveStatus: number,

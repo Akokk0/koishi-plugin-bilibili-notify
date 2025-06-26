@@ -38,6 +38,7 @@ import {
 	type SubManager,
 } from "./type";
 import { DateTime } from "luxon";
+import { Segment, useDefault } from "segmentit";
 
 class ComRegister {
 	// 必须服务
@@ -82,6 +83,8 @@ class ComRegister {
 	dynamicJob: CronJob;
 	// 直播检测销毁函数
 	liveJob: CronJob;
+	// 创建segmentit
+	_segmentit = useDefault(new Segment());
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -1330,6 +1333,18 @@ class ComRegister {
 		);
 	}
 
+	async segmentDanmaku(
+		danmaku: string,
+		danmakuWeightRecord: Record<string, number>,
+	) {
+		// 分词
+		this._segmentit.doSegment(danmaku).map(({ w, p }) => {
+			if (p && p === 2048) return;
+			// 定义权重
+			danmakuWeightRecord[w] = (danmakuWeightRecord[w] || 0) + 1;
+		});
+	}
+
 	async liveDetectWithListener(
 		roomId: string,
 		uid: string,
@@ -1340,7 +1355,7 @@ class ComRegister {
 		// 定义定时推送定时器
 		let pushAtTimeTimer: () => void;
 		// 定义弹幕存放数组
-		const currentLiveDanmakuArr: Array<string> = [];
+		const danmakuWeightRecord: Record<string, number> = {};
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
@@ -1445,12 +1460,12 @@ class ComRegister {
 				this.logger.error(`[${roomId}]直播间连接发生错误！`);
 			},
 			onIncomeDanmu: ({ body }) => {
-				// 保存消息到数组
-				currentLiveDanmakuArr.push(body.content);
+				// 分词
+				this.segmentDanmaku(body.content, danmakuWeightRecord);
 			},
 			onIncomeSuperChat: ({ body }) => {
-				// 保存消息到数组
-				currentLiveDanmakuArr.push(body.content);
+				// 分词
+				this.segmentDanmaku(body.content, danmakuWeightRecord);
 			},
 			onWatchedChange: ({ body }) => {
 				// 保存观看人数到变量
@@ -1573,6 +1588,21 @@ class ComRegister {
 				pushAtTimeTimer();
 				// 将推送定时器变量置空
 				pushAtTimeTimer = null;
+
+				/* 制作弹幕词云 */
+				// 将record转化为二维数组
+				const words = Object.entries(danmakuWeightRecord);
+				// 生成弹幕词云图片
+				const buffer = await this.ctx.gi.generateWordCloudImg(
+					words,
+					masterInfo.username,
+				);
+				// 发送词云图片
+				await this.broadcastToTargets(
+					uid,
+					h.image(buffer, "image/jpeg"),
+					PushType.Live,
+				);
 			},
 		};
 		// 启动直播间弹幕监测
