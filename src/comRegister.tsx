@@ -1381,7 +1381,7 @@ class ComRegister {
 				.replace("-name", masterInfo.username)
 				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 				.replace("-watched", watched)
-				.replace("\\n", "\n")
+				.replaceAll("\\n", "\n")
 				.replace(
 					"-link",
 					`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1495,7 +1495,7 @@ class ComRegister {
 					.replace("-name", masterInfo.username)
 					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 					.replace("-follower", follower)
-					.replace("\\n", "\n")
+					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
 						`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1556,7 +1556,7 @@ class ComRegister {
 					.replace("-name", masterInfo.username)
 					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 					.replace("-follower_change", followerChange)
-					.replace("\\n", "\n");
+					.replaceAll("\\n", "\n");
 				// 推送通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
@@ -1595,7 +1595,7 @@ class ComRegister {
 				.replace("-name", masterInfo.username)
 				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
 				.replace("-watched", watched)
-				.replace("\\n", "\n")
+				.replaceAll("\\n", "\n")
 				.replace(
 					"-link",
 					`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
@@ -1724,7 +1724,7 @@ class ComRegister {
 						await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 					)
 					.replace("-watched", "API模式无法获取")
-					.replace("\\n", "\n")
+					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
 						`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
@@ -1813,7 +1813,7 @@ class ComRegister {
 									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-follower_change", followerChange)
-								.replace("\\n", "\n");
+								.replaceAll("\\n", "\n");
 							// 推送通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.StopBroadcast,
@@ -1867,7 +1867,7 @@ class ComRegister {
 									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-follower", follower)
-								.replace("\\n", "\n")
+								.replaceAll("\\n", "\n")
 								.replace(
 									"-link",
 									`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,
@@ -1925,7 +1925,7 @@ class ComRegister {
 									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-watched", "API模式无法获取")
-								.replace("\\n", "\n")
+								.replaceAll("\\n", "\n")
 								.replace(
 									"-link",
 									`https://live.bilibili.com/${liveStatus.liveRoomInfo.short_id === 0 ? liveStatus.liveRoomInfo.room_id : liveStatus.liveRoomInfo.short_id}`,

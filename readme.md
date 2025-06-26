@@ -297,6 +297,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.7-alpha.1 修复：加载 `bili_ticket` 失败会导致插件加载失败；
 > - ver 3.2.8-alpha.0 修复：插件重启报错 `RangeError: Invalid time value` ； 新增：选项 `sub.liveMsg` ，可自定义每个UP个性化的直播推送语；
 > - ver 3.2.8-alpha.1 修复：直播推送没有推送语；
+> - ver 3.2.8-alpha.2 优化：直播推送语中，会换行所有换行符而不是第一个，其余参数仍只会替换第一个
 
 ## 交流群
 
