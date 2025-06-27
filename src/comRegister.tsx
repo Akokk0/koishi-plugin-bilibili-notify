@@ -1365,6 +1365,27 @@ class ComRegister {
 		let watchedNum: string;
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(uid);
+
+		// 定义函数
+		const sendDanmakuWordCloud = async () => {
+			/* 制作弹幕词云 */
+			// 拿到前50个热词
+			const top50Words = Object.entries(danmakuWeightRecord)
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 50);
+			// 生成弹幕词云图片
+			const buffer = await this.ctx.gi.generateWordCloudImg(
+				top50Words,
+				masterInfo.username,
+			);
+			// 发送词云图片
+			await this.broadcastToTargets(
+				uid,
+				h.image(buffer, "image/jpeg"),
+				PushType.Live,
+			);
+		};
+
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
@@ -1603,6 +1624,8 @@ class ComRegister {
 					h.image(buffer, "image/jpeg"),
 					PushType.Live,
 				);
+				// 发送弹幕词云
+				await sendDanmakuWordCloud();
 			},
 		};
 		// 启动直播间弹幕监测

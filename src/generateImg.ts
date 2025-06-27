@@ -1481,7 +1481,10 @@ class GenerateImg extends Service {
 		});
 	}
 
-	async generateWordCloudImg(words: Array<[string, number]>, masterName: string) {
+	async generateWordCloudImg(
+		words: Array<[string, number]>,
+		masterName: string,
+	) {
 		const html = /* html */ `
         <!DOCTYPE html>
         <html lang="zh-CN">
@@ -1566,10 +1569,25 @@ class GenerateImg extends Service {
 
                 const words = ${JSON.stringify(words)}
 
+                // 词云大小缩放
+                const maxWeight = Math.max(...words.map(w => w[1]));
+                const minWeight = Math.min(...words.map(w => w[1]));
+
+                // 设置最大字体大小、最小字体大小（以像素为单位）
+                const maxFontSize = 60;
+                const minFontSize = 14;
+
+                // 用映射函数代替 weightFactor
+                function getWeightFactor(size) {
+                    if (maxWeight === minWeight) return maxFontSize; // 防止除0
+                    const ratio = (size - minWeight) / (maxWeight - minWeight);
+                    return minFontSize + (maxFontSize - minFontSize) * ratio;
+                }
+
                 WordCloud(canvas, {
                     list: words,
                     gridSize: Math.round(8 * (cssWidth / 1024)), // 自动适配大小
-                    weightFactor: size => size * (cssWidth / 1024) * 1.2,
+                    weightFactor: getWeightFactor,
                     fontFamily: 'Quicksand, sans-serif',
                     color: () => {
                         const colors = ['#007CF0', '#00DFD8', '#7928CA', '#FF0080', '#FF4D4D', '#F9CB28'];

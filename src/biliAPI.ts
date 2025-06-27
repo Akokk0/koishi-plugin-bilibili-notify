@@ -482,9 +482,12 @@ class BiliAPI extends Service {
 		},
 	})
 	async getCookieInfo(refreshToken: string) {
-		const { data } = await this.client.get(
-			`${GET_COOKIES_INFO}?csrf=${refreshToken}`,
-		);
+		const { data } = await this.client
+			.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
+			.catch((e) => {
+				this.logger.info(e.message);
+				return null;
+			});
 		return data;
 	}
 
@@ -877,7 +880,7 @@ class BiliAPI extends Service {
 		try {
 			const { data } = await this.getCookieInfo(refreshToken);
 			// 不需要刷新，直接返回
-			if (!data.refresh) return;
+			if (!data?.refresh) return;
 		} catch (_) {
 			// 发送三次仍网络错误则直接刷新cookie
 			if (times >= 1) {
