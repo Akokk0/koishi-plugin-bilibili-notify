@@ -1485,6 +1485,15 @@ class GenerateImg extends Service {
 		words: Array<[string, number]>,
 		masterName: string,
 	) {
+		// 加载字体
+		const fontURL = pathToFileURL(
+			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
+		);
+        // 加载静态资源
+		const wordcloudJS = pathToFileURL(
+			resolve(__dirname, "static/wordcloud2.min.js"),
+		);
+		// 定义html
 		const html = /* html */ `
         <!DOCTYPE html>
         <html lang="zh-CN">
@@ -1494,10 +1503,16 @@ class GenerateImg extends Service {
             <title>高清词云展示</title>
             <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap" rel="stylesheet">
             <style>
+                @font-face {
+                    font-family: "Custom Font";
+                    src: url(${fontURL});
+                }
+        
                 * {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
+                    font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {
@@ -1551,7 +1566,7 @@ class GenerateImg extends Service {
                 </div>
             </div>
 
-            <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.1.2/src/wordcloud2.min.js"></script>
+            <script src="${wordcloudJS}"></script>
             <script>
                 const canvas = document.getElementById('wordCloudCanvas');
                 const ctx = canvas.getContext('2d');

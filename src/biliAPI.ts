@@ -99,6 +99,8 @@ class BiliAPI extends Service {
 		// 安装缓存
 		this.cacheable.install(http.globalAgent);
 		this.cacheable.install(https.globalAgent);
+		// 创建cookieJar
+		this.jar = new CookieJar();
 		// 创建新的http客户端(axios)
 		await this.createNewClient();
 		// 从数据库加载cookies
@@ -662,8 +664,6 @@ class BiliAPI extends Service {
 	async createNewClient() {
 		// import wrapper
 		const wrapper = (await import("axios-cookiejar-support")).wrapper;
-		// 创建cookieJar
-		this.jar = new CookieJar();
 		// 包装cookieJar
 		this.client = wrapper(
 			axios.create({
@@ -684,9 +684,6 @@ class BiliAPI extends Service {
 		try {
 			// 获取cookies
 			const cookies = this.jar.serializeSync().cookies.map((cookie) => {
-				if (!cookie.expires) {
-					cookie.expires = "Infinity"; // 如果没有expires字段，则设置为Infinity
-				}
 				return cookie;
 			});
 			// 返回cookies的JSON字符串
@@ -800,13 +797,22 @@ class BiliAPI extends Service {
 				httpOnly = cookieData.httpOnly;
 				sameSite = cookieData.sameSite;
 			}
+			// 获取expires
+			const cdExpires = (() => {
+				// 判断expires
+				if (!cookieData.expires) {
+					return "Infinity";
+				}
+				if (cookieData.expires !== "Infinity") {
+					return DateTime.fromISO(cookieData.expires).toJSDate();
+				}
+				return cookieData.expires;
+			})();
 			// 创建一个完整的 Cookie 实例
 			const cookie = new Cookie({
 				key: cookieData.key,
 				value: cookieData.value,
-				expires: cookieData.expires
-					? DateTime.fromISO(cookieData.expires).toJSDate()
-					: "Infinity",
+				expires: cdExpires,
 				domain: cookieData.domain,
 				path: cookieData.path,
 				secure: cookieData.secure,
@@ -915,7 +921,7 @@ class BiliAPI extends Service {
 			);
 		}
 		// 获取CorrespondPath
-		const ts = DateTime.now().toSeconds();
+		const ts = DateTime.now().toMillis();
 		const correspondPath = await getCorrespondPath(ts);
 		// 获取refresh_csrf
 		const { data: refreshCsrfHtml } = await this.client.get(

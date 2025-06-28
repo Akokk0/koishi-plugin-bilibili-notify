@@ -6,6 +6,9 @@
 		"useIgnoreFile": false
 	},
 	"files": {
+		"experimentalScannerIgnores": [
+			"static/**"
+		],
 		"ignoreUnknown": false,
 		"includes": ["**"]
 	},

@@ -365,6 +365,69 @@ class ComRegister {
 				// 发送图片
 				buffer && (await session.send(h.image(buffer, "image/jpeg")));
 			});
+
+		biliCom.subcommand(".wc").action(async ({ session }) => {
+			const words: Array<[string, number]> = [
+				["kq8z1", 57],
+				["v2n3a", 142],
+				["b7x9p", 13],
+				["w4m2s", 199],
+				["t1j6u", 85],
+				["z8c5l", 120],
+				["h3r7y", 34],
+				["n6d2q", 178],
+				["p9s4e", 66],
+				["f2g8b", 101],
+				["m5v1k", 12],
+				["x7a3w", 154],
+				["c4t9z", 47],
+				["u1b6n", 193],
+				["e8y2h", 23],
+				["j3l7p", 88],
+				["s6q4d", 132],
+				["g9m5x", 59],
+				["a2w8c", 175],
+				["l5h1v", 99],
+				["y7k3t", 41],
+				["d4z9u", 186],
+				["q1e6j", 27],
+				["r8p2s", 112],
+				["b3n7f", 73],
+				["v6x4m", 160],
+				["t9c5w", 53],
+				["z2u8h", 141],
+				["h5y1j", 36],
+				["n7l3s", 190],
+				["p4d9g", 18],
+				["f1b6a", 124],
+				["m8v2x", 62],
+				["x3a7c", 157],
+				["c6t4u", 44],
+				["u9b5e", 183],
+				["e2y8k", 29],
+				["j1l6q", 91],
+				["s8g3m", 138],
+				["g5w1t", 55],
+				["a7z4h", 172],
+				["l2h8p", 97],
+				["y5k1n", 39],
+				["d7u3f", 188],
+				["q4e9v", 21],
+				["r1p6x", 117],
+				["b8n5c", 70],
+				["v3x7w", 163],
+				["t6c4a", 49],
+				["z9u2j", 146],
+			];
+			await session.send(
+				<message>
+					{h.image(
+						await this.ctx.gi.generateWordCloudImg(words, "图云测试"),
+						"image/jpg",
+					)}
+				</message>,
+			);
+		});
 	}
 
 	async init(config: ComRegister.Config) {
