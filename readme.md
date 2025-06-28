@@ -303,6 +303,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.9-alpha.0 新增：弹幕词云； 不建议更新，目前仅做测试用！
 > - ver 3.2.9-alpha.1 修复：弹幕词云显示问题，弹幕过多导致插件爆炸； 不建议更新，目前仅做测试用！
 > - ver 3.2.9-alpha.2 修复：`AxiosError: Request failed with status code 404 xxx at async BiliAPI.checkIfTokenNeedRefresh`、潜在cookie相关bug、弹幕词云bug `Error: 生成图片失败！错误: TimeoutError: Navigation timeout of 30000 ms exceeded`
+> - ver 3.2.9-alpha.3 修复：词云生成空白
 
 
 ## 交流群

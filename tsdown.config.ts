@@ -10,5 +10,6 @@ export default defineConfig({
 		{ from: "./src/page", to: "./lib/page" },
 		{ from: "./src/img", to: "./lib/img" },
 		{ from: "./src/font", to: "./lib/font" },
+		{ from: "./src/static", to: "./lib/static" },
 	],
 });

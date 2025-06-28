@@ -422,7 +422,7 @@ class ComRegister {
 			await session.send(
 				<message>
 					{h.image(
-						await this.ctx.gi.generateWordCloudImg(words, "图云测试"),
+						await this.ctx.gi.generateWordCloudImg(words, "词云测试"),
 						"image/jpg",
 					)}
 				</message>,
