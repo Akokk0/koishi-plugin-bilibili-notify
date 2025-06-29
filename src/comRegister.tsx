@@ -1432,15 +1432,21 @@ class ComRegister {
 		// 定义函数
 		const sendDanmakuWordCloud = async () => {
 			/* 制作弹幕词云 */
+			this.logger.info("开始制作弹幕词云")
+			this.logger.info("正在获取前50热词")
 			// 拿到前50个热词
 			const top50Words = Object.entries(danmakuWeightRecord)
 				.sort((a, b) => b[1] - a[1])
 				.slice(0, 50);
+			this.logger.info("弹幕词云前50词及权重：");
+			this.logger.info(top50Words);
+			this.logger.info("正在准备生成弹幕词云")
 			// 生成弹幕词云图片
 			const buffer = await this.ctx.gi.generateWordCloudImg(
 				top50Words,
 				masterInfo.username,
 			);
+			this.logger.info("弹幕词云生成完成，正在准备发送词云图片")
 			// 发送词云图片
 			await this.broadcastToTargets(
 				uid,
@@ -1672,21 +1678,6 @@ class ComRegister {
 				pushAtTimeTimer();
 				// 将推送定时器变量置空
 				pushAtTimeTimer = null;
-
-				/* 制作弹幕词云 */
-				// 将record转化为二维数组
-				const words = Object.entries(danmakuWeightRecord);
-				// 生成弹幕词云图片
-				const buffer = await this.ctx.gi.generateWordCloudImg(
-					words,
-					masterInfo.username,
-				);
-				// 发送词云图片
-				await this.broadcastToTargets(
-					uid,
-					h.image(buffer, "image/jpeg"),
-					PushType.Live,
-				);
 				// 发送弹幕词云
 				await sendDanmakuWordCloud();
 			},
