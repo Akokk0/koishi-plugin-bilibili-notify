@@ -1493,6 +1493,9 @@ class GenerateImg extends Service {
 		const wordcloudJS = pathToFileURL(
 			resolve(__dirname, "static/wordcloud2.min.js"),
 		);
+        const renderFunc = pathToFileURL(
+            resolve(__dirname, "static/render.js")
+        )
 		// 定义html
 		const html = /* html */ `
         <!DOCTYPE html>
@@ -1501,7 +1504,6 @@ class GenerateImg extends Service {
         <head>
             <meta charset="UTF-8">
             <title>高清词云展示</title>
-            <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap" rel="stylesheet">
             <style>
                 @font-face {
                     font-family: "Custom Font";
@@ -1567,6 +1569,7 @@ class GenerateImg extends Service {
             </div>
 
             <script src="${wordcloudJS}"></script>
+            <script src="${renderFunc}"></script>
             <script>
                 const canvas = document.getElementById('wordCloudCanvas');
                 const ctx = canvas.getContext('2d');
@@ -1584,38 +1587,11 @@ class GenerateImg extends Service {
 
                 const words = ${JSON.stringify(words)}
 
-                // 词云大小缩放
-                const maxWeight = Math.max(...words.map(w => w[1]));
-                const minWeight = Math.min(...words.map(w => w[1]));
-
-                // 设置最大字体大小、最小字体大小（以像素为单位）
-                const maxFontSize = 80;
-                const minFontSize = 14;
-
-                // 用映射函数代替 weightFactor
-                function getWeightFactor(size) {
-                    if (maxWeight === minWeight) return maxFontSize; // 防止除0
-                    const ratio = (size - minWeight) / (maxWeight - minWeight);
-                    return minFontSize + (maxFontSize - minFontSize) * Math.pow(ratio, 0.85);
-                }
-
-                WordCloud(canvas, {
-                    list: words,
-                    gridSize: Math.max(4, Math.round(5 * (cssWidth / 1024))),
-                    weightFactor: getWeightFactor,
-                    fontFamily: 'Quicksand, sans-serif',
-                    color: () => {
-                        const colors = ['#007CF0', '#00DFD8', '#7928CA', '#FF0080', '#FF4D4D', '#F9CB28'];
-                        return colors[Math.floor(Math.random() * colors.length)];
-                    },
-                    rotateRatio: 0.5,
-                    rotationSteps: 2,
-                    backgroundColor: 'transparent',
-                    drawOutOfBound: false,
-                    origin: [cssWidth / 2, cssHeight / 2], // 居中关键点
-                    // 明确告诉 wordcloud2 使用这个宽高（以 CSS 尺寸为准）
-                    width: cssWidth,
-                    height: cssHeight,
+                renderAutoFitWordCloud(canvas, words, {
+                    maxFontSize: 40,
+                    minFontSize: 12,
+                    densityTarget: 0.3,
+                    weightExponent: 0.5
                 });
             </script>
         </body>
