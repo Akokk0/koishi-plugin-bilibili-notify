@@ -305,6 +305,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.2.9-alpha.2 修复：`AxiosError: Request failed with status code 404 xxx at async BiliAPI.checkIfTokenNeedRefresh`、潜在cookie相关bug、弹幕词云bug `Error: 生成图片失败！错误: TimeoutError: Navigation timeout of 30000 ms exceeded`
 > - ver 3.2.9-alpha.3 修复：词云生成空白
 > - ver 3.2.9-alpha.4 修复：弹幕词云bug `Error: 生成图片失败！错误: TimeoutError: Navigation timeout of 30000 ms exceeded`
+> - ver 3.2.9-rc.0 优化：弹幕词云生成效果、选项 `pushTime` 设置为0时可关闭该功能； 新增：选项 `wordcloud` 可选择在直播结束后是否生成弹幕词云
 
 ## 交流群
 

@@ -1589,19 +1589,19 @@ class GenerateImg extends Service {
                 const minWeight = Math.min(...words.map(w => w[1]));
 
                 // 设置最大字体大小、最小字体大小（以像素为单位）
-                const maxFontSize = 60;
+                const maxFontSize = 80;
                 const minFontSize = 14;
 
                 // 用映射函数代替 weightFactor
                 function getWeightFactor(size) {
                     if (maxWeight === minWeight) return maxFontSize; // 防止除0
                     const ratio = (size - minWeight) / (maxWeight - minWeight);
-                    return minFontSize + (maxFontSize - minFontSize) * ratio;
+                    return minFontSize + (maxFontSize - minFontSize) * Math.pow(ratio, 0.85);
                 }
 
                 WordCloud(canvas, {
                     list: words,
-                    gridSize: Math.round(8 * (cssWidth / 1024)), // 自动适配大小
+                    gridSize: Math.max(4, Math.round(5 * (cssWidth / 1024))),
                     weightFactor: getWeightFactor,
                     fontFamily: 'Quicksand, sans-serif',
                     color: () => {

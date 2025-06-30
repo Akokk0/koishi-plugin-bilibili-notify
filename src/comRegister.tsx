@@ -418,6 +418,146 @@ class ComRegister {
 				["v3x7w", 163],
 				["t6c4a", 49],
 				["z9u2j", 146],
+				["k1q8z", 102],
+				["v7n2a", 31],
+				["b4x9p", 176],
+				["w2m5s", 61],
+				["t8j3u", 150],
+				["z5c7l", 84],
+				["h2r8y", 196],
+				["n9d1q", 44],
+				["p6s3e", 123],
+				["f8g2b", 17],
+				["m1v7k", 109],
+				["x4a9w", 72],
+				["c7t2z", 180],
+				["u5b8n", 38],
+				["e1y3h", 134],
+				["j8l6p", 56],
+				["s2q9d", 191],
+				["g7m4x", 25],
+				["a5w8c", 113],
+				["l9h2v", 68],
+				["y1k7t", 159],
+				["d8z3u", 45],
+				["q2e6j", 177],
+				["r7p1s", 80],
+				["b5n9f", 126],
+				["v1x4m", 32],
+				["t7c8w", 198],
+				["z4u2h", 54],
+				["h9y5j", 143],
+				["n2l7s", 19],
+				["p8d1g", 104],
+				["f5b3a", 67],
+				["m2v9x", 171],
+				["x8a4c", 40],
+				["c1t7u", 187],
+				["u4b2e", 28],
+				["e9y6k", 135],
+				["j2l8q", 60],
+				["s7g1m", 119],
+				["g4w5t", 76],
+				["a9z2h", 164],
+				["l1h7p", 35],
+				["y8k3n", 185],
+				["d2u9f", 22],
+				["q7e4v", 110],
+				["r5p8x", 69],
+				["b1n6c", 152],
+				["v8x2w", 48],
+				["t4c7a", 142],
+				["z7u1j", 99],
+				["k2q5z", 174],
+				["v9n8a", 37],
+				["b6x3p", 189],
+				["w1m7s", 24],
+				["t5j2u", 115],
+				["z1c8l", 63],
+				["h6r4y", 155],
+				["n3d9q", 50],
+				["p7s2e", 137],
+				["f9g1b", 81],
+				["m4v6k", 170],
+				["x1a8w", 42],
+				["c8t3z", 194],
+				["u2b7n", 26],
+				["e5y9h", 130],
+				["j9l1p", 58],
+				["s4q6d", 182],
+				["g1m8x", 33],
+				["a8w5c", 108],
+				["l3h9v", 75],
+				["y2k4t", 161],
+				["d9z1u", 46],
+				["q5e8j", 149],
+				["r2p7s", 20],
+				["b9n3f", 122],
+				["v4x6m", 65],
+				["t1c9w", 179],
+				["z8u5h", 30],
+				["h3y2j", 136],
+				["n5l8s", 52],
+				["p1d4g", 167],
+				["f6b9a", 95],
+				["m3v2x", 156],
+				["x9a5c", 43],
+				["c2t8u", 192],
+				["u7b1e", 16],
+				["e4y6k", 129],
+				["j5l3q", 78],
+				["s1g9m", 118],
+				["g8w2t", 71],
+				["a3z7h", 173],
+				["l6h1p", 36],
+				["y9k5n", 184],
+				["d1u8f", 15],
+				["q8e3v", 111],
+				["r4p6x", 64],
+				["b2n7c", 151],
+				["v5x1w", 47],
+				["t8c4a", 140],
+				["z3u9j", 98],
+				["k7q2z", 176],
+				["v1n5a", 55],
+				["b8x6p", 195],
+				["w3m1s", 14],
+				["t6j9u", 116],
+				["z2c5l", 61],
+				["h7r3y", 153],
+				["n4d8q", 51],
+				["p2s7e", 139],
+				["f7g5b", 82],
+				["m9v1k", 169],
+				["x5a3w", 38],
+				["c9t6z", 197],
+				["u3b8n", 17],
+				["e6y2h", 131],
+				["j7l5p", 59],
+				["s3q8d", 181],
+				["g2m4x", 34],
+				["a6w9c", 107],
+				["l8h2v", 74],
+				["y4k7t", 162],
+				["d6z5u", 49],
+				["q3e1j", 148],
+				["r9p2s", 21],
+				["b4n8f", 121],
+				["v7x5m", 68],
+				["t2c1w", 178],
+				["z5u3h", 31],
+				["h8y6j", 133],
+				["n1l4s", 57],
+				["p5d7g", 166],
+				["f3b2a", 96],
+				["m6v8x", 158],
+				["x2a9c", 45],
+				["c5t1u", 191],
+				["u8b4e", 19],
+				["e3y7k", 128],
+				["j6l2q", 79],
+				["s9g5m", 114],
+				["g5w3t", 73],
 			];
 			await session.send(
 				<message>
@@ -1432,21 +1572,21 @@ class ComRegister {
 		// 定义函数
 		const sendDanmakuWordCloud = async () => {
 			/* 制作弹幕词云 */
-			this.logger.info("开始制作弹幕词云")
-			this.logger.info("正在获取前50热词")
+			this.logger.info("开始制作弹幕词云");
+			this.logger.info("正在获取前150热词");
 			// 拿到前50个热词
-			const top50Words = Object.entries(danmakuWeightRecord)
+			const top150Words = Object.entries(danmakuWeightRecord)
 				.sort((a, b) => b[1] - a[1])
-				.slice(0, 50);
-			this.logger.info("弹幕词云前50词及权重：");
-			this.logger.info(top50Words);
-			this.logger.info("正在准备生成弹幕词云")
+				.slice(0, 150);
+			this.logger.info("弹幕词云前150词及权重：");
+			this.logger.info(top150Words);
+			this.logger.info("正在准备生成弹幕词云");
 			// 生成弹幕词云图片
 			const buffer = await this.ctx.gi.generateWordCloudImg(
-				top50Words,
+				top150Words,
 				masterInfo.username,
 			);
-			this.logger.info("弹幕词云生成完成，正在准备发送词云图片")
+			this.logger.info("弹幕词云生成完成，正在准备发送词云图片");
 			// 发送词云图片
 			await this.broadcastToTargets(
 				uid,
@@ -1618,7 +1758,7 @@ class ComRegister {
 					liveStartMsg,
 				);
 				// 判断定时器是否已开启
-				if (!pushAtTimeTimer) {
+				if (this.config.pushTime !== 0 && !pushAtTimeTimer) {
 					// 开始直播，开启定时器
 					pushAtTimeTimer = this.ctx.setInterval(
 						pushAtTimeFunc,
@@ -1678,8 +1818,11 @@ class ComRegister {
 				pushAtTimeTimer();
 				// 将推送定时器变量置空
 				pushAtTimeTimer = null;
-				// 发送弹幕词云
-				await sendDanmakuWordCloud();
+				// 判断是否需要发送弹幕词云
+				if (this.config.wordcloud) {
+					// 发送弹幕词云
+					await sendDanmakuWordCloud();
+				}
 			},
 		};
 		// 启动直播间弹幕监测
@@ -1722,7 +1865,7 @@ class ComRegister {
 				);
 			}
 			// 正在直播，开启定时器，判断定时器是否已开启
-			if (!pushAtTimeTimer) {
+			if (this.config.pushTime !== 0 && !pushAtTimeTimer) {
 				// 开始直播，开启定时器
 				pushAtTimeTimer = this.ctx.setInterval(
 					pushAtTimeFunc,
@@ -2466,6 +2609,7 @@ namespace ComRegister {
 			masterAccountGuildId: string;
 		};
 		liveDetectType: string;
+		wordcloud: boolean;
 		restartPush: boolean;
 		pushTime: number;
 		pushImgsInDynamic: boolean;
@@ -2544,6 +2688,7 @@ namespace ComRegister {
 			masterAccountGuildId: Schema.string(),
 		}),
 		liveDetectType: Schema.string(),
+		wordcloud: Schema.boolean(),
 		restartPush: Schema.boolean().required(),
 		pushTime: Schema.number().required(),
 		pushImgsInDynamic: Schema.boolean().required(),

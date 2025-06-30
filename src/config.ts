@@ -41,6 +41,7 @@ export interface BAConfig {
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
 	liveDetectType: "WS" | "API";
+	wordcloud: boolean;
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -264,6 +265,10 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		.description(
 			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
 		),
+
+	wordcloud: Schema.boolean()
+		.default(false)
+		.description("直播结束后，是否生成本场直播弹幕词云"),
 
 	restartPush: Schema.boolean()
 		.default(true)

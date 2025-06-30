@@ -113,6 +113,7 @@ class ServerManager extends Service {
 			const cr = this.ctx.plugin(ComRegister, {
 				sub: globalConfig.sub,
 				master: globalConfig.master,
+				wordcloud: globalConfig.wordcloud,
 				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
