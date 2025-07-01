@@ -370,56 +370,96 @@ class ComRegister {
 
 		biliCom.subcommand(".wc").action(async ({ session }) => {
 			const words: Array<[string, number]> = [
-				["弹幕护体", 77],
-				["笑死", 30],
-				["泪目", 45],
-				["加油", 70],
-				["？？？", 80],
-				["我可以", 66],
-				["无语", 55],
-				["梦开始的地方", 1],
-				["太真实了", 8],
-				["我哭死", 1],
-				["人呢", 2],
-				["有点意思", 4],
-				["妙啊", 4],
-				["这波啊", 11],
-				["懂了", 6],
-				["破防了", 65],
-				["蚌埠住了", 92],
-				["草", 100],
-				["针不戳", 68],
-				["yyds", 50],
-				["DNA动了", 58],
-				["猝不及防", 40],
-				["建议加精", 15],
-				["保护", 22],
-				["害怕", 18],
-				["就这？", 99],
-				["2333", 20],
-				["公开处刑", 35],
-				["血压上来了", 45],
-				["整不会了", 32],
-				["见证历史", 88],
-				["下次一定", 65],
-				["奥利给", 56],
-				["求更新", 18],
-				["真实", 20],
-				["好活当赏", 25],
-				["泪，冲了出来", 68],
-				["刻进DNA", 70],
-				["我直接好家伙", 55],
-				["夺笋啊", 40],
-				["歪歪滴艾斯", 1],
-				["典中典", 5],
-				["麻中麻", 3],
-				["绷不住了", 8],
-				["逆天", 95],
-				["寄", 65],
-				["孝", 20],
-				["乐", 101],
-				["急急急", 3],
-				["典", 5],
+				["摆烂", 60],
+				["可以", 42],
+				["可以", 42],
+				["可以", 42],
+				["dog", 40],
+				["dog", 40],
+				["不是", 37],
+				["不是", 37],
+				["就是", 27],
+				["就是", 27],
+				["吃瓜", 16],
+				["吃瓜", 16],
+				["吃瓜", 16],
+				["cj", 8],
+				["cj", 8],
+				["cj", 8],
+				["没有", 8],
+				["没有", 8],
+				["没有", 8],
+				["有点", 8],
+				["有点", 8],
+				["喜欢", 7],
+				["喜欢", 7],
+				["空调", 7],
+				["空调", 7],
+				["空调", 7],
+				["感觉", 7],
+				["感觉", 7],
+				["感觉", 7],
+				["时候", 6],
+				["时候", 6],
+				["怎么", 6],
+				["怎么", 6],
+				["痛车", 6],
+				["痛车", 6],
+				["一下", 6],
+				["一下", 6],
+				["还是", 6],
+				["还是", 6],
+				["麻麻", 6],
+				["麻麻", 6],
+				["下午", 5],
+				["下午", 5],
+				["开始", 5],
+				["开始", 5],
+				["一部", 5],
+				["一部", 5],
+				["这样", 5],
+				["这样", 5],
+				["上次", 5],
+				["上次", 5],
+				["游戏", 5],
+				["游戏", 5],
+				["这边", 5],
+				["这边", 5],
+				["问号", 5],
+				["问号", 5],
+				["好看", 5],
+				["好看", 5],
+				["哈哈哈", 5],
+				["哈哈哈", 5],
+				["角色", 5],
+				["角色", 5],
+				["味道", 5],
+				["味道", 5],
+				["233333", 4],
+				["233333", 4],
+				["老规矩", 4],
+				["老规矩", 4],
+				["鸣潮", 4],
+				["鸣潮", 4],
+				["养生", 4],
+				["养生", 4],
+				["划掉", 4],
+				["划掉", 4],
+				["排队", 4],
+				["排队", 4],
+				["cos", 4],
+				["cos", 4],
+				["的话", 4],
+				["的话", 4],
+				["我们", 4],
+				["主要", 4],
+				["www", 4],
+				["直接", 4],
+				["不好", 4],
+				["学校", 4],
+				["一样", 4],
+				["初中", 4],
+				["毕业", 4],
 			];
 
 			await session.send(
@@ -430,6 +470,51 @@ class ComRegister {
 					)}
 				</message>,
 			);
+
+			const top5DanmakuMaker = [
+				["张三", 60],
+				["李四", 48],
+				["王五", 45],
+				["赵六", 27],
+				["田七", 25],
+			];
+
+			const danmakerRankMsg = this.config.liveSummary
+				.replace("-dmc", "114")
+				.replace("-dca", "514")
+				.replace("-un1", `${top5DanmakuMaker[0][0]}`)
+				.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
+				.replace("-un2", `${top5DanmakuMaker[1][0]}`)
+				.replace("-dc2", `${top5DanmakuMaker[1][1]}`)
+				.replace("-un3", `${top5DanmakuMaker[2][0]}`)
+				.replace("-dc3", `${top5DanmakuMaker[2][1]}`)
+				.replace("-un4", `${top5DanmakuMaker[3][0]}`)
+				.replace("-dc4", `${top5DanmakuMaker[3][1]}`)
+				.replace("-un5", `${top5DanmakuMaker[4][0]}`)
+				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
+				.replaceAll("\\n", "\n");
+
+			/* // 构建消息
+			const danmakerRankMsg = (
+				<message>
+					🔍【弹幕情报站】本场直播数据如下：
+					<br />
+					🧍‍♂️ 总共 114 位特工上线 <br />💬 共计 514 条弹幕飞驰而过 <br />📊
+					热词云图已生成，快来看看你有没有上榜！
+					<br />
+					<br />👑 本场顶级输出选手：
+					<br />🥇 {top5DanmakuMaker[0][0]} - 弹幕输出 {top5DanmakuMaker[0][1]}{" "}
+					条 <br />🥈 {top5DanmakuMaker[1][0]} - 弹幕 {top5DanmakuMaker[1][1]}{" "}
+					条，萌力惊人 <br />🥉 {top5DanmakuMaker[2][0]} -{" "}
+					{top5DanmakuMaker[2][1]} 条精准狙击 <br />
+					<br />
+					🎖️ 特别嘉奖： {top5DanmakuMaker[3][0]} & {top5DanmakuMaker[4][0]}{" "}
+					<br />
+					你们的弹幕，我们都记录在案！🕵️‍♀️
+				</message>
+			); */
+
+			await session.send(danmakerRankMsg);
 
 			/* // 分词测试
 			const words = this._jieba.cut(
@@ -1422,6 +1507,13 @@ class ComRegister {
 			});
 	}
 
+	addUserToDanmakuMaker(
+		username: string,
+		danmakuMakerRecord: Record<string, number>,
+	) {
+		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
+	}
+
 	async liveDetectWithListener(
 		roomId: string,
 		uid: string,
@@ -1433,6 +1525,8 @@ class ComRegister {
 		let pushAtTimeTimer: () => void;
 		// 定义弹幕存放数组
 		const danmakuWeightRecord: Record<string, number> = {};
+		// 定义发送者及发言条数
+		const danmakuMakerRecord: Record<string, number> = {};
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
@@ -1447,17 +1541,21 @@ class ComRegister {
 		const sendDanmakuWordCloud = async () => {
 			/* 制作弹幕词云 */
 			this.logger.info("开始制作弹幕词云");
-			this.logger.info("正在获取前50热词");
-			// 拿到前50个热词
-			const top50Words = Object.entries(danmakuWeightRecord)
+			this.logger.info("正在获取前90热词");
+			// 拿到前90个热词
+			const top90Words = Object.entries(danmakuWeightRecord)
 				.sort((a, b) => b[1] - a[1])
-				.slice(0, 50);
-			this.logger.info("弹幕词云前50词及权重：");
-			this.logger.info(top50Words);
+				.slice(0, 90)
+				.map(
+					([word, weight]) =>
+						[word, weight > 60 ? 60 : weight] as [string, number],
+				);
+			this.logger.info("弹幕词云前90词及权重：");
+			this.logger.info(top90Words);
 			this.logger.info("正在准备生成弹幕词云");
 			// 生成弹幕词云图片
 			const buffer = await this.ctx.gi.generateWordCloudImg(
-				top50Words,
+				top90Words,
 				masterInfo.username,
 			);
 			this.logger.info("弹幕词云生成完成，正在准备发送词云图片");
@@ -1466,6 +1564,44 @@ class ComRegister {
 				uid,
 				h.image(buffer, "image/jpeg"),
 				PushType.Live,
+			);
+			// 词云图片发送完毕
+			this.logger.info("词云图片发送完毕！");
+			this.logger.info("开始构建弹幕发送排行榜消息");
+			// 弹幕发送者数量
+			const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
+			// 弹幕条数
+			const danmakuCount = Object.values(danmakuMakerRecord).reduce(
+				(sum, val) => sum + val,
+				0,
+			);
+			// 构建弹幕发送者排行
+			const top5DanmakuMaker = Object.entries(danmakuMakerRecord)
+				.sort((a, b) => b[1] - a[1])
+				.slice(0, 5);
+			// 构建消息
+			const danmakuMakerMsg = this.config.liveSummary
+				.replace("-dmc", `${danmakuMakerCount}`)
+				.replace("-dca", `${danmakuCount}`)
+				.replace("-un1", `${top5DanmakuMaker[0][0]}`)
+				.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
+				.replace("-un2", `${top5DanmakuMaker[1][0]}`)
+				.replace("-dc2", `${top5DanmakuMaker[1][1]}`)
+				.replace("-un3", `${top5DanmakuMaker[2][0]}`)
+				.replace("-dc3", `${top5DanmakuMaker[2][1]}`)
+				.replace("-un4", `${top5DanmakuMaker[3][0]}`)
+				.replace("-dc4", `${top5DanmakuMaker[3][1]}`)
+				.replace("-un5", `${top5DanmakuMaker[4][0]}`)
+				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
+				.replaceAll("\\n", "\n");
+			// 发送弹幕排行榜消息
+			await this.broadcastToTargets(uid, danmakuMakerMsg, PushType.Live);
+			// 清理弹幕数据
+			Object.keys(danmakuWeightRecord).forEach(
+				(key) => delete danmakuWeightRecord[key],
+			);
+			Object.keys(danmakuMakerRecord).forEach(
+				(key) => delete danmakuMakerRecord[key],
 			);
 		};
 
@@ -1518,6 +1654,7 @@ class ComRegister {
 				liveMsg,
 			);
 		};
+
 		// 定义直播间信息获取函数
 		const useMasterAndLiveRoomInfo = async (liveType: LiveType) => {
 			// 定义函数是否执行成功flag
@@ -1550,6 +1687,7 @@ class ComRegister {
 			// 返回信息
 			return flag;
 		};
+
 		// 构建消息处理函数
 		const handler: MsgHandler = {
 			onError: async () => {
@@ -1566,10 +1704,14 @@ class ComRegister {
 			onIncomeDanmu: ({ body }) => {
 				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
+				// 添加发送者
+				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
 			onIncomeSuperChat: ({ body }) => {
 				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
+				// 添加发送者
+				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
 			onWatchedChange: ({ body }) => {
 				// 保存观看人数到变量
@@ -2484,6 +2626,7 @@ namespace ComRegister {
 		};
 		liveDetectType: string;
 		wordcloud: boolean;
+		liveSummary: string;
 		restartPush: boolean;
 		pushTime: number;
 		pushImgsInDynamic: boolean;
@@ -2563,6 +2706,7 @@ namespace ComRegister {
 		}),
 		liveDetectType: Schema.string(),
 		wordcloud: Schema.boolean(),
+		liveSummary: Schema.string(),
 		restartPush: Schema.boolean().required(),
 		pushTime: Schema.number().required(),
 		pushImgsInDynamic: Schema.boolean().required(),

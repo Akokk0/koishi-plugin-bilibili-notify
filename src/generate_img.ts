@@ -1588,10 +1588,10 @@ class GenerateImg extends Service {
                 const words = ${JSON.stringify(words)}
 
                 renderAutoFitWordCloud(canvas, words, {
-                    maxFontSize: 40,
+                    maxFontSize: 60,
                     minFontSize: 12,
                     densityTarget: 0.3,
-                    weightExponent: 0.5
+                    weightExponent: 0.4
                 });
             </script>
         </body>

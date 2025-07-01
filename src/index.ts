@@ -114,6 +114,7 @@ class ServerManager extends Service {
 				sub: globalConfig.sub,
 				master: globalConfig.master,
 				wordcloud: globalConfig.wordcloud,
+				liveSummary: globalConfig.liveSummary,
 				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
