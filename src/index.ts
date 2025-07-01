@@ -4,12 +4,12 @@ import { type BAConfig, BAConfigSchema } from "./config";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-notifier";
 // import plugins
-import ComRegister from "./comRegister";
+import ComRegister from "./command_register";
 import * as Database from "./database";
 // import Service
-import GenerateImg from "./generateImg";
-import BiliAPI from "./biliAPI";
-import BLive from "./blive";
+import GenerateImg from "./generate_img";
+import BiliAPI from "./bili_api";
+import BLive from "./bili_live";
 
 export const inject = ["puppeteer", "database", "notifier"];
 

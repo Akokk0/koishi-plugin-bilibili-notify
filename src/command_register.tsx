@@ -38,7 +38,9 @@ import {
 	type SubManager,
 } from "./type";
 import { DateTime } from "luxon";
-import { Segment, useDefault } from "segmentit";
+import { Jieba } from "@node-rs/jieba";
+import { dict } from "@node-rs/jieba/dict";
+import { stopwords } from "./stop_words";
 
 class ComRegister {
 	// 必须服务
@@ -84,7 +86,7 @@ class ComRegister {
 	// 直播检测销毁函数
 	liveJob: CronJob;
 	// 创建segmentit
-	_segmentit = useDefault(new Segment());
+	_jieba = Jieba.withDict(dict);
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -419,6 +421,7 @@ class ComRegister {
 				["急急急", 3],
 				["典", 5],
 			];
+
 			await session.send(
 				<message>
 					{h.image(
@@ -427,6 +430,15 @@ class ComRegister {
 					)}
 				</message>,
 			);
+
+			/* // 分词测试
+			const words = this._jieba.cut(
+				"今天纽约的天气真好啊，京华大酒店的张尧经理吃了一只北京烤鸭。后天纽约的天气不好，昨天纽约的天气也不好，北京烤鸭真好吃",
+			);
+			const filtered = words.filter(
+				(word) => word.length >= 2 && !stopwords.has(word),
+			);
+			console.log(filtered); */
 		});
 	}
 
@@ -707,7 +719,7 @@ class ComRegister {
 		if (!this.checkAllBotsAreReady()) {
 			// 有机器人未准备好，直接返回
 			this.logger.error(
-				`有机器人未准备好，无法进行推送，${retry / 1000}秒后重试`,
+				`存在机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
 			);
 			// 重试
 			this.ctx.setTimeout(() => {
@@ -736,7 +748,7 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息群组/频道：${success}`);
+			this.logger.info(`成功推送全体成员消息：${success.length}条`);
 		}
 		// 推送动态
 		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
@@ -751,7 +763,7 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送动态消息群组/频道：${success}`);
+			this.logger.info(`成功推送动态消息：${success.length}条`);
 		}
 		// 推送直播
 		if (
@@ -766,7 +778,7 @@ class ComRegister {
 				return await this.ctx.broadcast(liveArr, <message>{content}</message>);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送直播消息群组/频道：${success}`);
+			this.logger.info(`成功推送直播消息：${success.length}条`);
 		}
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
@@ -781,7 +793,7 @@ class ComRegister {
 				);
 			}, 1);
 			// 发送成功群组
-			this.logger.info(`成功推送上舰消息群组/频道：${success}`);
+			this.logger.info(`成功推送上舰消息：${success.length}条`);
 		}
 		// 结束
 		return;
@@ -1401,11 +1413,13 @@ class ComRegister {
 		danmakuWeightRecord: Record<string, number>,
 	) {
 		// 分词
-		this._segmentit.doSegment(danmaku).map(({ w, p }) => {
-			if (p && p === 2048) return;
-			// 定义权重
-			danmakuWeightRecord[w] = (danmakuWeightRecord[w] || 0) + 1;
-		});
+		this._jieba
+			.cut(danmaku, true)
+			.filter((word) => word.length >= 2 && !stopwords.has(word))
+			.map((w) => {
+				// 定义权重
+				danmakuWeightRecord[w] = (danmakuWeightRecord[w] || 0) + 1;
+			});
 	}
 
 	async liveDetectWithListener(
