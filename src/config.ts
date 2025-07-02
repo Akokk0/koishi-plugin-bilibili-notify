@@ -269,12 +269,13 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	wordcloud: Schema.boolean()
 		.default(false)
-		.description("直播结束后，是否生成本场直播弹幕词云"),
+		.description("直播结束后，是否生成本场直播弹幕词云")
+		.experimental(),
 
 	liveSummary: Schema.string()
-		.default("🔍【弹幕情报站】本场直播数据如下：\\n🧍‍♂️ 总共 -dmc 位特工上线\\n💬 共计 -dca 条弹幕飞驰而过\\n📊 热词云图已生成，快来看看你有没有上榜！\\n\\n👑 本场顶级输出选手：\\n🥇 -un1 - 弹幕输出 -dc1 条\\n🥈 -un2 - 弹幕 -dc2 条，萌力惊人\\n🥉 -un3 - -dc3 条精准狙击\\n\\n🎖️ 特别嘉奖：-un4 & -un5\\n你们的弹幕，我们都记录在案！🕵️‍♀️")
+		.default("🔍【弹幕情报站】本场直播数据如下：\\n🧍‍♂️ 总共 -dmc 位-mdn上线\\n💬 共计 -dca 条弹幕飞驰而过\\n📊 热词云图已生成，快来看看你有没有上榜！\\n\\n👑 本场顶级输出选手：\\n🥇 -un1 - 弹幕输出 -dc1 条\\n🥈 -un2 - 弹幕 -dc2 条，萌力惊人\\n🥉 -un3 - -dc3 条精准狙击\\n\\n🎖️ 特别嘉奖：-un4 & -un5\\n你们的弹幕，我们都记录在案！🕵️‍♀️")
 		.description(
-			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量",
+			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量",
 		),
 
 	restartPush: Schema.boolean()

@@ -30,6 +30,7 @@ import {
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
+	type MasterInfoR,
 	type PushArrMap,
 	PushType,
 	PushTypeMsg,
@@ -370,9 +371,9 @@ class ComRegister {
 
 		biliCom.subcommand(".wc").action(async ({ session }) => {
 			const words: Array<[string, number]> = [
-				["摆烂", 60],
-				["可以", 42],
-				["可以", 42],
+				["摆烂", 91],
+				["可以", 82],
+				["可以", 72],
 				["可以", 42],
 				["dog", 40],
 				["dog", 40],
@@ -481,6 +482,7 @@ class ComRegister {
 
 			const danmakerRankMsg = this.config.liveSummary
 				.replace("-dmc", "114")
+				.replace("-mdn", "特工")
 				.replace("-dca", "514")
 				.replace("-un1", `${top5DanmakuMaker[0][0]}`)
 				.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
@@ -1388,7 +1390,7 @@ class ComRegister {
 		liveType: LiveType,
 	): Promise<MasterInfo> {
 		// 获取主播信息
-		const { data } = await this.ctx.ba.getMasterInfo(uid);
+		const { data } = (await this.ctx.ba.getMasterInfo(uid)) as MasterInfoR;
 		// 定义粉丝数变量
 		let liveOpenFollowerNum: number;
 		let liveEndFollowerNum: number;
@@ -1424,6 +1426,7 @@ class ComRegister {
 			liveOpenFollowerNum,
 			liveEndFollowerNum,
 			liveFollowerChange,
+			medalName: data.medal_name,
 		};
 	}
 
@@ -1545,11 +1548,7 @@ class ComRegister {
 			// 拿到前90个热词
 			const top90Words = Object.entries(danmakuWeightRecord)
 				.sort((a, b) => b[1] - a[1])
-				.slice(0, 90)
-				.map(
-					([word, weight]) =>
-						[word, weight > 60 ? 60 : weight] as [string, number],
-				);
+				.slice(0, 90);
 			this.logger.info("弹幕词云前90词及权重：");
 			this.logger.info(top90Words);
 			this.logger.info("正在准备生成弹幕词云");
@@ -1582,6 +1581,7 @@ class ComRegister {
 			// 构建消息
 			const danmakuMakerMsg = this.config.liveSummary
 				.replace("-dmc", `${danmakuMakerCount}`)
+				.replace("-mdn", `${masterInfo.medalName}`)
 				.replace("-dca", `${danmakuCount}`)
 				.replace("-un1", `${top5DanmakuMaker[0][0]}`)
 				.replace("-dc1", `${top5DanmakuMaker[0][1]}`)

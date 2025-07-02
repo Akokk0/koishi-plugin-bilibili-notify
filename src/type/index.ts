@@ -57,7 +57,45 @@ export type MasterInfo = {
 	liveOpenFollowerNum: number;
 	liveEndFollowerNum: number;
 	liveFollowerChange: number;
+	medalName: string;
 };
+
+export type MasterInfoR = {
+	code: number;
+	msg: string;
+	message: string;
+	data: {
+		info: {
+			uid: number;
+			uname: string;
+			face: string;
+			official_verify: {
+				type: number;
+				desc: string;
+			}
+			gender: number;
+		};
+		exp: {
+			master_level: {
+				level: number;
+				color: number;
+				current: Array<number>;
+				next: Array<number>;
+			}
+		};
+		follower_num: number;
+		room_id: number;
+		medal_name: string;
+		glory_count: number;
+		pendant: string;
+		link_group_num: number;
+		room_news: {
+			content: string;
+			ctime: string;
+			ctime_text: string;
+		}
+	}
+}
 
 export type LiveUsersItem = {
 	face: string;
