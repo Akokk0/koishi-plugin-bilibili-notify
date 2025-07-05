@@ -224,9 +224,7 @@ class ComRegister {
 							]);
 							// 检查登录数据库是否有数据
 							this.loginDBData = (
-								await this.ctx.database.get("loginBili", 1, [
-									"dynamic_group_id",
-								])
+								await this.ctx.database.get("loginBili", 1)
 							)[0];
 							// ba重新加载登录信息
 							await this.ctx.ba.loadCookiesFromDatabase();
@@ -510,7 +508,7 @@ class ComRegister {
 			).then((content) => content.data);
 			// 判断是否满足风控条件
 			if (userInfoCode !== -352 || !userInfoData.v_voucher)
-				return "不满足风控条件，不需要执行该命令";
+				return "不满足验证条件，不需要执行该命令，如果提示风控可以尝试重启插件";
 			// 开始进行风控验证
 			const { data } = await ctx.ba.v_voucherCaptcha(userInfoData.v_voucher);
 			// 判断是否能进行风控验证
@@ -531,7 +529,7 @@ class ComRegister {
 			await session.send("请输入validate");
 			const validate = await session.prompt();
 			// seccode
-			const seccode = `${validate}|jordan`
+			const seccode = `${validate}|jordan`;
 			// 验证结果
 			const { data: validateCaptchaData } = await ctx.ba.validateCaptcha(
 				data.geetest.challenge,
@@ -543,8 +541,16 @@ class ComRegister {
 			if (validateCaptchaData.is_valid !== 1) return "验证不成功！";
 			// 添加cookie
 			ctx.ba.addCookie(`x-bili-gaia-vtoken=${validateCaptchaData.grisk_id}`);
+			// 将cookies保存到数据库
+			const encryptedCookies = ctx.ba.encrypt(ctx.ba.getCookies());
+			await ctx.database.upsert("loginBili", [
+				{
+					id: 1,
+					bili_cookies: encryptedCookies,
+				},
+			]);
 			// 验证结束
-			return "验证成功！"
+			return "验证成功！请重启插件";
 		});
 	}
 
@@ -2504,7 +2510,7 @@ class ComRegister {
 				this.logger.info("账号被风控，请使用指令 bili captcha 进行风控验证");
 				// 发送私聊消息
 				await this.sendPrivateMsg(
-					"账号被风控，请使用指令 bili captcha 进行风控验证",
+					"账号被风控，请使用指令 bili cap 进行风控验证",
 				);
 				return { code: userInfoCode, msg: userInfoMsg };
 			}
