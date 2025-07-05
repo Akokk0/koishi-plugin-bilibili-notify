@@ -10,7 +10,12 @@ import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
 import { Retry } from "./utils";
-import type { BACookie, BiliTicket } from "./type";
+import type {
+	BACookie,
+	BiliTicket,
+	V_VoucherCaptchaData,
+	ValidateCaptchaData,
+} from "./type";
 import { CronJob } from "cron";
 
 declare module "koishi" {
@@ -135,10 +140,7 @@ class BiliAPI extends Service {
 				throw new Error(`获取BiliTicket失败: ${ticket.message}`);
 			}
 			// 添加cookie到cookieJar
-			this.jar.setCookieSync(
-				`bili_ticket=${ticket.data.ticket}; path=/; domain=.bilibili.com`,
-				"https://www.bilibili.com",
-			);
+			this.addCookie(`bili_ticket=${ticket.data.ticket}`);
 			// 获取wbi签名的img_key和sub_key
 			this.wbiSign.img_key = ticket.data.nav.img.slice(
 				ticket.data.nav.img.lastIndexOf("/") + 1,
@@ -680,6 +682,14 @@ class BiliAPI extends Service {
 		);
 	}
 
+	addCookie(cookieStr: string) {
+		// 添加cookie到cookieJar
+		this.jar.setCookieSync(
+			`${cookieStr}; path=/; domain=.bilibili.com`,
+			"https://www.bilibili.com",
+		);
+	}
+
 	getCookies() {
 		try {
 			// 获取cookies
@@ -1002,6 +1012,68 @@ class BiliAPI extends Service {
 				throw new Error("请求错误");
 		}
 		// 没有问题，cookies已更新完成
+	}
+
+	async v_voucherCaptcha(
+		v_voucher: string,
+	): Promise<{ data: V_VoucherCaptchaData["data"] }> {
+		// 获取csrf
+		const csrf = this.getCSRF();
+		//申请captcha
+		const { data } = (await this.client
+			.post(
+				"https://api.bilibili.com/x/gaia-vgate/v1/register",
+				{
+					csrf,
+					v_voucher,
+				},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+				},
+			)
+			.catch((e) => {
+				this.logger.error(e);
+			})) as { data: V_VoucherCaptchaData };
+		// 判断是否成功
+		if (data.code !== 0) {
+			this.logger.error("验证码获取失败！");
+		}
+		return { data: data.data };
+	}
+
+	async validateCaptcha(
+		challenge: string,
+		token: string,
+		validate: string,
+		seccode: string,
+	): Promise<{ data: ValidateCaptchaData["data"] }> {
+		const csrf = this.getCSRF();
+		// 从验证结果获取 grisk_id
+		const { data } = (await this.client.post(
+			"https://api.bilibili.com/x/gaia-vgate/v1/validate",
+			{
+				csrf,
+				challenge,
+				token,
+				validate,
+				seccode,
+			},
+			{
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+			},
+		)) as { data: ValidateCaptchaData };
+		// 判断是否验证成功
+		if (data.code !== 0) {
+			this.logger.info(
+				`验证失败：错误码=${data.code}，错误消息:${data.message}`,
+			);
+			return { data: null };
+		}
+		return { data: data.data };
 	}
 }
 

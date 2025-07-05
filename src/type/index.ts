@@ -72,7 +72,7 @@ export type MasterInfoR = {
 			official_verify: {
 				type: number;
 				desc: string;
-			}
+			};
 			gender: number;
 		};
 		exp: {
@@ -81,7 +81,7 @@ export type MasterInfoR = {
 				color: number;
 				current: Array<number>;
 				next: Array<number>;
-			}
+			};
 		};
 		follower_num: number;
 		room_id: number;
@@ -93,9 +93,9 @@ export type MasterInfoR = {
 			content: string;
 			ctime: string;
 			ctime_text: string;
-		}
-	}
-}
+		};
+	};
+};
 
 export type LiveUsersItem = {
 	face: string;
@@ -384,4 +384,31 @@ export type BACookie = {
 	sameSite: string;
 	creation: string;
 	lastAccessed: string;
+};
+
+export type V_VoucherCaptchaData = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: {
+		type: string;
+		token: string;
+		geetest: {
+			gt: string;
+			challenge: string;
+		};
+		biliword: null;
+		phone: null;
+		sms: null;
+	};
+};
+
+export type ValidateCaptchaData = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: {
+		is_valid: number;
+		grisk_id: string;
+	};
 };

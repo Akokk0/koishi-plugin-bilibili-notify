@@ -496,36 +496,55 @@ class ComRegister {
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
 
-			/* // 构建消息
-			const danmakerRankMsg = (
-				<message>
-					🔍【弹幕情报站】本场直播数据如下：
-					<br />
-					🧍‍♂️ 总共 114 位特工上线 <br />💬 共计 514 条弹幕飞驰而过 <br />📊
-					热词云图已生成，快来看看你有没有上榜！
-					<br />
-					<br />👑 本场顶级输出选手：
-					<br />🥇 {top5DanmakuMaker[0][0]} - 弹幕输出 {top5DanmakuMaker[0][1]}{" "}
-					条 <br />🥈 {top5DanmakuMaker[1][0]} - 弹幕 {top5DanmakuMaker[1][1]}{" "}
-					条，萌力惊人 <br />🥉 {top5DanmakuMaker[2][0]} -{" "}
-					{top5DanmakuMaker[2][1]} 条精准狙击 <br />
-					<br />
-					🎖️ 特别嘉奖： {top5DanmakuMaker[3][0]} & {top5DanmakuMaker[4][0]}{" "}
-					<br />
-					你们的弹幕，我们都记录在案！🕵️‍♀️
-				</message>
-			); */
-
 			await session.send(danmakerRankMsg);
+		});
 
-			/* // 分词测试
-			const words = this._jieba.cut(
-				"今天纽约的天气真好啊，京华大酒店的张尧经理吃了一只北京烤鸭。后天纽约的天气不好，昨天纽约的天气也不好，北京烤鸭真好吃",
+		biliCom.subcommand(".cap").action(async ({ session }) => {
+			const { code: userInfoCode, data: userInfoData } = await withRetry(
+				async () => {
+					// 获取用户信息
+					const data = await this.ctx.ba.getUserInfo("114514");
+					// 返回用户信息
+					return { code: 0, data };
+				},
+			).then((content) => content.data);
+			// 判断是否满足风控条件
+			if (userInfoCode !== -352 || !userInfoData.v_voucher)
+				return "不满足风控条件，不需要执行该命令";
+			// 开始进行风控验证
+			const { data } = await ctx.ba.v_voucherCaptcha(userInfoData.v_voucher);
+			// 判断是否能进行风控验证
+			if (!data.geetest) {
+				return "当前风控无法通过该验证解除，或许考虑人工申诉？";
+			}
+			// 发送提示消息消息
+			await session.send(
+				"请到该网站进行验证操作：https://kuresaru.github.io/geetest-validator/",
 			);
-			const filtered = words.filter(
-				(word) => word.length >= 2 && !stopwords.has(word),
+			await session.send(
+				"请手动填入 gt 和 challenge 后点击生成进行验证，验证完成后点击结果，根据提示输入对应validate",
 			);
-			console.log(filtered); */
+			// gt 和 challenge
+			await session.send(`gt:${data.geetest.gt}`);
+			await session.send(`challenge:${data.geetest.challenge}`);
+			// 发送等待输入消息 validate
+			await session.send("请输入validate");
+			const validate = await session.prompt();
+			// seccode
+			const seccode = `${validate}|jordan`
+			// 验证结果
+			const { data: validateCaptchaData } = await ctx.ba.validateCaptcha(
+				data.geetest.challenge,
+				data.token,
+				validate,
+				seccode,
+			);
+			// 判断验证是否成功
+			if (validateCaptchaData.is_valid !== 1) return "验证不成功！";
+			// 添加cookie
+			ctx.ba.addCookie(`x-bili-gaia-vtoken=${validateCaptchaData.grisk_id}`);
+			// 验证结束
+			return "验证成功！"
 		});
 	}
 
@@ -2463,7 +2482,7 @@ class ComRegister {
 			// 定义Data
 			const {
 				code: userInfoCode,
-				msg: userInfoMsg,
+				message: userInfoMsg,
 				data: userInfoData,
 			} = await withRetry(async () => {
 				// 获取用户信息
@@ -2479,6 +2498,16 @@ class ComRegister {
 					// 返回失败
 					return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
 				});
+			// v_voucher风控
+			if (userInfoCode === -352 && userInfoData.v_voucher) {
+				// logger
+				this.logger.info("账号被风控，请使用指令 bili captcha 进行风控验证");
+				// 发送私聊消息
+				await this.sendPrivateMsg(
+					"账号被风控，请使用指令 bili captcha 进行风控验证",
+				);
+				return { code: userInfoCode, msg: userInfoMsg };
+			}
 			// 判断是否获取成功
 			if (userInfoCode !== 0) return { code: userInfoCode, msg: userInfoMsg };
 			// 判断是否需要订阅直播
