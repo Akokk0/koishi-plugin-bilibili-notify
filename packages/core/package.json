@@ -1,0 +1,77 @@
+{
+  "name": "koishi-plugin-bilibili-notify",
+  "description": "Koishi bilibili notify plugin",
+  "version": "3.2.11-alpha.4",
+  "main": "./lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "chatbot",
+    "koishi",
+    "plugin"
+  ],
+  "scripts": {
+    "build": "tsdown"
+  },
+  "dependencies": {
+    "@akokko/blive-message-listener": "^0.5.1",
+    "@node-rs/jieba": "^2.0.1",
+    "@satorijs/element": "^3.1.8",
+    "axios": "^1.10.0",
+    "axios-cookiejar-support": "^6.0.2",
+    "cacheable-lookup": "^7.0.0",
+    "cron": "^4.3.1",
+    "jsdom": "^26.1.0",
+    "luxon": "^3.6.1",
+    "md5": "^2.3.0",
+    "qrcode": "^1.5.4",
+    "tough-cookie": "^5.1.2"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/luxon": "^3.6.2",
+    "@types/md5": "^2.3.5",
+    "@types/qrcode": "^1.5.5",
+    "@types/tough-cookie": "^4.0.5",
+    "koishi-plugin-puppeteer": "^3.9.0",
+    "tsdown": "^0.12.9"
+  },
+  "peerDependencies": {
+    "koishi": "^4.18.8"
+  },
+  "engines": {
+    "node": ">= 20.0.0"
+  },
+  "koishi": {
+    "service": {
+      "required": [
+        "database",
+        "puppeteer",
+        "notifier"
+      ]
+    },
+    "description": {
+      "zh": "Bilibili动态推送，直播通知插件。具体使用方法请参考readme.md"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "import": "./lib/index.mjs",
+        "require": "./lib/index.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  }
+}

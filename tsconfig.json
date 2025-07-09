@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "koishi-plugin-bilibili-notify": [
+        "packages/core/src"
+      ],
+      "koishi-plugin-bilibili-notify-*": [
+        "packages/*/src"
+      ]
+    }
+  }
+}
