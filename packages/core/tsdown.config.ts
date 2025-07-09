@@ -12,8 +12,6 @@ export default defineConfig({
 		{ from: "src/img", to: "lib/img" },
 		{ from: "src/static", to: "lib/static" },
 	],
-	exports: {
-		devExports: true,
-	},
+	exports: true,
 	external: [/^node:/, /^[^./]/],
 });

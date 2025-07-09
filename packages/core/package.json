@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.2.11-alpha.5",
+  "version": "3.2.11-alpha.6",
   "main": "./lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -69,19 +69,15 @@
     }
   },
   "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": {
-        "import": "./lib/index.mjs",
-        "require": "./lib/index.js"
-      },
-      "./package.json": "./package.json"
-    }
+    "access": "public"
   },
   "module": "./lib/index.mjs",
   "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "import": "./lib/index.mjs",
+      "require": "./lib/index.js"
+    },
     "./package.json": "./package.json"
   }
 }
