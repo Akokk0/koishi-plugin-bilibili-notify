@@ -48,13 +48,12 @@ jobs:
         env:
           DISABLE_V8_COMPILE_CACHE: 1
 
-      - name: Install Yarn
+      - name: Enable Corepack
         if: steps.check_version.outputs.publish == 'true'
-        run: npm install -g yarn
+        run: corepack enable
 
       - name: Install dependencies
         if: steps.check_version.outputs.publish == 'true'
-        working-directory: packages/core
         run: yarn install --no-immutable
 
       - name: Build
