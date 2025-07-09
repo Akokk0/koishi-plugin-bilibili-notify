@@ -1,19 +1,31 @@
 {
   "name": "koishi-plugin-bilibili-notify-advanced-subscription",
   "description": "advanced subscription for bilibili-notify",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
+  "contributors": [
+    "Akokko <admin@akokko.com>"
+  ],
   "license": "MIT",
+  "homepage": "https://www.npmjs.com/package/koishi-plugin-bilibili-notify-advanced-subscription",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Akokk0/koishi-plugin-bilibili-notify"
+  },
   "keywords": [
     "chatbot",
     "koishi",
-    "plugin"
+    "plugin",
+    "bilibili-notify"
   ],
+  "scripts": {
+    "build": "tsdown"
+  },
   "peerDependencies": {
     "koishi": "^4.18.8"
   },
