@@ -9,7 +9,6 @@ import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
-import pRetry, { AbortError } from "p-retry";
 
 import type {
 	BACookie,
@@ -243,7 +242,7 @@ class BiliAPI extends Service {
 			// 返回data
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getTheUserWhoIsLiveStreaming() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -262,7 +261,7 @@ class BiliAPI extends Service {
 			// 返回data
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getLiveRoomInfoStreamKey() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -283,7 +282,7 @@ class BiliAPI extends Service {
 			// 返回数据
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getLiveRoomInfoByUids() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -302,9 +301,9 @@ class BiliAPI extends Service {
 				const timestamp = new Function(`return Date.UTC(${match[1]})`)();
 				return timestamp / 1000;
 			}
-			throw new AbortError("解析服务器时间失败！");
+			throw new this.AbortError("解析服务器时间失败！");
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getServerUTCTime() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -319,7 +318,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(GET_TIME_NOW);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getTimeNow() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -334,7 +333,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(GET_ALL_GROUP);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getAllGroup() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -364,7 +363,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`removeUserFromGroup() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -394,7 +393,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`copyUserToGroup() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -411,7 +410,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getUserSpaceDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -437,7 +436,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`createGroup() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -452,7 +451,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(GET_ALL_DYNAMIC_LIST);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getAllDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -469,7 +468,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`hasNewDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -497,7 +496,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`follow() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -514,7 +513,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getRelationGroupDetail() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -535,7 +534,7 @@ class BiliAPI extends Service {
 				});
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getCookieInfo() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -556,7 +555,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getUserInfo() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -588,7 +587,7 @@ class BiliAPI extends Service {
 				),
 			};
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getWbiKeys() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -603,7 +602,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(GET_MYSELF_INFO);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getMyselfInfo() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -618,7 +617,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(GET_LOGIN_QRCODE);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getLoginQRCode() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -635,7 +634,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getLoginStatus() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -652,7 +651,7 @@ class BiliAPI extends Service {
 			);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getLiveRoomInfo() 第${error.attemptNumber}次失败: ${error.message}`,
@@ -667,7 +666,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`);
 			return data;
 		};
-		return await pRetry(run, {
+		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
 					`getMasterInfo() 第${error.attemptNumber}次失败: ${error.message}`,

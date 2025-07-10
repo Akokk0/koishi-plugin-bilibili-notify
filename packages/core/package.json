@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.2.11-alpha.11",
+  "version": "3.2.11-alpha.12",
   "main": "./lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
