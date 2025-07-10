@@ -92,8 +92,10 @@ class BiliAPI extends Service {
 	// Cron job
 	updateJob: CronJob;
 	// p-retry
-	/* pRetry: typeof import("p-retry")
-	AbortError: typeof import("p-retry")["AbortError"] */
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
+	pRetry: any;
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
+	AbortError: any;
 
 	constructor(ctx: Context, config: BiliAPI.Config) {
 		super(ctx, "ba");
@@ -101,6 +103,10 @@ class BiliAPI extends Service {
 	}
 
 	protected async start(): Promise<void> {
+		// 导入p-retry
+		this.pRetry = (await import("p-retry")).default;
+		// 导入AbortError
+		this.AbortError = (await import("p-retry")).AbortError;
 		// 导入dns缓存
 		const CacheableLookup = (await import("cacheable-lookup")).default;
 		// 注册dns缓存
