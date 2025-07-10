@@ -9,7 +9,8 @@ import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
-import { Retry } from "./utils";
+import pRetry, { AbortError } from "p-retry";
+
 import type {
 	BACookie,
 	BiliTicket,
@@ -90,6 +91,9 @@ class BiliAPI extends Service {
 	wbiSign = { img_key: "", sub_key: "" };
 	// Cron job
 	updateJob: CronJob;
+	// p-retry
+	/* pRetry: typeof import("p-retry")
+	AbortError: typeof import("p-retry")["AbortError"] */
 
 	constructor(ctx: Context, config: BiliAPI.Config) {
 		super(ctx, "ba");
@@ -226,388 +230,445 @@ class BiliAPI extends Service {
 	}
 
 	// BA API
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getTheUserWhoIsLiveStreaming() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getTheUserWhoIsLiveStreaming() {
-		// 获取直播间信息流密钥
-		const { data } = await this.client.get(GET_LATEST_UPDATED_UPS);
-		// 返回data
-		return data;
+		const run = async () => {
+			// 获取直播间信息流密钥
+			const { data } = await this.client.get(GET_LATEST_UPDATED_UPS);
+			// 返回data
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getTheUserWhoIsLiveStreaming() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getLiveRoomInfoStreamKey() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getLiveRoomInfoStreamKey(roomId: string) {
-		// 获取直播间信息流密钥
-		const { data } = await this.client.get(
-			`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`,
-		);
-		// 返回data
-		return data;
+		const run = async () => {
+			// 获取直播间信息流密钥
+			const { data } = await this.client.get(
+				`${GET_LIVE_ROOM_INFO_STREAM_KEY}?id=${roomId}`,
+			);
+			// 返回data
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getLiveRoomInfoStreamKey() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getLiveRoomInfoByUids() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getLiveRoomInfoByUids(uids: string[]) {
-		// 构建查询参数
-		const params = uids.map((uid) => `uids[]=${uid}`).join("&");
-		// 获取直播间信息
-		const { data } = await this.client.get(`${GET_LIVE_ROOMS_INFO}?${params}`);
-		// 返回数据
-		return data;
+		const run = async () => {
+			// 构建查询参数
+			const params = uids.map((uid) => `uids[]=${uid}`).join("&");
+			// 获取直播间信息
+			const { data } = await this.client.get(
+				`${GET_LIVE_ROOMS_INFO}?${params}`,
+			);
+			// 返回数据
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getLiveRoomInfoByUids() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getServerUTCTime() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getServerUTCTime() {
-		const { data } = await this.client.get(GET_SERVER_UTC_TIME);
-		const regex = /Date\.UTC\((.*?)\)/;
-		const match = data.match(regex);
-		if (match) {
-			const timestamp = new Function(`return Date.UTC(${match[1]})`)();
-			return timestamp / 1000;
-		}
-		throw new Error("解析服务器时间失败！");
+		const run = async () => {
+			const { data } = await this.client.get(GET_SERVER_UTC_TIME);
+			const regex = /Date\.UTC\((.*?)\)/;
+			const match = data.match(regex);
+			if (match) {
+				const timestamp = new Function(`return Date.UTC(${match[1]})`)();
+				return timestamp / 1000;
+			}
+			throw new AbortError("解析服务器时间失败！");
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getServerUTCTime() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`getTimeNow() 第${attempts}次失败: ${error.message}`);
-		},
-	})
 	async getTimeNow() {
-		const { data } = await this.client.get(GET_TIME_NOW);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(GET_TIME_NOW);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getTimeNow() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`getAllGroup() 第${attempts}次失败: ${error.message}`);
-		},
-	})
 	async getAllGroup() {
-		const { data } = await this.client.get(GET_ALL_GROUP);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(GET_ALL_GROUP);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getAllGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`removeUserFromGroup() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async removeUserFromGroup(mid: string) {
-		// 获取csrf
-		const csrf = this.getCSRF();
-		// 将用户mid添加到groupId
-		const { data } = await this.client.post(
-			MODIFY_GROUP_MEMBER,
-			{
-				fids: mid,
-				tagids: 0,
-				csrf,
-			},
-			{
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
+		const run = async () => {
+			// 获取csrf
+			const csrf = this.getCSRF();
+			// 将用户mid添加到groupId
+			const { data } = await this.client.post(
+				MODIFY_GROUP_MEMBER,
+				{
+					fids: mid,
+					tagids: 0,
+					csrf,
 				},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+				},
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`removeUserFromGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
 			},
-		);
-		return data;
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`copyUserToGroup() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async copyUserToGroup(mid: string, groupId: string) {
-		// 获取csrf
-		const csrf = this.getCSRF();
-		// 将用户mid添加到groupId
-		const { data } = await this.client.post(
-			COPY_USER_TO_GROUP,
-			{
-				fids: mid,
-				tagids: groupId,
-				csrf,
-			},
-			{
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
+		const run = async () => {
+			// 获取csrf
+			const csrf = this.getCSRF();
+			// 将用户mid添加到groupId
+			const { data } = await this.client.post(
+				COPY_USER_TO_GROUP,
+				{
+					fids: mid,
+					tagids: groupId,
+					csrf,
 				},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+				},
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`copyUserToGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
 			},
-		);
-		return data;
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getUserSpaceDynamic() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getUserSpaceDynamic(mid: string) {
-		const { data } = await this.client.get(
-			`${GET_USER_SPACE_DYNAMIC_LIST}&host_mid=${mid}`,
-		);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_USER_SPACE_DYNAMIC_LIST}&host_mid=${mid}`,
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getUserSpaceDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`createGroup() 第${attempts}次失败: ${error.message}`);
-		},
-	})
 	async createGroup(tag: string) {
-		const { data } = await this.client.post(
-			CREATE_GROUP,
-			{
-				tag,
-				csrf: this.getCSRF(),
-			},
-			{
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
+		const run = async () => {
+			const { data } = await this.client.post(
+				CREATE_GROUP,
+				{
+					tag,
+					csrf: this.getCSRF(),
 				},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+				},
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`createGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
 			},
-		);
-		return data;
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getAllDynamic() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getAllDynamic() {
-		const { data } = await this.client.get(GET_ALL_DYNAMIC_LIST);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(GET_ALL_DYNAMIC_LIST);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getAllDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`hasNewDynamic() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async hasNewDynamic(updateBaseline: string) {
-		const { data } = await this.client.get(
-			`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`,
-		);
-		return data;
-	}
-
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`follow() 第${attempts}次失败: ${error.message}`);
-		},
-	})
-	async follow(fid: string) {
-		const { data } = await this.client.post(
-			MODIFY_RELATION,
-			{
-				fid,
-				act: 1,
-				re_src: 11,
-				csrf: this.getCSRF(),
-			},
-			{
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-			},
-		);
-		return data;
-	}
-
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getRelationGroupDetail() 第${attempts}次失败: ${error.message}`,
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${HAS_NEW_DYNAMIC}?update_baseline=${updateBaseline}`,
 			);
-		},
-	})
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`hasNewDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
+	async follow(fid: string) {
+		const run = async () => {
+			const { data } = await this.client.post(
+				MODIFY_RELATION,
+				{
+					fid,
+					act: 1,
+					re_src: 11,
+					csrf: this.getCSRF(),
+				},
+				{
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+				},
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`follow() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
 	async getRelationGroupDetail(tagid: string) {
-		const { data } = await this.client.get(
-			`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`,
-		);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_RELATION_GROUP_DETAIL}?tagid=${tagid}`,
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getRelationGroupDetail() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
 	// Check if Token need refresh
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getCookieInfo() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getCookieInfo(refreshToken: string) {
-		const { data } = await this.client
-			.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
-			.catch((e) => {
-				this.logger.info(e.message);
-				return null;
-			});
-		return data;
-	}
-
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`getUserInfo() 第${attempts}次失败: ${error.message}`);
-		},
-	})
-	async getUserInfo(mid: string) {
-		//如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
-		if (mid === "11783021") {
-			console.log("检测到番剧出差UID，跳过远程用户接口访问");
-			return bangumiTripData;
-		}
-		const wbi = await this.getWbi({ mid });
-		const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`);
-		return data;
-	}
-
-	// 获取最新的 img_key 和 sub_key
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(`getWbiKeys() 第${attempts}次失败: ${error.message}`);
-		},
-	})
-	async getWbiKeys(): Promise<{ img_key: string; sub_key: string }> {
-		const { data } = await this.client.get(
-			"https://api.bilibili.com/x/web-interface/nav",
-		);
-		const {
-			data: {
-				wbi_img: { img_url, sub_url },
-			},
-		} = data;
-
-		return {
-			img_key: img_url.slice(
-				img_url.lastIndexOf("/") + 1,
-				img_url.lastIndexOf("."),
-			),
-			sub_key: sub_url.slice(
-				sub_url.lastIndexOf("/") + 1,
-				sub_url.lastIndexOf("."),
-			),
+		const run = async () => {
+			const { data } = await this.client
+				.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
+				.catch((e) => {
+					this.logger.info(e.message);
+					return null;
+				});
+			return data;
 		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getCookieInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getMyselfInfo() 第${attempts}次失败: ${error.message}`,
+	async getUserInfo(mid: string) {
+		const run = async () => {
+			//如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
+			if (mid === "11783021") {
+				console.log("检测到番剧出差UID，跳过远程用户接口访问");
+				return bangumiTripData;
+			}
+			const wbi = await this.getWbi({ mid });
+			const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getUserInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
+	async getWbiKeys(): Promise<{ img_key: string; sub_key: string }> {
+		const run = async () => {
+			const { data } = await this.client.get(
+				"https://api.bilibili.com/x/web-interface/nav",
 			);
-		},
-	})
+			const {
+				data: {
+					wbi_img: { img_url, sub_url },
+				},
+			} = data;
+
+			return {
+				img_key: img_url.slice(
+					img_url.lastIndexOf("/") + 1,
+					img_url.lastIndexOf("."),
+				),
+				sub_key: sub_url.slice(
+					sub_url.lastIndexOf("/") + 1,
+					sub_url.lastIndexOf("."),
+				),
+			};
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getWbiKeys() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
 	async getMyselfInfo() {
-		const { data } = await this.client.get(GET_MYSELF_INFO);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(GET_MYSELF_INFO);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getMyselfInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getLoginQRCode() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getLoginQRCode() {
-		const { data } = await this.client.get(GET_LOGIN_QRCODE);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(GET_LOGIN_QRCODE);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getLoginQRCode() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getLoginStatus() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getLoginStatus(qrcodeKey: string) {
-		const { data } = await this.client.get(
-			`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`,
-		);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_LOGIN_STATUS}?qrcode_key=${qrcodeKey}`,
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getLoginStatus() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getLiveRoomInfo() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getLiveRoomInfo(roomId: string) {
-		const { data } = await this.client.get(
-			`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`,
-		);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`,
+			);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getLiveRoomInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
-	@Retry({
-		attempts: 3,
-		onFailure(error, attempts) {
-			this.logger.error(
-				`getMasterInfo() 第${attempts}次失败: ${error.message}`,
-			);
-		},
-	})
 	async getMasterInfo(mid: string) {
-		const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`);
-		return data;
+		const run = async () => {
+			const { data } = await this.client.get(`${GET_MASTER_INFO}?uid=${mid}`);
+			return data;
+		};
+		return await pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getMasterInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
 	}
 
 	disposeNotifier() {
