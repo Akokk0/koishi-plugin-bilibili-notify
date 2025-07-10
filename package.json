@@ -6,9 +6,12 @@
   "workspaces": [
     "packages/*"
   ],
+  "scripts": {
+    "build": "turbo build"
+  },
   "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "^2.1.1",
+    "@biomejs/biome": "2.0.6",
     "@koishijs/client": "^5.30.9",
     "@koishijs/plugin-hmr": "^1.2.9",
     "@koishijs/scripts": "^4.6.1",
@@ -16,6 +19,7 @@
     "@types/react": "^18.3.23",
     "cross-env": "^7.0.3",
     "tsx": "^4.20.3",
+    "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   }
 }
