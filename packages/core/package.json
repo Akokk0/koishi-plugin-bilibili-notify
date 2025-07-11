@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.2.11-alpha.12",
+  "version": "3.3.0-rc.0",
   "main": "./lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -31,11 +31,11 @@
     "@akokko/blive-message-listener": "^0.5.1",
     "@node-rs/jieba": "^2.0.1",
     "axios": "^1.10.0",
-    "axios-cookiejar-support": "^6.0.2",
+    "axios-cookiejar-support": "^6.0.3",
     "cacheable-lookup": "^7.0.0",
     "cron": "^4.3.1",
     "jsdom": "^26.1.0",
-    "luxon": "^3.6.1",
+    "luxon": "^3.7.1",
     "md5": "^2.3.0",
     "p-retry": "^6.2.1",
     "qrcode": "^1.5.4",

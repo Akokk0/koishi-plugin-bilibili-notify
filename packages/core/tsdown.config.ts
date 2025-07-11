@@ -14,5 +14,4 @@ export default defineConfig({
 	],
 	exports: true,
 	external: [/^node:/, /^[^./]/],
-	noExternal: ["@oxc-project/runtime"], // 强制打进包
 });

@@ -531,16 +531,9 @@ class ComRegister {
 			await session.send(`gt:${data.geetest.gt}`);
 			await session.send(`challenge:${data.geetest.challenge}`);
 			// 发送等待输入消息 validate
-			await session.send("请输入validate，格式为 val <validate>");
-			// 循环校验
-			const validate = await (async () => {
-				while (true) {
-					const validate = await session.prompt();
-					if (validate?.startsWith("val ")) return validate.slice(4);
-					else
-						await session.send("请输入正确的validate，格式为 val <validate>");
-				}
-			})();
+			await session.send("请直接输入validate");
+			// 等待输入
+			const validate = await session.prompt();
 			// seccode
 			const seccode = `${validate}|jordan`;
 			// 验证结果
