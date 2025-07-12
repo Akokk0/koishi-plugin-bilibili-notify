@@ -10,7 +10,7 @@ import type { Dynamic, RichTextNode } from "./type";
 
 declare module "koishi" {
 	interface Context {
-		gi: GenerateImg;
+		"bilibili-notify-generate-img": GenerateImg;
 	}
 }
 
@@ -33,11 +33,11 @@ const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
 const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
 
 class GenerateImg extends Service {
-	static inject = ["puppeteer", "ba"];
+	static inject = ["puppeteer"];
 	giConfig: GenerateImg.Config;
 
 	constructor(ctx: Context, config: GenerateImg.Config) {
-		super(ctx, "gi");
+		super(ctx, "bilibili-notify-generate-img");
 		this.giConfig = config;
 	}
 

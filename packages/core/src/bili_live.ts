@@ -8,19 +8,19 @@ import {
 
 declare module "koishi" {
 	interface Context {
-		bl: BLive;
+		"bilibili-notify-live": BLive;
 	}
 }
 
 class BLive extends Service {
 	// 必要服务
-	static inject = ["ba"];
+	static inject = ["bilibili-notify-api"];
 	// 定义类属性
 	private listenerRecord: Record<string, MessageListener> = {};
 
 	constructor(ctx: Context) {
 		// Extends super
-		super(ctx, "bl");
+		super(ctx, "bilibili-notify-live");
 	}
 
 	// 注册插件dispose逻辑
@@ -33,9 +33,10 @@ class BLive extends Service {
 
 	async startLiveRoomListener(roomId: string, handler: MsgHandler) {
 		// 获取cookieStr
-		const cookiesStr = await this.ctx.ba.getCookiesForHeader();
+		const cookiesStr =
+			await this.ctx["bilibili-notify-api"].getCookiesForHeader();
 		// 获取自身信息
-		const mySelfInfo = await this.ctx.ba.getMyselfInfo();
+		const mySelfInfo = await this.ctx["bilibili-notify-api"].getMyselfInfo();
 		// 创建实例并保存到Record中
 		this.listenerRecord[roomId] = startListen(
 			Number.parseInt(roomId),

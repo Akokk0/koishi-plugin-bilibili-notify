@@ -4,14 +4,17 @@
 
 advanced subscription for bilibili-notify
 
-CHANGELOG
+## CHANGELOG
 
-[!CAUTION]
-- ver 0.0.3 测试版本
-- ver 0.0.4 测试版本
-- ver 0.0.5 测试版本
-- ver 0.0.6 测试版本
-- ver 0.0.7 测试版本
-- ver 0.0.8 测试版本
-- ver 0.0.9 测试版本
-- ver 0.0.10 测试版本
+> [!CAUTION]
+> - ver 0.0.3 测试版本
+> - ver 0.0.4 测试版本
+> - ver 0.0.5 测试版本
+> - ver 0.0.6 测试版本
+> - ver 0.0.7 测试版本
+> - ver 0.0.8 测试版本
+> - ver 0.0.9 测试版本
+> - ver 0.0.10 测试版本
+
+> [!NOTE]
+> - ver 0.0.11 新增：UP主弹幕词云开关，自定义直播总结；

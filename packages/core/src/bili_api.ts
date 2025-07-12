@@ -20,7 +20,7 @@ import { CronJob } from "cron";
 
 declare module "koishi" {
 	interface Context {
-		ba: BiliAPI;
+		"bilibili-notify-api": BiliAPI;
 	}
 }
 
@@ -97,7 +97,7 @@ class BiliAPI extends Service {
 	AbortError: any;
 
 	constructor(ctx: Context, config: BiliAPI.Config) {
-		super(ctx, "ba");
+		super(ctx, "bilibili-notify-api");
 		this.apiConfig = config;
 	}
 

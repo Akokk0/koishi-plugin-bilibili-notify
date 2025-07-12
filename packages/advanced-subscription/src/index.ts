@@ -15,6 +15,7 @@ export const Config: Schema<Config> = Schema.object({
 			uid: Schema.string().required().description("订阅用户UID"),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
+			wordcloud: Schema.boolean().default(true).description("是否开启弹幕词云"),
 			target: Schema.array(
 				Schema.object({
 					platform: Schema.string()
@@ -23,21 +24,20 @@ export const Config: Schema<Config> = Schema.object({
 					channelArr: Schema.array(
 						Schema.object({
 							channelId: Schema.string().required().description("频道/群组号"),
-							dynamic: Schema.boolean()
-								.default(false)
-								.description("动态通知"),
-                            dynamicAtAll: Schema.boolean()
+							dynamic: Schema.boolean().default(true).description("动态通知"),
+							dynamicAtAll: Schema.boolean()
 								.default(false)
 								.description("动态艾特全体"),
-							live: Schema.boolean()
-								.default(false)
-								.description("直播通知"),
-                            liveAtAll: Schema.boolean()
-								.default(false)
+							live: Schema.boolean().default(true).description("直播通知"),
+							liveAtAll: Schema.boolean()
+								.default(true)
 								.description("开播艾特全体"),
 							liveGuardBuy: Schema.boolean()
 								.default(false)
 								.description("上舰通知"),
+							wordcloud: Schema.boolean()
+								.default(true)
+								.description("弹幕词云通知"),
 							bot: Schema.string().description(
 								"若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个",
 							),
@@ -50,6 +50,36 @@ export const Config: Schema<Config> = Schema.object({
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
 			),
+			liveSummary: Schema.intersect([
+				Schema.object({
+					enable: Schema.boolean()
+						.default(false)
+						.description("是否开启个性化直播总结"),
+				}),
+				Schema.union([
+					Schema.object({
+						enable: Schema.const(true).required(),
+						liveSummary: Schema.array(String)
+							.default([
+								"🔍【弹幕情报站】本场直播数据如下：",
+								"🧍‍♂️ 总共 -dmc 位-mdn上线",
+								"💬 共计 -dca 条弹幕飞驰而过",
+								"📊 热词云图已生成，快来看看你有没有上榜！",
+								"👑 本场顶级输出选手：",
+								"🥇 -un1 - 弹幕输出 -dc1 条",
+								"🥈 -un2 - 弹幕 -dc2 条，萌力惊人",
+								"🥉 -un3 - -dc3 条精准狙击",
+								"🎖️ 特别嘉奖：-un4 & -un5",
+								"你们的弹幕，我们都记录在案！🕵️‍♀️",
+							])
+							.role("table")
+							.description(
+								"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量，数组每一行代表换行",
+							),
+					}),
+					Schema.object({}),
+				]),
+			]),
 			liveMsg: Schema.intersect([
 				Schema.object({
 					enable: Schema.boolean()
@@ -108,7 +138,7 @@ export const Config: Schema<Config> = Schema.object({
 });
 
 export function apply(ctx: Context, config: Config) {
-    // 触发事件
+	// 触发事件
 	ctx.emit("bilibili-notify/advanced-sub", config.subs);
 	// 注册监听事件
 	ctx.on("bilibili-notify/ready-to-recive", () => {

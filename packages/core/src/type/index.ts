@@ -13,6 +13,7 @@ export type Channel = {
 	live: boolean;
 	liveAtAll: boolean;
 	liveGuardBuy: boolean;
+	wordcloud: boolean;
 	bot: string;
 };
 
@@ -38,6 +39,11 @@ export type SubLiveMsg = {
 	customLiveStart?: string;
 	customLive?: string;
 	customLiveEnd?: string;
+};
+
+export type SubLiveSummary = {
+	enable: boolean;
+	liveSummary?: string;
 };
 
 export type SubItem = {
@@ -282,6 +288,7 @@ export type LiveMsg = {
 	customLiveStart: string;
 	customLive: string;
 	customLiveEnd: string;
+	liveSummary: string;
 };
 
 export type LiveStatus = {
@@ -314,6 +321,7 @@ export enum PushType {
 	DynamicAtAll = 2,
 	StartBroadcasting = 3,
 	LiveGuardBuy = 4,
+	WordCloud = 5,
 }
 
 export const PushTypeMsg = {
@@ -322,6 +330,7 @@ export const PushTypeMsg = {
 	[PushType.DynamicAtAll]: "动态推送+At全体",
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
+	[PushType.WordCloud]: "弹幕词云推送",
 };
 
 export type Result = {
@@ -360,6 +369,7 @@ export type PushArrMap = Map<
 		liveArr?: Array<string>;
 		liveAtAllArr?: Array<string>;
 		liveGuardBuyArr?: Array<string>;
+		wordcloudArr?: Array<string>;
 	}
 >;
 
@@ -421,14 +431,15 @@ export type ValidateCaptchaData = {
 	};
 };
 
-export type Subscriptions = Record<
-	string,
-	{
-		uid: string;
-		dynamic: boolean;
-		live: boolean;
-		target: Target;
-		card: SubCard;
-		liveMsg: SubLiveMsg;
-	}
->;
+export type Subscription = {
+	uid: string;
+	dynamic: boolean;
+	live: boolean;
+	wordcloud: boolean;
+	target: Target;
+	card: SubCard;
+	liveMsg: SubLiveMsg;
+	liveSummary: SubLiveSummary;
+};
+
+export type Subscriptions = Record<string, Subscription>;

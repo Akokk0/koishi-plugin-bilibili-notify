@@ -20,6 +20,7 @@ export interface BAConfig {
 		live: boolean;
 		liveAtAll: boolean;
 		liveGuardBuy: boolean;
+		wordcloud: boolean;
 		platform: string;
 		target: string;
 	}>;
@@ -32,8 +33,8 @@ export interface BAConfig {
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
 	liveDetectType: "WS" | "API";
-	wordcloud: boolean;
-	liveSummary: string;
+	wordcloudStopWords: string;
+	liveSummary: Array<string>;
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -131,6 +132,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			live: Schema.boolean().default(true).description("直播"),
 			liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
+			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
 			platform: Schema.string().required().description("平台名"),
 			target: Schema.string().required().description("群号/频道号"),
 		}),
@@ -182,17 +184,28 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
 		),
 
-	wordcloud: Schema.boolean()
-		.default(false)
-		.description("直播结束后，是否生成本场直播弹幕词云")
+	wordcloudStopWords: Schema.string()
+		.description(
+			"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
+		)
 		.experimental(),
 
-	liveSummary: Schema.string()
-		.default(
-			"🔍【弹幕情报站】本场直播数据如下：\\n🧍‍♂️ 总共 -dmc 位-mdn上线\\n💬 共计 -dca 条弹幕飞驰而过\\n📊 热词云图已生成，快来看看你有没有上榜！\\n\\n👑 本场顶级输出选手：\\n🥇 -un1 - 弹幕输出 -dc1 条\\n🥈 -un2 - 弹幕 -dc2 条，萌力惊人\\n🥉 -un3 - -dc3 条精准狙击\\n\\n🎖️ 特别嘉奖：-un4 & -un5\\n你们的弹幕，我们都记录在案！🕵️‍♀️",
-		)
+	liveSummary: Schema.array(String)
+		.default([
+			"🔍【弹幕情报站】本场直播数据如下：",
+			"🧍‍♂️ 总共 -dmc 位-mdn上线",
+			"💬 共计 -dca 条弹幕飞驰而过",
+			"📊 热词云图已生成，快来看看你有没有上榜！",
+			"👑 本场顶级输出选手：",
+			"🥇 -un1 - 弹幕输出 -dc1 条",
+			"🥈 -un2 - 弹幕 -dc2 条，萌力惊人",
+			"🥉 -un3 - -dc3 条精准狙击",
+			"🎖️ 特别嘉奖：-un4 & -un5",
+			"你们的弹幕，我们都记录在案！🕵️‍♀️",
+		])
+		.role("table")
 		.description(
-			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量",
+			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量，数组每一行代表换行",
 		),
 
 	restartPush: Schema.boolean()

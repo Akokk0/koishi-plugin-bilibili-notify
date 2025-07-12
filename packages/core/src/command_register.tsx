@@ -38,17 +38,24 @@ import {
 	type Result,
 	type SubItem,
 	type SubManager,
+	type Subscription,
 	type Subscriptions,
 	type Target,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
 import { dict } from "@node-rs/jieba/dict";
-import { stopwords } from "./stop_words";
+import definedStopWords from "./stop_words";
 
 class ComRegister {
 	// 必须服务
-	static inject = ["ba", "gi", "database", "bl", "sm"];
+	static inject = [
+		"bilibili-notify",
+		"bilibili-notify-api",
+		"bilibili-notify-live",
+		"bilibili-notify-generate-img",
+		"database",
+	];
 	// 定义数组：QQ相关bot
 	qqRelatedBotList: Array<string> = [
 		"qq",
@@ -91,6 +98,8 @@ class ComRegister {
 	liveJob: CronJob;
 	// 创建segmentit
 	_jieba = Jieba.withDict(dict);
+	// 停用词
+	stopwords: Set<string>;
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -159,7 +168,7 @@ class ComRegister {
 				// biome-ignore lint/suspicious/noExplicitAny: <any>
 				let content: any;
 				try {
-					content = await ctx.ba.getLoginQRCode();
+					content = await ctx["bilibili-notify-api"].getLoginQRCode();
 				} catch (_) {
 					return "bili login getLoginQRCode() 本次网络请求失败";
 				}
@@ -197,7 +206,7 @@ class ComRegister {
 						// biome-ignore lint/suspicious/noExplicitAny: <any>
 						let loginContent: any;
 						try {
-							loginContent = await ctx.ba.getLoginStatus(
+							loginContent = await ctx["bilibili-notify-api"].getLoginStatus(
 								content.data.qrcode_key,
 							);
 						} catch (e) {
@@ -214,8 +223,10 @@ class ComRegister {
 						}
 						if (loginContent.data.code === 0) {
 							// 登录成功
-							const encryptedCookies = ctx.ba.encrypt(ctx.ba.getCookies());
-							const encryptedRefreshToken = ctx.ba.encrypt(
+							const encryptedCookies = ctx["bilibili-notify-api"].encrypt(
+								ctx["bilibili-notify-api"].getCookies(),
+							);
+							const encryptedRefreshToken = ctx["bilibili-notify-api"].encrypt(
 								loginContent.data.refresh_token,
 							);
 							await ctx.database.upsert("loginBili", [
@@ -230,25 +241,15 @@ class ComRegister {
 								await this.ctx.database.get("loginBili", 1)
 							)[0];
 							// ba重新加载登录信息
-							await this.ctx.ba.loadCookiesFromDatabase();
+							await this.ctx["bilibili-notify-api"].loadCookiesFromDatabase();
 							// 判断登录信息是否已加载完毕
 							await this.checkIfLoginInfoIsLoaded();
 							// 销毁定时器
 							this.loginTimer();
-							// 转换订阅
-							const subs = this.configSubsToSubscription(config.subs);
-							// 订阅手动订阅中的订阅
-							const { code, msg } = await this.loadSubFromConfig(subs);
-							// 判断是否加载成功
-							if (code !== 0) this.logger.error(msg);
 							// 清除控制台通知
-							ctx.ba.disposeNotifier();
+							ctx["bilibili-notify-api"].disposeNotifier();
 							// 发送成功登录推送
-							await session.send("登录成功");
-							// bili show
-							await session.execute("bili list");
-							// 开启cookies刷新检测
-							ctx.ba.enableRefreshCookiesDetect();
+							await session.send("登录成功，请重启插件");
 						}
 					} finally {
 						flag = true;
@@ -286,7 +287,9 @@ class ComRegister {
 				// 获取liveUsers
 				const {
 					data: { live_users },
-				} = (await ctx.ba.getTheUserWhoIsLiveStreaming()) as {
+				} = (await ctx[
+					"bilibili-notify-api"
+				].getTheUserWhoIsLiveStreaming()) as {
 					data: { live_users: LiveUsers };
 				};
 				// 定义当前正在直播且订阅的UP主列表
@@ -338,13 +341,16 @@ class ComRegister {
 				// 获取index
 				const i = (index && index - 1) || 0;
 				// 获取动态
-				const content = await this.ctx.ba.getUserSpaceDynamic(uid);
+				const content =
+					await this.ctx["bilibili-notify-api"].getUserSpaceDynamic(uid);
 				// 获取动态内容
 				const item = content.data.items[i];
 				// 生成图片
 				const buffer = await withRetry(async () => {
 					// 渲染图片
-					return await this.ctx.gi.generateDynamicImg(item);
+					return await this.ctx[
+						"bilibili-notify-generate-img"
+					].generateDynamicImg(item);
 				}, 1).catch(async (e) => {
 					// 直播开播动态，不做处理
 					if (e.message === "直播开播动态，不做处理") {
@@ -469,7 +475,10 @@ class ComRegister {
 			await session.send(
 				<message>
 					{h.image(
-						await this.ctx.gi.generateWordCloudImg(words, "词云测试"),
+						await this.ctx["bilibili-notify-generate-img"].generateWordCloudImg(
+							words,
+							"词云测试",
+						),
 						"image/jpg",
 					)}
 				</message>,
@@ -484,6 +493,7 @@ class ComRegister {
 			];
 
 			const danmakerRankMsg = this.config.liveSummary
+				.join("\n")
 				.replace("-dmc", "114")
 				.replace("-mdn", "特工")
 				.replace("-dca", "514")
@@ -506,7 +516,8 @@ class ComRegister {
 			const { code: userInfoCode, data: userInfoData } = await withRetry(
 				async () => {
 					// 获取用户信息
-					const data = await this.ctx.ba.getUserInfo("114514");
+					const data =
+						await this.ctx["bilibili-notify-api"].getUserInfo("114514");
 					// 返回用户信息
 					return { code: 0, data };
 				},
@@ -515,7 +526,9 @@ class ComRegister {
 			if (userInfoCode !== -352 || !userInfoData.v_voucher)
 				return "不满足验证条件，不需要执行该命令，如果提示风控可以尝试重启插件";
 			// 开始进行风控验证
-			const { data } = await ctx.ba.v_voucherCaptcha(userInfoData.v_voucher);
+			const { data } = await ctx["bilibili-notify-api"].v_voucherCaptcha(
+				userInfoData.v_voucher,
+			);
 			// 判断是否能进行风控验证
 			if (!data.geetest) {
 				return "当前风控无法通过该验证解除，或许考虑人工申诉？";
@@ -537,24 +550,25 @@ class ComRegister {
 			// seccode
 			const seccode = `${validate}|jordan`;
 			// 验证结果
-			const { data: validateCaptchaData } = await ctx.ba.validateCaptcha(
-				data.geetest.challenge,
-				data.token,
-				validate,
-				seccode,
-			);
+			const { data: validateCaptchaData } = await ctx[
+				"bilibili-notify-api"
+			].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 			// 判断验证是否成功
 			if (validateCaptchaData?.is_valid !== 1) return "验证不成功！";
-			// 添加cookie
-			ctx.ba.addCookie(`x-bili-gaia-vtoken=${validateCaptchaData.grisk_id}`);
+			/* // 添加cookie
+			ctx["bilibili-notify-api"].addCookie(
+				`x-bili-gaia-vtoken=${validateCaptchaData.grisk_id}`,
+			);
 			// 将cookies保存到数据库
-			const encryptedCookies = ctx.ba.encrypt(ctx.ba.getCookies());
+			const encryptedCookies = ctx["bilibili-notify-api"].encrypt(
+				ctx["bilibili-notify-api"].getCookies(),
+			);
 			await ctx.database.upsert("loginBili", [
 				{
 					id: 1,
 					bili_cookies: encryptedCookies,
 				},
-			]);
+			]); */
 			// 验证结束
 			return "验证成功！请重启插件";
 		});
@@ -562,7 +576,7 @@ class ComRegister {
 
 	async init(config: ComRegister.Config) {
 		// 设置logger
-		this.logger = this.ctx.logger("cr");
+		this.logger = this.ctx.logger("bilibili-notify-core");
 		// logger
 		this.logger.info("初始化插件中...");
 		// 将config设置给类属性
@@ -588,6 +602,8 @@ class ComRegister {
 			this.logger.info("账号未登录，请登录");
 			return;
 		}
+		// 合并停用词
+		this.mergeStopWords(config.wordcloudStopWords);
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
 			// 监听事件
@@ -647,6 +663,21 @@ class ComRegister {
 		this.logger.info("插件初始化完毕！");
 	}
 
+	mergeStopWords(stopWordsStr: string) {
+		// 如果没有停用词，则直接返回
+		if (!stopWordsStr || stopWordsStr.trim() === "") {
+			this.stopwords = new Set(definedStopWords);
+			return;
+		}
+		// 将停用词字符串转换为数组
+		const additionalStopWords = stopWordsStr
+			.split(",")
+			.map((word) => word.trim())
+			.filter((word) => word !== "");
+		// 将停用词转换为Set
+		this.stopwords = new Set([...definedStopWords, ...additionalStopWords]);
+	}
+
 	initManager() {
 		for (const sub of this.subManager) {
 			// 判断是否订阅动态
@@ -685,6 +716,7 @@ class ComRegister {
 				live: s.live,
 				liveAtAll: s.liveAtAll,
 				liveGuardBuy: s.liveGuardBuy,
+				wordcloud: s.wordcloud,
 				bot: null,
 			}));
 			// 组装Target
@@ -694,9 +726,11 @@ class ComRegister {
 				uid: s.uid,
 				dynamic: s.dynamic,
 				live: s.live,
+				wordcloud: s.wordcloud,
 				target,
 				card: { enable: false },
 				liveMsg: { enable: false },
+				liveSummary: { enable: false },
 			};
 		});
 		// 返回subs
@@ -747,7 +781,7 @@ class ComRegister {
 				"已重启插件三次，请检查机器人状态后使用指令 bn start 启动插件",
 			);
 			// 关闭插件
-			await this.ctx.sm.disposePlugin();
+			await this.ctx["bilibili-notify"].disposePlugin();
 			// 结束
 			return;
 		}
@@ -756,7 +790,7 @@ class ComRegister {
 		// logger
 		this.logger.info("插件出现未知错误，正在重启插件");
 		// 重启插件
-		const flag = await this.ctx.sm.restartPlugin();
+		const flag = await this.ctx["bilibili-notify"].restartPlugin();
 		// 判断是否重启成功
 		if (flag) {
 			this.logger.info("重启插件成功");
@@ -770,7 +804,7 @@ class ComRegister {
 				"重启插件失败，请检查机器人状态后使用指令 bn start 启动插件",
 			);
 			// 关闭插件
-			await this.ctx.sm.disposePlugin();
+			await this.ctx["bilibili-notify"].disposePlugin();
 		}
 	}
 
@@ -784,7 +818,7 @@ class ComRegister {
 			"插件发生未知错误，请检查机器人状态后使用指令 bn start 启动插件",
 		);
 		// 关闭插件
-		await this.ctx.sm.disposePlugin();
+		await this.ctx["bilibili-notify"].disposePlugin();
 		// 结束
 		return;
 	}
@@ -824,6 +858,7 @@ class ComRegister {
 				customLiveStart: this.config.customLiveStart || "",
 				customLive: this.config.customLive || "",
 				customLiveEnd: this.config.customLiveEnd || "",
+				liveSummary: this.config.liveSummary.join("\n") || "",
 			};
 			// 判断是否个性化推送消息
 			if (sub.liveMsg.enable) {
@@ -832,6 +867,10 @@ class ComRegister {
 				liveMsg.customLive = sub.liveMsg.customLive || this.config.customLive;
 				liveMsg.customLiveEnd =
 					sub.liveMsg.customLiveEnd || this.config.customLiveEnd;
+			}
+			if (sub.liveSummary.enable) {
+				liveMsg.liveSummary =
+					sub.liveSummary.liveSummary || this.config.liveSummary.join("\n");
 			}
 			// 设置到直播推送消息管理对象
 			this.liveMsgManager.set(sub.uid, liveMsg);
@@ -844,6 +883,7 @@ class ComRegister {
 			const liveArr: Array<string> = [];
 			const liveAtAllArr: Array<string> = [];
 			const liveGuardBuyArr: Array<string> = [];
+			const wordcloudArr: Array<string> = [];
 			// 遍历target
 			for (const platform of sub.target) {
 				// 遍历channelArr
@@ -856,6 +896,7 @@ class ComRegister {
 					if (channel.live) liveArr.push(target);
 					if (channel.liveAtAll) liveAtAllArr.push(target);
 					if (channel.liveGuardBuy) liveGuardBuyArr.push(target);
+					if (channel.wordcloud) wordcloudArr.push(target);
 				}
 			}
 			// 组装record
@@ -865,6 +906,7 @@ class ComRegister {
 				liveArr,
 				liveAtAllArr,
 				liveGuardBuyArr,
+				wordcloudArr,
 			});
 		}
 		// logger
@@ -982,6 +1024,21 @@ class ComRegister {
 			// 发送成功群组
 			this.logger.info(`成功推送上舰消息：${success.length}条`);
 		}
+		// 推送词云
+		if (type === PushType.WordCloud && record.wordcloudArr?.length >= 1) {
+			this.logger.info(record.wordcloudArr);
+			// 深拷贝
+			const wordcloudArr = structuredClone(record.wordcloudArr);
+			// 推送词云
+			const success = await withRetry(async () => {
+				return await this.ctx.broadcast(
+					wordcloudArr,
+					<message>{content}</message>,
+				);
+			}, 1);
+			// 发送成功群组
+			this.logger.info(`成功推送词云消息：${success.length}条`);
+		}
 		// 结束
 		return;
 	}
@@ -997,7 +1054,9 @@ class ComRegister {
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
-				return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
+				return (await this.ctx[
+					"bilibili-notify-api"
+				].getAllDynamic()) as AllDynamicInfo;
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
@@ -1020,7 +1079,7 @@ class ComRegister {
 							"账号未登录，插件已停止工作，请登录后，输入指令 bn start 启动插件",
 						);
 						// 停止服务
-						await this.ctx.sm.disposePlugin();
+						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
 						break;
 					}
@@ -1035,7 +1094,7 @@ class ComRegister {
 							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 bn start 启动插件",
 						);
 						// 停止服务
-						await this.ctx.sm.disposePlugin();
+						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
 						break;
 					}
@@ -1085,7 +1144,9 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(
+							return await this.ctx[
+								"bilibili-notify-generate-img"
+							].generateDynamicImg(
 								item,
 								sub.card.enable ? sub.card : undefined,
 							);
@@ -1226,7 +1287,9 @@ class ComRegister {
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
-				return (await this.ctx.ba.getAllDynamic()) as AllDynamicInfo;
+				return (await this.ctx[
+					"bilibili-notify-api"
+				].getAllDynamic()) as AllDynamicInfo;
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
@@ -1249,7 +1312,7 @@ class ComRegister {
 							"账号未登录，插件已停止工作，请登录后，输入指令 bn start 启动插件",
 						);
 						// 停止服务
-						await this.ctx.sm.disposePlugin();
+						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
 						break;
 					}
@@ -1264,7 +1327,7 @@ class ComRegister {
 							"账号被风控，插件已停止工作，请确认风控解除后，输入指令 bn start 启动插件",
 						);
 						// 停止服务
-						await this.ctx.sm.disposePlugin();
+						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
 						break;
 					}
@@ -1333,7 +1396,9 @@ class ComRegister {
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
-							return await this.ctx.gi.generateDynamicImg(
+							return await this.ctx[
+								"bilibili-notify-generate-img"
+							].generateDynamicImg(
 								item,
 								sub.card.enable ? sub.card : undefined,
 							);
@@ -1490,7 +1555,9 @@ class ComRegister {
 		liveType: LiveType,
 	): Promise<MasterInfo> {
 		// 获取主播信息
-		const { data } = (await this.ctx.ba.getMasterInfo(uid)) as MasterInfoR;
+		const { data } = (await this.ctx["bilibili-notify-api"].getMasterInfo(
+			uid,
+		)) as MasterInfoR;
 		// 定义粉丝数变量
 		let liveOpenFollowerNum: number;
 		let liveEndFollowerNum: number;
@@ -1533,7 +1600,7 @@ class ComRegister {
 	async useLiveRoomInfo(roomId: string) {
 		// 发送请求获取直播间信息
 		const data = await withRetry(
-			async () => await this.ctx.ba.getLiveRoomInfo(roomId),
+			async () => await this.ctx["bilibili-notify-api"].getLiveRoomInfo(roomId),
 		)
 			.then((content) => content.data)
 			.catch((e) => {
@@ -1564,7 +1631,7 @@ class ComRegister {
 		// 生成图片
 		const buffer = await withRetry(async () => {
 			// 获取直播通知卡片
-			return await this.ctx.gi.generateLiveImg(
+			return await this.ctx["bilibili-notify-generate-img"].generateLiveImg(
 				liveInfo.liveRoomInfo,
 				liveInfo.masterInfo.username,
 				liveInfo.masterInfo.userface,
@@ -1603,7 +1670,7 @@ class ComRegister {
 		// 分词
 		this._jieba
 			.cut(danmaku, true)
-			.filter((word) => word.length >= 2 && !stopwords.has(word))
+			.filter((word) => word.length >= 2 && !this.stopwords.has(word))
 			.map((w) => {
 				// 定义权重
 				danmakuWeightRecord[w] = (danmakuWeightRecord[w] || 0) + 1;
@@ -1617,11 +1684,7 @@ class ComRegister {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
 	}
 
-	async liveDetectWithListener(
-		roomId: string,
-		uid: string,
-		cardStyle: SubItem["card"],
-	) {
+	async liveDetectWithListener(roomId: string, sub: Subscription) {
 		// 定义开播时间
 		let liveTime: string;
 		// 定义定时推送定时器
@@ -1638,10 +1701,9 @@ class ComRegister {
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
 		// 获取推送信息对象
-		const liveMsgObj = this.liveMsgManager.get(uid);
-
+		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
-		const sendDanmakuWordCloud = async () => {
+		const sendDanmakuWordCloud = async (liveSummary: string) => {
 			/* 制作弹幕词云 */
 			this.logger.info("开始制作弹幕词云");
 			this.logger.info("正在获取前90热词");
@@ -1653,14 +1715,13 @@ class ComRegister {
 			this.logger.info(top90Words);
 			this.logger.info("正在准备生成弹幕词云");
 			// 生成弹幕词云图片
-			const buffer = await this.ctx.gi.generateWordCloudImg(
-				top90Words,
-				masterInfo.username,
-			);
+			const buffer = await this.ctx[
+				"bilibili-notify-generate-img"
+			].generateWordCloudImg(top90Words, masterInfo.username);
 			this.logger.info("弹幕词云生成完成，正在准备发送词云图片");
 			// 发送词云图片
 			await this.broadcastToTargets(
-				uid,
+				sub.uid,
 				h.image(buffer, "image/jpeg"),
 				PushType.Live,
 			);
@@ -1679,7 +1740,7 @@ class ComRegister {
 				.sort((a, b) => b[1] - a[1])
 				.slice(0, 5);
 			// 构建消息
-			const danmakuMakerMsg = this.config.liveSummary
+			const danmakuMakerMsg = liveSummary
 				.replace("-dmc", `${danmakuMakerCount}`)
 				.replace("-mdn", `${masterInfo.medalName}`)
 				.replace("-dca", `${danmakuCount}`)
@@ -1695,7 +1756,11 @@ class ComRegister {
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
 			// 发送弹幕排行榜消息
-			await this.broadcastToTargets(uid, danmakuMakerMsg, PushType.Live);
+			await this.broadcastToTargets(
+				sub.uid,
+				danmakuMakerMsg,
+				PushType.WordCloud,
+			);
 			// 清理弹幕数据
 			Object.keys(danmakuWeightRecord).forEach(
 				(key) => delete danmakuWeightRecord[key],
@@ -1732,9 +1797,14 @@ class ComRegister {
 			// 获取watched
 			const watched = watchedNum || "暂未获取到";
 			// 设置直播中消息
-			const liveMsg = liveMsgObj?.customLive
+			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
-				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+				.replace(
+					"-time",
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					),
+				)
 				.replace("-watched", watched)
 				.replaceAll("\\n", "\n")
 				.replace(
@@ -1748,9 +1818,9 @@ class ComRegister {
 				{
 					liveRoomInfo,
 					masterInfo,
-					cardStyle,
+					cardStyle: sub.card,
 				},
-				uid,
+				sub.uid,
 				liveMsg,
 			);
 		};
@@ -1796,7 +1866,7 @@ class ComRegister {
 				// 关闭定时推送
 				pushAtTimeTimer?.();
 				// 停止服务
-				this.ctx.bl.closeListener(roomId);
+				this.ctx["bilibili-notify-live"].closeListener(roomId);
 				// 发送消息
 				await this.sendPrivateMsg(`[${roomId}]直播间连接发生错误！`);
 				this.logger.error(`[${roomId}]直播间连接发生错误！`);
@@ -1826,7 +1896,7 @@ class ComRegister {
 					</message>
 				);
 				// 直接发送消息
-				this.broadcastToTargets(uid, content, PushType.LiveGuardBuy);
+				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
 			},
 			onLiveStart: async () => {
 				// 判断是否已经开播
@@ -1852,9 +1922,14 @@ class ComRegister {
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
 				// 定义开播通知语
-				const liveStartMsg = liveMsgObj?.customLiveStart
+				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
-					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+					.replace(
+						"-time",
+						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+							liveTime,
+						),
+					)
 					.replace("-follower", follower)
 					.replaceAll("\\n", "\n")
 					.replace(
@@ -1868,9 +1943,9 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle,
+						cardStyle: sub.card,
 					},
-					uid,
+					sub.uid,
 					liveStartMsg,
 				);
 				// 判断定时器是否已开启
@@ -1913,9 +1988,14 @@ class ComRegister {
 						: liveFollowerChangeNum.toString();
 				})();
 				// 定义下播播通知语
-				const liveEndMsg = liveMsgObj?.customLiveEnd
+				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
-					.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+					.replace(
+						"-time",
+						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+							liveTime,
+						),
+					)
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
 				// 推送通知卡片
@@ -1925,9 +2005,9 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle,
+						cardStyle: sub.card,
 					},
-					uid,
+					sub.uid,
 					liveEndMsg,
 				);
 				// 关闭定时推送定时器
@@ -1935,14 +2015,17 @@ class ComRegister {
 				// 将推送定时器变量置空
 				pushAtTimeTimer = null;
 				// 判断是否需要发送弹幕词云
-				if (this.config.wordcloud) {
+				if (sub.wordcloud) {
 					// 发送弹幕词云
-					await sendDanmakuWordCloud();
+					await sendDanmakuWordCloud(liveMsgObj.liveSummary);
 				}
 			},
 		};
 		// 启动直播间弹幕监测
-		await this.ctx.bl.startLiveRoomListener(roomId, handler);
+		await this.ctx["bilibili-notify-live"].startLiveRoomListener(
+			roomId,
+			handler,
+		);
 		// 第一次启动获取信息并判信息是否获取成功
 		if (!(await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast))) {
 			// 未获取成功，直接返回
@@ -1957,9 +2040,14 @@ class ComRegister {
 			// 获取当前累计观看人数
 			const watched = watchedNum || "暂未获取到";
 			// 定义直播中通知消息
-			const liveMsg = liveMsgObj?.customLive
+			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
-				.replace("-time", await this.ctx.gi.getTimeDifference(liveTime))
+				.replace(
+					"-time",
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					),
+				)
 				.replace("-watched", watched)
 				.replaceAll("\\n", "\n")
 				.replace(
@@ -1974,9 +2062,9 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle,
+						cardStyle: sub.card,
 					},
-					uid,
+					sub.uid,
 					liveMsg,
 				);
 			}
@@ -2040,7 +2128,10 @@ class ComRegister {
 		const useLiveInfo = async () => {
 			// 发送请求
 			const { data }: Live | undefined = await withRetry(
-				async () => (await this.ctx.ba.getLiveRoomInfoByUids(uids)) as Live,
+				async () =>
+					(await this.ctx["bilibili-notify-api"].getLiveRoomInfoByUids(
+						uids,
+					)) as Live,
 				3,
 			).catch(async () => {
 				// 返回undefined
@@ -2083,11 +2174,13 @@ class ComRegister {
 					liveStatus.liveStartTimeInit = true;
 				}
 				// 设置直播中消息
-				const liveMsg = liveMsgObj?.customLive
+				const liveMsg = liveMsgObj.customLive
 					.replace("-name", liveStatus.masterInfo.username)
 					.replace(
 						"-time",
-						await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+							liveStatus.liveStartTime,
+						),
 					)
 					.replace("-watched", "API模式无法获取")
 					.replaceAll("\\n", "\n")
@@ -2172,11 +2265,13 @@ class ComRegister {
 									: liveFollowerChangeNum.toString();
 							})();
 							// 定义下播播通知语
-							const liveEndMsg = liveMsgObj?.customLiveEnd
+							const liveEndMsg = liveMsgObj.customLiveEnd
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
-									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+									await this.ctx[
+										"bilibili-notify-generate-img"
+									].getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-follower_change", followerChange)
 								.replaceAll("\\n", "\n");
@@ -2226,11 +2321,13 @@ class ComRegister {
 									? `${(liveStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 									: liveStatus.masterInfo.liveOpenFollowerNum.toString();
 							// 定义开播通知语
-							const liveStartMsg = liveMsgObj?.customLiveStart
+							const liveStartMsg = liveMsgObj.customLiveStart
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
-									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+									await this.ctx[
+										"bilibili-notify-generate-img"
+									].getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-follower", follower)
 								.replaceAll("\\n", "\n")
@@ -2284,11 +2381,13 @@ class ComRegister {
 								liveStatus.liveStartTimeInit = true;
 							}
 							// 设置直播中消息
-							const liveMsg = liveMsgObj?.customLive
+							const liveMsg = liveMsgObj.customLive
 								.replace("-name", liveStatus.masterInfo.username)
 								.replace(
 									"-time",
-									await this.ctx.gi.getTimeDifference(liveStatus.liveStartTime),
+									await this.ctx[
+										"bilibili-notify-generate-img"
+									].getTimeDifference(liveStatus.liveStartTime),
 								)
 								.replace("-watched", "API模式无法获取")
 								.replaceAll("\\n", "\n")
@@ -2365,7 +2464,7 @@ class ComRegister {
 	async checkIfLoginInfoIsLoaded() {
 		return new Promise((resolve) => {
 			const check = () => {
-				if (!this.ctx.ba.getLoginInfoIsLoaded()) {
+				if (!this.ctx["bilibili-notify-api"].getLoginInfoIsLoaded()) {
 					this.ctx.setTimeout(check, 500);
 				} else {
 					resolve("success");
@@ -2381,13 +2480,15 @@ class ComRegister {
 			// 判断是否有数据
 			if (!this.loginDBData?.dynamic_group_id) {
 				// 没有数据，没有创建分组，尝试创建分组
-				const createGroupData = (await this.ctx.ba.createGroup(
-					"订阅",
-				)) as CreateGroup;
+				const createGroupData = (await this.ctx[
+					"bilibili-notify-api"
+				].createGroup("订阅")) as CreateGroup;
 				// 如果分组已创建，则获取分组id
 				if (createGroupData.code === 22106) {
 					// 分组已存在，拿到之前的分组id
-					const allGroupData = (await this.ctx.ba.getAllGroup()) as GroupList;
+					const allGroupData = (await this.ctx[
+						"bilibili-notify-api"
+					].getAllGroup()) as GroupList;
 					// 遍历所有分组
 					for (const group of allGroupData.data) {
 						// 找到订阅分组
@@ -2422,9 +2523,9 @@ class ComRegister {
 		// 获取分组详情
 		const getGroupDetailData = async (): Promise<Result> => {
 			// 获取分组明细
-			const relationGroupDetailData = await this.ctx.ba.getRelationGroupDetail(
-				this.loginDBData.dynamic_group_id,
-			);
+			const relationGroupDetailData = await this.ctx[
+				"bilibili-notify-api"
+			].getRelationGroupDetail(this.loginDBData.dynamic_group_id);
 			// 判断分组信息是否获取成功
 			if (relationGroupDetailData.code !== 0) {
 				if (relationGroupDetailData.code === 22104) {
@@ -2464,7 +2565,7 @@ class ComRegister {
 			}
 		}
 		// 订阅对象
-		const subUserData = (await this.ctx.ba.follow(mid)) as {
+		const subUserData = (await this.ctx["bilibili-notify-api"].follow(mid)) as {
 			code: number;
 			message: string;
 		};
@@ -2515,10 +2616,9 @@ class ComRegister {
 			// 已订阅该对象
 			22014: async () => {
 				// 把订阅对象添加到分组中
-				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
-					mid,
-					this.loginDBData.dynamic_group_id,
-				);
+				const copyUserToGroupData = await this.ctx[
+					"bilibili-notify-api"
+				].copyUserToGroup(mid, this.loginDBData.dynamic_group_id);
 				// 判断是否添加成功
 				if (copyUserToGroupData.code !== 0) {
 					// 添加失败
@@ -2533,10 +2633,9 @@ class ComRegister {
 			// 订阅成功
 			0: async () => {
 				// 把订阅对象添加到分组中
-				const copyUserToGroupData = await this.ctx.ba.copyUserToGroup(
-					mid,
-					this.loginDBData.dynamic_group_id,
-				);
+				const copyUserToGroupData = await this.ctx[
+					"bilibili-notify-api"
+				].copyUserToGroup(mid, this.loginDBData.dynamic_group_id);
 				// 判断是否添加成功
 				if (copyUserToGroupData.code !== 0) {
 					// 添加失败
@@ -2567,7 +2666,7 @@ class ComRegister {
 				data: userInfoData,
 			} = await withRetry(async () => {
 				// 获取用户信息
-				const data = await this.ctx.ba.getUserInfo(sub.uid);
+				const data = await this.ctx["bilibili-notify-api"].getUserInfo(sub.uid);
 				// 返回用户信息
 				return { code: 0, data };
 			})
@@ -2603,11 +2702,7 @@ class ComRegister {
 				// 判断是否订阅直播
 				if (sub.live) {
 					// 启动直播监测
-					await this.liveDetectWithListener(
-						userInfoData.live_room.roomid,
-						sub.uid,
-						sub.card,
-					);
+					await this.liveDetectWithListener(userInfoData.live_room.roomid, sub);
 				}
 			}
 			// 在B站中订阅该对象
@@ -2693,7 +2788,7 @@ class ComRegister {
 		if ((await this.ctx.database.get("loginBili", 1)).length !== 0) {
 			// 数据库中有数据
 			// 检查cookie中是否有值
-			if (this.ctx.ba.getCookies() !== "[]") {
+			if (this.ctx["bilibili-notify-api"].getCookies() !== "[]") {
 				// 有值说明已登录
 				return true;
 			}
@@ -2713,6 +2808,7 @@ namespace ComRegister {
 			live: boolean;
 			liveAtAll: boolean;
 			liveGuardBuy: boolean;
+			wordcloud: boolean;
 			platform: string;
 			target: string;
 		}>;
@@ -2723,8 +2819,8 @@ namespace ComRegister {
 			masterAccountGuildId: string;
 		};
 		liveDetectType: string;
-		wordcloud: boolean;
-		liveSummary: string;
+		wordcloudStopWords: string;
+		liveSummary: Array<string>;
 		restartPush: boolean;
 		pushTime: number;
 		pushImgsInDynamic: boolean;
@@ -2755,6 +2851,7 @@ namespace ComRegister {
 				live: Schema.boolean().default(true).description("直播"),
 				liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 				liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
+				wordcloud: Schema.boolean().default(true).description("弹幕词云"),
 				platform: Schema.string().required().description("平台名"),
 				target: Schema.string().required().description("群号/频道号"),
 			}),
@@ -2770,8 +2867,8 @@ namespace ComRegister {
 			masterAccountGuildId: Schema.string(),
 		}),
 		liveDetectType: Schema.string(),
-		wordcloud: Schema.boolean(),
-		liveSummary: Schema.string(),
+		wordcloudStopWords: Schema.string(),
+		liveSummary: Schema.array(String),
 		restartPush: Schema.boolean().required(),
 		pushTime: Schema.number().required(),
 		pushImgsInDynamic: Schema.boolean().required(),

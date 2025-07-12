@@ -1,5 +1,5 @@
 // 停用词
-export const stopwords = new Set([
+const stopwords = new Set([
 	// 标点符号
 	"，",
 	"。",
@@ -148,3 +148,5 @@ export const stopwords = new Set([
 	"之前",
 	"某天",
 ]);
+
+export default stopwords;

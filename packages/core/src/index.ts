@@ -25,7 +25,7 @@ let globalConfig: BAConfig;
 
 declare module "koishi" {
 	interface Context {
-		sm: ServerManager;
+		"bilibili-notify": ServerManager;
 	}
 
 	interface Events {
@@ -39,10 +39,10 @@ class ServerManager extends Service {
 	servers: ForkScope[] = [];
 
 	constructor(ctx: Context) {
-		super(ctx, "sm");
+		super(ctx, "bilibili-notify");
 
 		// 插件运行相关指令
-		const sysCom = ctx.command("bn", "bili-notify插件运行相关指令", {
+		const sysCom = ctx.command("bn", "bilibili-notify 插件运行相关指令", {
 			permissions: ["authority:5"],
 		});
 
@@ -120,7 +120,7 @@ class ServerManager extends Service {
 				advancedSub: globalConfig.advancedSub,
 				subs: globalConfig.subs,
 				master: globalConfig.master,
-				wordcloud: globalConfig.wordcloud,
+				wordcloudStopWords: globalConfig.wordcloudStopWords,
 				liveSummary: globalConfig.liveSummary,
 				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
