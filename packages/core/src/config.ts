@@ -21,6 +21,7 @@ export interface BAConfig {
 		liveAtAll: boolean;
 		liveGuardBuy: boolean;
 		wordcloud: boolean;
+		liveSummary: boolean;
 		platform: string;
 		target: string;
 	}>;
@@ -133,6 +134,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
 			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
+			liveSummary: Schema.boolean().default(true).description("直播总结"),
 			platform: Schema.string().required().description("平台名"),
 			target: Schema.string().required().description("群号/频道号"),
 		}),

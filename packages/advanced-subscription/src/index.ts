@@ -15,7 +15,6 @@ export const Config: Schema<Config> = Schema.object({
 			uid: Schema.string().required().description("订阅用户UID"),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
-			wordcloud: Schema.boolean().default(true).description("是否开启弹幕词云"),
 			target: Schema.array(
 				Schema.object({
 					platform: Schema.string()
@@ -38,6 +37,9 @@ export const Config: Schema<Config> = Schema.object({
 							wordcloud: Schema.boolean()
 								.default(true)
 								.description("弹幕词云通知"),
+							liveSummary: Schema.boolean()
+								.default(true)
+								.description("直播总结通知"),
 							bot: Schema.string().description(
 								"若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个",
 							),
@@ -50,7 +52,7 @@ export const Config: Schema<Config> = Schema.object({
 			).description(
 				"订阅用户需要发送的平台和频道/群组信息(一个平台下可以推送多个频道/群组)",
 			),
-			liveSummary: Schema.intersect([
+			customLiveSummary: Schema.intersect([
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)
@@ -80,7 +82,7 @@ export const Config: Schema<Config> = Schema.object({
 					Schema.object({}),
 				]),
 			]),
-			liveMsg: Schema.intersect([
+			customLiveMsg: Schema.intersect([
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)
@@ -102,7 +104,7 @@ export const Config: Schema<Config> = Schema.object({
 					Schema.object({}),
 				]),
 			]),
-			card: Schema.intersect([
+			customCardStyle: Schema.intersect([
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)

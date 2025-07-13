@@ -14,6 +14,7 @@ export type Channel = {
 	liveAtAll: boolean;
 	liveGuardBuy: boolean;
 	wordcloud: boolean;
+	liveSummary: boolean;
 	bot: string;
 };
 
@@ -26,7 +27,7 @@ export type TargetItem = {
 
 export type Target = Array<TargetItem>;
 
-export type SubCard = {
+export type CustomCardStyle = {
 	enable: boolean;
 	cardColorStart?: string;
 	cardColorEnd?: string;
@@ -34,29 +35,28 @@ export type SubCard = {
 	cardBasePlateBorder?: string;
 };
 
-export type SubLiveMsg = {
+export type CustomLiveMsg = {
 	enable: boolean;
 	customLiveStart?: string;
 	customLive?: string;
 	customLiveEnd?: string;
 };
 
-export type SubLiveSummary = {
+export type CustomLiveSummary = {
 	enable: boolean;
 	liveSummary?: string;
 };
 
 export type SubItem = {
-	id: number;
 	uid: string;
 	uname: string;
 	roomId: string;
 	target: Target;
-	platform: string;
 	live: boolean;
 	dynamic: boolean;
-	card: SubCard;
-	liveMsg: SubLiveMsg;
+	customCardStyle: CustomCardStyle;
+	customLiveMsg: CustomLiveMsg;
+	customLiveSummary: CustomLiveSummary;
 };
 
 export type SubManager = Array<SubItem>;
@@ -321,7 +321,7 @@ export enum PushType {
 	DynamicAtAll = 2,
 	StartBroadcasting = 3,
 	LiveGuardBuy = 4,
-	WordCloud = 5,
+	WordCloudAndLiveSummary = 5,
 }
 
 export const PushTypeMsg = {
@@ -330,7 +330,7 @@ export const PushTypeMsg = {
 	[PushType.DynamicAtAll]: "动态推送+At全体",
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
-	[PushType.WordCloud]: "弹幕词云推送",
+	[PushType.WordCloudAndLiveSummary]: "弹幕词云和直播总结推送",
 };
 
 export type Result = {
@@ -370,6 +370,7 @@ export type PushArrMap = Map<
 		liveAtAllArr?: Array<string>;
 		liveGuardBuyArr?: Array<string>;
 		wordcloudArr?: Array<string>;
+		liveSummaryArr?: Array<string>;
 	}
 >;
 
@@ -435,11 +436,10 @@ export type Subscription = {
 	uid: string;
 	dynamic: boolean;
 	live: boolean;
-	wordcloud: boolean;
 	target: Target;
-	card: SubCard;
-	liveMsg: SubLiveMsg;
-	liveSummary: SubLiveSummary;
+	customCardStyle: CustomCardStyle;
+	customLiveMsg: CustomLiveMsg;
+	customLiveSummary: CustomLiveSummary;
 };
 
 export type Subscriptions = Record<string, Subscription>;

@@ -4,6 +4,9 @@
 
 advanced subscription for bilibili-notify
 
+> [!WARNING]
+> 版本 `0.0.12` 请将选项 `liveSummary` 恢复默认值
+
 ## CHANGELOG
 
 > [!CAUTION]
@@ -18,3 +21,4 @@ advanced subscription for bilibili-notify
 
 > [!NOTE]
 > - ver 0.0.11 新增：UP主弹幕词云开关，自定义直播总结；
+> - ver 0.0.12 优化：拆分 `wordcloud` 和 `liveSummary`

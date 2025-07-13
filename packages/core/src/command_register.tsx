@@ -36,7 +36,6 @@ import {
 	PushType,
 	PushTypeMsg,
 	type Result,
-	type SubItem,
 	type SubManager,
 	type Subscription,
 	type Subscriptions,
@@ -555,22 +554,13 @@ class ComRegister {
 			].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 			// 判断验证是否成功
 			if (validateCaptchaData?.is_valid !== 1) return "验证不成功！";
-			/* // 添加cookie
-			ctx["bilibili-notify-api"].addCookie(
-				`x-bili-gaia-vtoken=${validateCaptchaData.grisk_id}`,
+			// 测试
+			await ctx["bilibili-notify-api"].getUserInfo(
+				"114514",
+				validateCaptchaData.grisk_id,
 			);
-			// 将cookies保存到数据库
-			const encryptedCookies = ctx["bilibili-notify-api"].encrypt(
-				ctx["bilibili-notify-api"].getCookies(),
-			);
-			await ctx.database.upsert("loginBili", [
-				{
-					id: 1,
-					bili_cookies: encryptedCookies,
-				},
-			]); */
-			// 验证结束
-			return "验证成功！请重启插件";
+			// 验证成功
+			await session.send("验证成功！请重启插件");
 		});
 	}
 
@@ -604,12 +594,14 @@ class ComRegister {
 		}
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
+
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
 			// 监听事件
 			this.ctx.on(
 				"bilibili-notify/advanced-sub",
 				async (subs: Subscriptions) => {
+					// 初始化后续部分
 					await this.initAsyncPart(subs);
 				},
 			);
@@ -622,9 +614,6 @@ class ComRegister {
 				const subs = this.configSubsToSubscription(config.subs);
 				// 加载后续部分
 				await this.initAsyncPart(subs);
-			} else {
-				// 处理没有订阅的情况
-				this.logger.info("插件初始化完毕！");
 			}
 		}
 		// 注册插件销毁函数
@@ -659,7 +648,7 @@ class ComRegister {
 		this.checkIfLiveDetectIsNeeded();
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
-		// logger
+		// 初始化完毕
 		this.logger.info("插件初始化完毕！");
 	}
 
@@ -717,6 +706,7 @@ class ComRegister {
 				liveAtAll: s.liveAtAll,
 				liveGuardBuy: s.liveGuardBuy,
 				wordcloud: s.wordcloud,
+				liveSummary: s.liveSummary,
 				bot: null,
 			}));
 			// 组装Target
@@ -726,11 +716,10 @@ class ComRegister {
 				uid: s.uid,
 				dynamic: s.dynamic,
 				live: s.live,
-				wordcloud: s.wordcloud,
 				target,
-				card: { enable: false },
-				liveMsg: { enable: false },
-				liveSummary: { enable: false },
+				customCardStyle: { enable: false },
+				customLiveMsg: { enable: false },
+				customLiveSummary: { enable: false },
 			};
 		});
 		// 返回subs
@@ -861,16 +850,18 @@ class ComRegister {
 				liveSummary: this.config.liveSummary.join("\n") || "",
 			};
 			// 判断是否个性化推送消息
-			if (sub.liveMsg.enable) {
+			if (sub.customLiveMsg.enable) {
 				liveMsg.customLiveStart =
-					sub.liveMsg.customLiveStart || this.config.customLiveStart;
-				liveMsg.customLive = sub.liveMsg.customLive || this.config.customLive;
+					sub.customLiveMsg.customLiveStart || this.config.customLiveStart;
+				liveMsg.customLive =
+					sub.customLiveMsg.customLive || this.config.customLive;
 				liveMsg.customLiveEnd =
-					sub.liveMsg.customLiveEnd || this.config.customLiveEnd;
+					sub.customLiveMsg.customLiveEnd || this.config.customLiveEnd;
 			}
-			if (sub.liveSummary.enable) {
+			if (sub.customLiveSummary.enable) {
 				liveMsg.liveSummary =
-					sub.liveSummary.liveSummary || this.config.liveSummary.join("\n");
+					sub.customLiveSummary.liveSummary ||
+					this.config.liveSummary.join("\n");
 			}
 			// 设置到直播推送消息管理对象
 			this.liveMsgManager.set(sub.uid, liveMsg);
@@ -884,6 +875,7 @@ class ComRegister {
 			const liveAtAllArr: Array<string> = [];
 			const liveGuardBuyArr: Array<string> = [];
 			const wordcloudArr: Array<string> = [];
+			const liveSummaryArr: Array<string> = [];
 			// 遍历target
 			for (const platform of sub.target) {
 				// 遍历channelArr
@@ -897,6 +889,7 @@ class ComRegister {
 					if (channel.liveAtAll) liveAtAllArr.push(target);
 					if (channel.liveGuardBuy) liveGuardBuyArr.push(target);
 					if (channel.wordcloud) wordcloudArr.push(target);
+					if (channel.liveSummary) liveSummaryArr.push(target);
 				}
 			}
 			// 组装record
@@ -905,6 +898,7 @@ class ComRegister {
 				dynamicAtAllArr,
 				liveArr,
 				liveAtAllArr,
+				liveSummaryArr,
 				liveGuardBuyArr,
 				wordcloudArr,
 			});
@@ -1025,22 +1019,68 @@ class ComRegister {
 			this.logger.info(`成功推送上舰消息：${success.length}条`);
 		}
 		// 推送词云
-		if (type === PushType.WordCloud && record.wordcloudArr?.length >= 1) {
-			this.logger.info(record.wordcloudArr);
+		if (type === PushType.WordCloudAndLiveSummary) {
 			// 深拷贝
 			const wordcloudArr = structuredClone(record.wordcloudArr);
-			// 推送词云
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					wordcloudArr,
-					<message>{content}</message>,
-				);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送词云消息：${success.length}条`);
+			const liveSummaryArr = structuredClone(record.liveSummaryArr);
+			// 获取需要推送词云和直播总结的群组
+			const wordcloudAndLiveSummaryArr = wordcloudArr.filter((item) =>
+				liveSummaryArr.includes(item),
+			);
+			// 获取只需要推送词云的群组
+			const wordcloudOnlyArr = wordcloudArr.filter(
+				(item) => !liveSummaryArr.includes(item),
+			);
+			// 获取只需要推送直播总结的群组
+			const liveSummaryOnlyArr = liveSummaryArr.filter(
+				(item) => !wordcloudArr.includes(item),
+			);
+			// 推送需要词云和直播总结的群组
+			if (wordcloudAndLiveSummaryArr.length > 0) {
+				this.logger.info("词云和直播总结");
+				this.logger.info(wordcloudAndLiveSummaryArr);
+				// 推送词云和直播总结
+				const success = await withRetry(async () => {
+					return await this.ctx.broadcast(
+						wordcloudAndLiveSummaryArr,
+						<message>
+							{content[0]}
+							{content[1]}
+						</message>,
+					);
+				}, 1);
+				// 发送成功群组
+				this.logger.info(`成功推送词云和直播总结消息：${success.length}条`);
+			}
+			// 推送只需要词云的群组
+			if (wordcloudOnlyArr.length > 0) {
+				this.logger.info("词云");
+				this.logger.info(wordcloudOnlyArr);
+				// 推送词云
+				const success = await withRetry(async () => {
+					return await this.ctx.broadcast(
+						wordcloudOnlyArr,
+						<message>{content[0]}</message>,
+					);
+				}, 1);
+				// 发送成功群组
+				this.logger.info(`成功推送词云消息：${success.length}条`);
+			}
+			// 推送只需要直播总结的群组
+			if (liveSummaryOnlyArr.length > 0) {
+				this.logger.info("直播总结");
+				this.logger.info(liveSummaryOnlyArr);
+				// 推送直播总结
+				const success = await withRetry(async () => {
+					return await this.ctx.broadcast(
+						liveSummaryOnlyArr,
+						<message>{content[1]}</message>,
+					);
+				}, 1);
+				// 发送成功群组
+				this.logger.info(`成功推送直播总结消息：${success.length}条`);
+			}
 		}
-		// 结束
-		return;
 	}
 
 	dynamicDetect() {
@@ -1148,7 +1188,7 @@ class ComRegister {
 								"bilibili-notify-generate-img"
 							].generateDynamicImg(
 								item,
-								sub.card.enable ? sub.card : undefined,
+								sub.customCardStyle.enable ? sub.customCardStyle : undefined,
 							);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
@@ -1400,7 +1440,7 @@ class ComRegister {
 								"bilibili-notify-generate-img"
 							].generateDynamicImg(
 								item,
-								sub.card.enable ? sub.card : undefined,
+								sub.customCardStyle.enable ? sub.customCardStyle : undefined,
 							);
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
@@ -1623,7 +1663,7 @@ class ComRegister {
 			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			liveRoomInfo: any;
 			masterInfo: MasterInfo;
-			cardStyle: SubItem["card"];
+			cardStyle: Subscription["customCardStyle"];
 		},
 		uid: string,
 		liveNotifyMsg: string,
@@ -1703,7 +1743,9 @@ class ComRegister {
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
-		const sendDanmakuWordCloud = async (liveSummary: string) => {
+		const sendDanmakuWordCloudAndLiveSummary = async (
+			customLiveSummary: string,
+		) => {
 			/* 制作弹幕词云 */
 			this.logger.info("开始制作弹幕词云");
 			this.logger.info("正在获取前90热词");
@@ -1718,15 +1760,8 @@ class ComRegister {
 			const buffer = await this.ctx[
 				"bilibili-notify-generate-img"
 			].generateWordCloudImg(top90Words, masterInfo.username);
-			this.logger.info("弹幕词云生成完成，正在准备发送词云图片");
-			// 发送词云图片
-			await this.broadcastToTargets(
-				sub.uid,
-				h.image(buffer, "image/jpeg"),
-				PushType.Live,
-			);
-			// 词云图片发送完毕
-			this.logger.info("词云图片发送完毕！");
+			// 构建图片消息
+			const img = <message>{h.image(buffer, "image/jpeg")}</message>;
 			this.logger.info("开始构建弹幕发送排行榜消息");
 			// 弹幕发送者数量
 			const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
@@ -1740,7 +1775,7 @@ class ComRegister {
 				.sort((a, b) => b[1] - a[1])
 				.slice(0, 5);
 			// 构建消息
-			const danmakuMakerMsg = liveSummary
+			const danmakuMakerMsg = customLiveSummary
 				.replace("-dmc", `${danmakuMakerCount}`)
 				.replace("-mdn", `${masterInfo.medalName}`)
 				.replace("-dca", `${danmakuCount}`)
@@ -1755,11 +1790,12 @@ class ComRegister {
 				.replace("-un5", `${top5DanmakuMaker[4][0]}`)
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
-			// 发送弹幕排行榜消息
+			const summary = <message>{danmakuMakerMsg}</message>;
+			// 发送消息
 			await this.broadcastToTargets(
 				sub.uid,
-				danmakuMakerMsg,
-				PushType.WordCloud,
+				[img, summary],
+				PushType.WordCloudAndLiveSummary,
 			);
 			// 清理弹幕数据
 			Object.keys(danmakuWeightRecord).forEach(
@@ -1818,7 +1854,7 @@ class ComRegister {
 				{
 					liveRoomInfo,
 					masterInfo,
-					cardStyle: sub.card,
+					cardStyle: sub.customCardStyle,
 				},
 				sub.uid,
 				liveMsg,
@@ -1943,7 +1979,7 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle: sub.card,
+						cardStyle: sub.customCardStyle,
 					},
 					sub.uid,
 					liveStartMsg,
@@ -2005,7 +2041,7 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle: sub.card,
+						cardStyle: sub.customCardStyle,
 					},
 					sub.uid,
 					liveEndMsg,
@@ -2014,11 +2050,8 @@ class ComRegister {
 				pushAtTimeTimer();
 				// 将推送定时器变量置空
 				pushAtTimeTimer = null;
-				// 判断是否需要发送弹幕词云
-				if (sub.wordcloud) {
-					// 发送弹幕词云
-					await sendDanmakuWordCloud(liveMsgObj.liveSummary);
-				}
+				// 发送弹幕词云和直播总结
+				await sendDanmakuWordCloudAndLiveSummary(liveMsgObj.liveSummary);
 			},
 		};
 		// 启动直播间弹幕监测
@@ -2062,7 +2095,7 @@ class ComRegister {
 					{
 						liveRoomInfo,
 						masterInfo,
-						cardStyle: sub.card,
+						cardStyle: sub.customCardStyle,
 					},
 					sub.uid,
 					liveMsg,
@@ -2195,7 +2228,7 @@ class ComRegister {
 					{
 						liveRoomInfo: liveStatus.liveRoomInfo,
 						masterInfo: liveStatus.masterInfo,
-						cardStyle: sub.card,
+						cardStyle: sub.customCardStyle,
 					},
 					sub.uid,
 					liveMsg,
@@ -2282,7 +2315,7 @@ class ComRegister {
 								{
 									liveRoomInfo: liveStatus.liveRoomInfo,
 									masterInfo: liveStatus.masterInfo,
-									cardStyle: sub.card,
+									cardStyle: sub.customCardStyle,
 								},
 								sub.uid,
 								liveEndMsg,
@@ -2342,7 +2375,7 @@ class ComRegister {
 								{
 									liveRoomInfo: liveStatus.liveRoomInfo,
 									masterInfo: liveStatus.masterInfo,
-									cardStyle: sub.card,
+									cardStyle: sub.customCardStyle,
 								},
 								sub.uid,
 								liveStartMsg,
@@ -2402,7 +2435,7 @@ class ComRegister {
 								{
 									liveRoomInfo: liveStatus.liveRoomInfo,
 									masterInfo: liveStatus.masterInfo,
-									cardStyle: sub.card,
+									cardStyle: sub.customCardStyle,
 								},
 								sub.uid,
 								liveMsg,
@@ -2681,7 +2714,7 @@ class ComRegister {
 			// v_voucher风控
 			if (userInfoCode === -352 && userInfoData.v_voucher) {
 				// logger
-				this.logger.info("账号被风控，请使用指令 bili captcha 进行风控验证");
+				this.logger.info("账号被风控，请使用指令 bili cap 进行风控验证");
 				// 发送私聊消息
 				await this.sendPrivateMsg(
 					"账号被风控，请使用指令 bili cap 进行风控验证",
@@ -2711,16 +2744,15 @@ class ComRegister {
 			if (subInfo.code !== 0) return subInfo;
 			// 将该订阅添加到sm中
 			this.subManager.push({
-				id: +sub.uid,
 				uid: sub.uid,
 				uname: userInfoData.name,
 				roomId: sub.live ? userInfoData.live_room.roomid : "",
 				target: sub.target,
-				platform: "",
 				live: sub.live,
 				dynamic: sub.dynamic,
-				card: sub.card,
-				liveMsg: sub.liveMsg,
+				customCardStyle: sub.customCardStyle,
+				customLiveMsg: sub.customLiveMsg,
+				customLiveSummary: sub.customLiveSummary,
 			});
 			// logger
 			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
@@ -2809,6 +2841,7 @@ namespace ComRegister {
 			liveAtAll: boolean;
 			liveGuardBuy: boolean;
 			wordcloud: boolean;
+			liveSummary: boolean;
 			platform: string;
 			target: string;
 		}>;
@@ -2852,6 +2885,7 @@ namespace ComRegister {
 				liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 				liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
 				wordcloud: Schema.boolean().default(true).description("弹幕词云"),
+				liveSummary: Schema.boolean().default(true).description("直播总结"),
 				platform: Schema.string().required().description("平台名"),
 				target: Schema.string().required().description("群号/频道号"),
 			}),

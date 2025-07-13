@@ -544,15 +544,23 @@ class BiliAPI extends Service {
 		});
 	}
 
-	async getUserInfo(mid: string) {
+	async getUserInfo(mid: string, grisk_id?: string) {
 		const run = async () => {
 			//如果为番剧出差的UID，则不从远程接口拉取数据，直接传回一段精简过的有效数据
 			if (mid === "11783021") {
 				console.log("检测到番剧出差UID，跳过远程用户接口访问");
 				return bangumiTripData;
 			}
-			const wbi = await this.getWbi({ mid });
+			// 如果grisk_id存在，则将其添加到请求参数中
+			const params: { mid: string; grisk_id?: string } = { mid };
+			if (grisk_id) {
+				params.grisk_id = grisk_id;
+			}
+			// 计算wbi签名
+			const wbi = await this.getWbi(params);
+			// 获取用户信息
 			const { data } = await this.client.get(`${GET_USER_INFO}?${wbi}`);
+			//返回数据
 			return data;
 		};
 		return await this.pRetry(run, {
@@ -1139,6 +1147,9 @@ class BiliAPI extends Service {
 			);
 			return { data: null };
 		}
+		// 添加cookie
+		this.addCookie(`x-bili-gaia-vtoken=${data.data.grisk_id}`);
+		// 返回验证结果
 		return { data: data.data };
 	}
 }
