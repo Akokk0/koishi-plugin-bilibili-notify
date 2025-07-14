@@ -91,9 +91,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 					"satori",
 					"chronocat",
 					"lark",
-				]).description(
-					"请选择您的私人机器人平台，目前支持QQ、QQ群、OneBot、Discord、RedBot、Telegram、Satori、ChronoCat、Lark。从2.0版本开始，只能在一个平台下使用本插件",
-				),
+				]).description("请选择您的私人机器人平台"),
 				masterAccount: Schema.string()
 					.role("secret")
 					.required()

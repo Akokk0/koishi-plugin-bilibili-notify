@@ -24,10 +24,13 @@ import {
 	type AllDynamicInfo,
 	type ChannelArr,
 	type CreateGroup,
+	type DynamicTimelineManager,
 	type GroupList,
 	type Live,
 	type LiveMsg,
+	type LiveMsgManager,
 	type LiveStatus,
+	type LiveStatusManager,
 	LiveType,
 	type LiveUsers,
 	type MasterInfo,
@@ -78,15 +81,15 @@ class ComRegister {
 	// Context
 	ctx: Context;
 	// 订阅管理器
-	subManager: SubManager = [];
+	subManager: SubManager;
 	// 动态时间线管理器
-	dynamicTimelineManager: Map<string, number> = new Map();
+	dynamicTimelineManager: DynamicTimelineManager;
 	// 直播状态管理器
-	liveStatusManager: Map<string, LiveStatus> = new Map();
+	liveStatusManager: LiveStatusManager;
 	// 直播推送消息管理器
-	liveMsgManager: Map<string, LiveMsg> = new Map();
+	liveMsgManager: LiveMsgManager;
 	// PushArrMap
-	pushArrMap: PushArrMap = new Map();
+	pushArrMap: PushArrMap;
 	// 检查登录数据库是否有数据
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// 机器人实例
@@ -99,6 +102,8 @@ class ComRegister {
 	_jieba = Jieba.withDict(dict);
 	// 停用词
 	stopwords: Set<string>;
+	// recive subs times
+	reciveSubTimes = 0;
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -298,7 +303,7 @@ class ComRegister {
 					onLive: boolean;
 				}> = [];
 				// 获取当前订阅的UP主
-				for (const sub of this.subManager) {
+				for (const [uid, sub] of this.subManager) {
 					// 定义开播标志位
 					let onLive = false;
 					// 判断items是否存在
@@ -306,7 +311,7 @@ class ComRegister {
 						// 遍历liveUsers
 						for (const user of live_users.items) {
 							// 判断是否是订阅直播的UP
-							if (user.mid.toString() === sub.uid && sub.live) {
+							if (user.mid.toString() === uid && sub.live) {
 								// 设置标志位为true
 								onLive = true;
 								// break
@@ -316,7 +321,7 @@ class ComRegister {
 					}
 					// 判断是否未开播
 					subLiveUsers.push({
-						uid: Number.parseInt(sub.uid),
+						uid: Number.parseInt(uid),
 						uname: sub.uname,
 						onLive,
 					});
@@ -471,16 +476,12 @@ class ComRegister {
 				["毕业", 4],
 			];
 
-			await session.send(
-				<message>
-					{h.image(
-						await this.ctx["bilibili-notify-generate-img"].generateWordCloudImg(
-							words,
-							"词云测试",
-						),
-						"image/jpg",
-					)}
-				</message>,
+			const img = h.image(
+				await this.ctx["bilibili-notify-generate-img"].generateWordCloudImg(
+					words,
+					"词云测试",
+				),
+				"image/jpg",
 			);
 
 			const top5DanmakuMaker = [
@@ -491,7 +492,7 @@ class ComRegister {
 				["田七", 25],
 			];
 
-			const danmakerRankMsg = this.config.liveSummary
+			const summary = this.config.liveSummary
 				.join("\n")
 				.replace("-dmc", "114")
 				.replace("-mdn", "特工")
@@ -508,7 +509,12 @@ class ComRegister {
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
 
-			await session.send(danmakerRankMsg);
+			await session.send(
+				<message>
+					{img}
+					{summary}
+				</message>,
+			);
 		});
 
 		biliCom.subcommand(".cap").action(async ({ session }) => {
@@ -554,11 +560,14 @@ class ComRegister {
 			].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 			// 判断验证是否成功
 			if (validateCaptchaData?.is_valid !== 1) return "验证不成功！";
-			// 测试
-			await ctx["bilibili-notify-api"].getUserInfo(
-				"114514",
-				validateCaptchaData.grisk_id,
-			);
+			// Sleep
+			await this.ctx.sleep(10 * 1000);
+			// 再次请求
+			const { code: validCode, data: validData } = await ctx[
+				"bilibili-notify-api"
+			].getUserInfo("114514", validateCaptchaData.grisk_id);
+			// 再次验证
+			if (validCode === -352 && validData.v_voucher) return "验证不成功！";
 			// 验证成功
 			await session.send("验证成功！请重启插件");
 		});
@@ -594,17 +603,10 @@ class ComRegister {
 		}
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
-
+		// 注册事件
+		this.registeringForEvents();
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
-			// 监听事件
-			this.ctx.on(
-				"bilibili-notify/advanced-sub",
-				async (subs: Subscriptions) => {
-					// 初始化后续部分
-					await this.initAsyncPart(subs);
-				},
-			);
 			// 触发准备就绪事件
 			this.ctx.emit("bilibili-notify/ready-to-recive");
 		} else {
@@ -616,6 +618,9 @@ class ComRegister {
 				await this.initAsyncPart(subs);
 			}
 		}
+	}
+
+	registeringForEvents() {
 		// 注册插件销毁函数
 		this.ctx.on("dispose", () => {
 			// 销毁登录定时器
@@ -625,15 +630,25 @@ class ComRegister {
 			// 销毁直播监测
 			if (this.liveJob) this.liveJob.stop();
 		});
+		// 监听bilibili-notify事件
+		this.ctx.on("bilibili-notify/advanced-sub", async (subs: Subscriptions) => {
+			// 判断是否超过一次接收
+			if (this.reciveSubTimes >= 1) await this.ctx["bilibili-notify"].restartPlugin();
+			// 初始化后续部分
+			else await this.initAsyncPart(subs);
+			// +1
+			this.reciveSubTimes++;
+		});
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
+		this.initAllManager();
 		// 加载订阅
-		const { code, msg } = await this.loadSubFromConfig(subs);
+		const { code, message } = await this.loadSubFromConfig(subs);
 		// 判断是否加载成功
 		if (code !== 0) {
 			// logger
-			this.logger.error(msg);
+			this.logger.error(message);
 			this.logger.error("订阅对象加载失败，插件初始化失败！");
 			// 发送私聊消息
 			await this.sendPrivateMsg("订阅对象加载失败，插件初始化失败！");
@@ -668,18 +683,18 @@ class ComRegister {
 	}
 
 	initManager() {
-		for (const sub of this.subManager) {
+		for (const [uid, sub] of this.subManager) {
 			// 判断是否订阅动态
 			if (sub.dynamic) {
 				this.dynamicTimelineManager.set(
-					sub.uid,
+					uid,
 					Math.floor(DateTime.now().toSeconds()),
 				);
 			}
 			// 判断是否订阅直播
 			if (sub.live) {
 				// 设置到直播状态管理对象
-				this.liveStatusManager.set(sub.uid, {
+				this.liveStatusManager.set(uid, {
 					roomId: sub.roomId,
 					live: false,
 					liveRoomInfo: undefined,
@@ -691,6 +706,14 @@ class ComRegister {
 				});
 			}
 		}
+	}
+
+	initAllManager() {
+		this.subManager = new Map();
+		this.dynamicTimelineManager = new Map();
+		this.liveStatusManager = new Map();
+		this.liveMsgManager = new Map();
+		this.pushArrMap = new Map();
 	}
 
 	configSubsToSubscription(sub: ComRegister.Config["subs"]) {
@@ -1180,7 +1203,7 @@ class ComRegister {
 					// 判断动态发布时间是否大于时间线
 					if (timeline < postTime) {
 						// 获取订阅对象
-						const sub = this.subManager.find((sub) => sub.uid === uid);
+						const sub = this.subManager.get(uid);
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
@@ -1197,7 +1220,7 @@ class ComRegister {
 								// 如果需要发送才发送
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
 										PushType.Dynamic,
 									);
@@ -1207,7 +1230,7 @@ class ComRegister {
 							if (e.message === "已屏蔽转发动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}转发了一条动态，已屏蔽</message>,
 										PushType.Dynamic,
 									);
@@ -1217,7 +1240,7 @@ class ComRegister {
 							if (e.message === "已屏蔽专栏动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}投稿了一条专栏，已屏蔽</message>,
 										PushType.Dynamic,
 									);
@@ -1260,7 +1283,7 @@ class ComRegister {
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
-							sub.uid,
+							uid,
 							<message>
 								{h.image(buffer, "image/jpeg")}
 								{dUrl}
@@ -1284,11 +1307,7 @@ class ComRegister {
 										</message>
 									);
 									// 发送消息
-									await this.broadcastToTargets(
-										sub.uid,
-										picsMsg,
-										PushType.Dynamic,
-									);
+									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
 								}
 							}
 						}
@@ -1430,7 +1449,7 @@ class ComRegister {
 						// logger
 						this.logger.info("需要推送该条动态，开始推送...");
 						// 获取订阅对象
-						const sub = this.subManager.find((sub) => sub.uid === uid);
+						const sub = this.subManager.get(uid);
 						// logger
 						this.logger.info("开始渲染推送卡片...");
 						// 推送该条动态
@@ -1449,7 +1468,7 @@ class ComRegister {
 								// 如果需要发送才发送
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
 										PushType.Dynamic,
 									);
@@ -1459,7 +1478,7 @@ class ComRegister {
 							if (e.message === "已屏蔽转发动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}转发了一条动态，已屏蔽</message>,
 										PushType.Dynamic,
 									);
@@ -1469,7 +1488,7 @@ class ComRegister {
 							if (e.message === "已屏蔽专栏动态") {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
-										sub.uid,
+										uid,
 										<message>{name}投稿了一条专栏，已屏蔽</message>,
 										PushType.Dynamic,
 									);
@@ -1519,7 +1538,7 @@ class ComRegister {
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
-							sub.uid,
+							uid,
 							<message>
 								{h.image(buffer, "image/jpeg")}
 								{dUrl}
@@ -1545,11 +1564,7 @@ class ComRegister {
 										</message>
 									);
 									// 发送消息
-									await this.broadcastToTargets(
-										sub.uid,
-										picsMsg,
-										PushType.Dynamic,
-									);
+									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
 								}
 							}
 							// logger
@@ -1761,7 +1776,8 @@ class ComRegister {
 				"bilibili-notify-generate-img"
 			].generateWordCloudImg(top90Words, masterInfo.username);
 			// 构建图片消息
-			const img = <message>{h.image(buffer, "image/jpeg")}</message>;
+			const img = h.image(buffer, "image/jpeg");
+			// logger
 			this.logger.info("开始构建弹幕发送排行榜消息");
 			// 弹幕发送者数量
 			const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
@@ -1775,7 +1791,7 @@ class ComRegister {
 				.sort((a, b) => b[1] - a[1])
 				.slice(0, 5);
 			// 构建消息
-			const danmakuMakerMsg = customLiveSummary
+			const summary = customLiveSummary
 				.replace("-dmc", `${danmakuMakerCount}`)
 				.replace("-mdn", `${masterInfo.medalName}`)
 				.replace("-dca", `${danmakuCount}`)
@@ -1790,7 +1806,6 @@ class ComRegister {
 				.replace("-un5", `${top5DanmakuMaker[4][0]}`)
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
-			const summary = <message>{danmakuMakerMsg}</message>;
 			// 发送消息
 			await this.broadcastToTargets(
 				sub.uid,
@@ -2192,7 +2207,7 @@ class ComRegister {
 			// 获取用户推送消息对象
 			const liveMsgObj = this.liveMsgManager.get(uid);
 			// 获取用户sub
-			const sub = this.subManager.find((sub) => sub.uid === uid);
+			const sub = this.subManager.get(uid);
 			// 判断直播状态
 			if (item.live_status === 1) {
 				// 将直播状态改为true
@@ -2230,7 +2245,7 @@ class ComRegister {
 						masterInfo: liveStatus.masterInfo,
 						cardStyle: sub.customCardStyle,
 					},
-					sub.uid,
+					uid,
 					liveMsg,
 				);
 			}
@@ -2249,7 +2264,7 @@ class ComRegister {
 				// 获取用户推送消息对象
 				const liveMsgObj = this.liveMsgManager.get(uid);
 				// 获取sub
-				const sub = this.subManager.find((sub) => sub.uid === uid);
+				const sub = this.subManager.get(uid);
 				// 如果未找到sub直接返回
 				if (!sub) return;
 				// 判断当前状态和之前状态是否相同
@@ -2317,7 +2332,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.customCardStyle,
 								},
-								sub.uid,
+								uid,
 								liveEndMsg,
 							);
 							// 更改直播状态
@@ -2377,7 +2392,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.customCardStyle,
 								},
-								sub.uid,
+								uid,
 								liveStartMsg,
 							);
 							// 设置开播状态为true
@@ -2437,7 +2452,7 @@ class ComRegister {
 									masterInfo: liveStatus.masterInfo,
 									cardStyle: sub.customCardStyle,
 								},
-								sub.uid,
+								uid,
 								liveMsg,
 							);
 							// push归零
@@ -2459,8 +2474,8 @@ class ComRegister {
 	subShow() {
 		// 在控制台中显示订阅对象
 		let table = "";
-		for (const sub of this.subManager) {
-			table += `UID:${sub.uid}  ${sub.dynamic ? "已订阅动态" : ""}  ${sub.live ? "已订阅直播" : ""}\n`;
+		for (const [uid, sub] of this.subManager) {
+			table += `UID:${uid}  ${sub.dynamic ? "已订阅动态" : ""}  ${sub.live ? "已订阅直播" : ""}\n`;
 		}
 		return table ? table : "没有订阅任何UP";
 	}
@@ -2533,21 +2548,24 @@ class ComRegister {
 								dynamic_group_id: this.loginDBData.dynamic_group_id,
 							});
 							// 返回分组已存在
-							return { code: 0, msg: "分组已存在" };
+							return { code: 0, message: "分组已存在" };
 						}
 					}
 				} else if (createGroupData.code !== 0) {
 					// 创建分组失败
-					return { code: createGroupData.code, msg: createGroupData.message };
+					return {
+						code: createGroupData.code,
+						message: createGroupData.message,
+					};
 				}
 				// 创建成功，保存到数据库
 				this.ctx.database.set("loginBili", 1, {
 					dynamic_group_id: createGroupData.data.tagid.toString(),
 				});
 				// 创建成功
-				return { code: createGroupData.code, msg: createGroupData.message };
+				return { code: createGroupData.code, message: createGroupData.message };
 			}
-			return { code: 0, msg: "分组已存在" };
+			return { code: 0, message: "分组已存在" };
 		};
 		// 判断分组是否准备好
 		const resp = await checkGroupIsReady();
@@ -2574,27 +2592,27 @@ class ComRegister {
 				// 获取分组明细失败
 				return {
 					code: relationGroupDetailData.code,
-					msg: relationGroupDetailData.message,
+					message: relationGroupDetailData.message,
 					data: undefined,
 				};
 			}
 			return {
 				code: 0,
-				msg: "获取分组明细成功",
+				message: "获取分组明细成功",
 				data: relationGroupDetailData.data,
 			};
 		};
 		// 获取分组明细
-		const { code, msg, data } = await getGroupDetailData();
+		const { code, message, data } = await getGroupDetailData();
 		// 判断获取分组明细是否成功
 		if (code !== 0) {
-			return { code, msg };
+			return { code, message };
 		}
 		// 判断是否已经订阅该对象
 		for (const user of data) {
 			if (user.mid === mid) {
 				// 已关注订阅对象
-				return { code: 0, msg: "订阅对象已存在于分组中" };
+				return { code: 0, message: "订阅对象已存在于分组中" };
 			}
 		}
 		// 订阅对象
@@ -2607,43 +2625,43 @@ class ComRegister {
 			[-101]: () => {
 				return {
 					code: subUserData.code,
-					msg: "账号未登录，请使用指令bili login登录后再进行订阅操作",
+					message: "账号未登录，请使用指令bili login登录后再进行订阅操作",
 				};
 			},
 			[-102]: () => {
 				return {
 					code: subUserData.code,
-					msg: "账号被封停，无法进行订阅操作",
+					message: "账号被封停，无法进行订阅操作",
 				};
 			},
 			22002: () => {
 				return {
 					code: subUserData.code,
-					msg: "因对方隐私设置，无法进行订阅操作",
+					message: "因对方隐私设置，无法进行订阅操作",
 				};
 			},
 			22003: () => {
 				return {
 					code: subUserData.code,
-					msg: "你已将对方拉黑，无法进行订阅操作",
+					message: "你已将对方拉黑，无法进行订阅操作",
 				};
 			},
 			22013: () => {
 				return {
 					code: subUserData.code,
-					msg: "账号已注销，无法进行订阅操作",
+					message: "账号已注销，无法进行订阅操作",
 				};
 			},
 			40061: () => {
 				return {
 					code: subUserData.code,
-					msg: "账号不存在，请检查uid输入是否正确或用户是否存在",
+					message: "账号不存在，请检查uid输入是否正确或用户是否存在",
 				};
 			},
 			22001: () => {
 				return {
 					code: 0,
-					msg: "订阅对象为自己，无需添加到分组",
+					message: "订阅对象为自己，无需添加到分组",
 				};
 			},
 			// 已订阅该对象
@@ -2657,11 +2675,14 @@ class ComRegister {
 					// 添加失败
 					return {
 						code: copyUserToGroupData.code,
-						msg: "添加订阅对象到分组失败，请稍后重试",
+						message: "添加订阅对象到分组失败，请稍后重试",
 					};
 				}
 				// 添加成功
-				return { code: 0, msg: "订阅对象添加成功" };
+				return { code: 0, message: "订阅对象添加成功" };
+			},
+			22015: async () => {
+				return { code: subUserData.code, message: subUserData.message };
 			},
 			// 订阅成功
 			0: async () => {
@@ -2674,15 +2695,21 @@ class ComRegister {
 					// 添加失败
 					return {
 						code: copyUserToGroupData.code,
-						msg: "添加订阅对象到分组失败，请稍后重试",
+						message: "添加订阅对象到分组失败，请稍后重试",
 					};
 				}
 				// 添加成功
-				return { code: 0, msg: "订阅对象添加成功" };
+				return { code: 0, message: "订阅对象添加成功" };
 			},
 		};
+		// 获取函数
+		const subUserExecute =
+			subUserMatchPattern[subUserData.code] ||
+			(() => {
+				return { code: subUserData.code, message: subUserData.message };
+			});
 		// 执行函数并返回
-		return await subUserMatchPattern[subUserData.code]();
+		return await subUserExecute();
 	}
 
 	async loadSubFromConfig(subs: Subscriptions): Promise<Result> {
@@ -2700,17 +2727,15 @@ class ComRegister {
 			} = await withRetry(async () => {
 				// 获取用户信息
 				const data = await this.ctx["bilibili-notify-api"].getUserInfo(sub.uid);
-				// 返回用户信息
-				return { code: 0, data };
-			})
-				.then((content) => content.data)
-				.catch((e) => {
-					this.logger.error(
-						`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
-					);
-					// 返回失败
-					return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
-				});
+				// 返回数据
+				return data;
+			}).catch((e) => {
+				this.logger.error(
+					`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
+				);
+				// 返回失败
+				return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
+			});
 			// v_voucher风控
 			if (userInfoCode === -352 && userInfoData.v_voucher) {
 				// logger
@@ -2719,10 +2744,11 @@ class ComRegister {
 				await this.sendPrivateMsg(
 					"账号被风控，请使用指令 bili cap 进行风控验证",
 				);
-				return { code: userInfoCode, msg: userInfoMsg };
+				return { code: userInfoCode, message: userInfoMsg };
 			}
 			// 判断是否获取成功
-			if (userInfoCode !== 0) return { code: userInfoCode, msg: userInfoMsg };
+			if (userInfoCode !== 0)
+				return { code: userInfoCode, message: userInfoMsg };
 			// 判断是否需要订阅直播
 			if (this.config.liveDetectType === "WS" && sub.live) {
 				// 检查roomid是否存在
@@ -2743,8 +2769,7 @@ class ComRegister {
 			// 判断订阅是否成功
 			if (subInfo.code !== 0) return subInfo;
 			// 将该订阅添加到sm中
-			this.subManager.push({
-				uid: sub.uid,
+			this.subManager.set(sub.uid, {
 				uname: userInfoData.name,
 				roomId: sub.live ? userInfoData.live_room.roomid : "",
 				target: sub.target,
@@ -2768,7 +2793,7 @@ class ComRegister {
 				await this.ctx.sleep(randomDelay * 1000);
 			}
 		}
-		return { code: 0, msg: "订阅加载完毕！" };
+		return { code: 0, message: "订阅加载完毕！" };
 	}
 
 	checkIfDynamicDetectIsNeeded() {

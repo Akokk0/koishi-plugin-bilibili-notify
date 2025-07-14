@@ -48,7 +48,6 @@ export type CustomLiveSummary = {
 };
 
 export type SubItem = {
-	uid: string;
 	uname: string;
 	roomId: string;
 	target: Target;
@@ -59,7 +58,7 @@ export type SubItem = {
 	customLiveSummary: CustomLiveSummary;
 };
 
-export type SubManager = Array<SubItem>;
+export type SubManager = Map<string, SubItem>;
 
 export type MasterInfo = {
 	username: string;
@@ -335,7 +334,7 @@ export const PushTypeMsg = {
 
 export type Result = {
 	code: number;
-	msg?: string;
+	message?: string;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	data?: any;
 };
@@ -443,3 +442,9 @@ export type Subscription = {
 };
 
 export type Subscriptions = Record<string, Subscription>;
+
+export type DynamicTimelineManager = Map<string, number>;
+
+export type LiveStatusManager = Map<string, LiveStatus>;
+
+export type LiveMsgManager = Map<string, LiveMsg>;

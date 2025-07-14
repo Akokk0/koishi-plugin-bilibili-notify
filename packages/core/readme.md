@@ -327,6 +327,7 @@ uid为必填参数，为要推送的UP主的UID，index为可选参数，为要�
 > - ver 3.3.0-rc.0 优化：将当前版本的订阅配置移到了新插件：`bilibili-notify-advanced-subscription` ，简化当前版本订阅配置； 新增：配置项 `advancedSub` ，开启后可通过下载插件 `bilibili-notify-advanced-subscription` 配置更自定义化的订阅配置、新增动态@全体成员功能；
 > - ver 3.3.1-alpha.0 新增：弹幕词云自定义停用词、UP主弹幕词云开关； 优化：`liveSummary` 排版方式更加直观；
 > - ver 3.3.1-alpha.1 优化：拆分 `wordcloud` 和 `liveSummary`，优化指令 `bili cap` 风控验证；
+> - ver 3.3.1-rc.0 优化：代码结构，部分设置； 修复：启用高级订阅时，多次重载高级订阅插件会产生多个重复订阅；
 
 ## 交流群
 
