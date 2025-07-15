@@ -290,7 +290,7 @@ export type LiveMsg = {
 	liveSummary: string;
 };
 
-export type LiveStatus = {
+export type LiveAPIStatus = {
 	live: boolean;
 	roomId: string;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
@@ -445,6 +445,8 @@ export type Subscriptions = Record<string, Subscription>;
 
 export type DynamicTimelineManager = Map<string, number>;
 
-export type LiveStatusManager = Map<string, LiveStatus>;
+export type LiveAPIManager = Map<string, LiveAPIStatus>;
 
 export type LiveMsgManager = Map<string, LiveMsg>;
+
+export type LiveWSManager = Map<string, () => void>
