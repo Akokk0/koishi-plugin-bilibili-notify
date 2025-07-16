@@ -432,7 +432,9 @@ export type ValidateCaptchaData = {
 };
 
 export type Subscription = {
+	uname: string;
 	uid: string;
+	roomid: string;
 	dynamic: boolean;
 	live: boolean;
 	target: Target;

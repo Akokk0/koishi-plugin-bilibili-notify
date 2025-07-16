@@ -125,7 +125,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	subs: Schema.array(
 		Schema.object({
 			name: Schema.string().required().description("备注"),
-			uid: Schema.string().required().description("UID"),
+			uid: Schema.string().required().description("UID和roomid"),
 			dynamic: Schema.boolean().default(true).description("动态"),
 			dynamicAtAll: Schema.boolean().default(false).description("动态At全体"),
 			live: Schema.boolean().default(true).description("直播"),
@@ -139,7 +139,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	)
 		.role("table")
 		.description(
-			"输入订阅信息，自定义订阅内容； 群号/频道号格式：频道号,频道号 使用英文逗号分隔，例如 1234567,2345678",
+			"输入订阅信息，自定义订阅内容； UID和roomid，如果经常在初始化插件遇到风控问题，请补充直播间房间号，使用英文逗号分隔例如,1234567,114514 群号/频道号格式：频道号,频道号 使用英文逗号分隔，例如 1234567,2345678",
 		),
 
 	dynamic: Schema.object({}).description("动态推送设置"),

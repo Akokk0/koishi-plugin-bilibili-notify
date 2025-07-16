@@ -745,9 +745,13 @@ class ComRegister {
 			}));
 			// 组装Target
 			const target: Target = [{ channelArr, platform: s.platform }];
+			// 拆分uid和roomid
+			const [uid, roomid] = s.uid.split(",");
 			// 组装sub
 			subs[s.name] = {
-				uid: s.uid,
+				uname: s.name,
+				uid,
+				roomid,
 				dynamic: s.dynamic,
 				live: s.live,
 				target,
@@ -1144,13 +1148,9 @@ class ComRegister {
 				switch (content.code) {
 					case -101: {
 						// 账号未登录
-						this.logger.error(
-							"账号未登录，插件已停止工作，请登录",
-						);
+						this.logger.error("账号未登录，插件已停止工作，请登录");
 						// 发送私聊消息
-						await this.sendPrivateMsg(
-							"账号未登录，插件已停止工作，请登录",
-						);
+						await this.sendPrivateMsg("账号未登录，插件已停止工作，请登录");
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
@@ -1363,13 +1363,9 @@ class ComRegister {
 				switch (content.code) {
 					case -101: {
 						// 账号未登录
-						this.logger.error(
-							"账号未登录，插件已停止工作，请登录",
-						);
+						this.logger.error("账号未登录，插件已停止工作，请登录");
 						// 发送私聊消息
-						await this.sendPrivateMsg(
-							"账号未登录，插件已停止工作，请登录",
-						);
+						await this.sendPrivateMsg("账号未登录，插件已停止工作，请登录");
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
 						// 结束循环
@@ -1730,7 +1726,7 @@ class ComRegister {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
 	}
 
-	async liveDetectWithListener(roomId: string, sub: Subscription) {
+	async liveDetectWithListener(sub: Subscription) {
 		// 定义开播时间
 		let liveTime: string;
 		// 定义定时推送定时器
@@ -1755,10 +1751,25 @@ class ComRegister {
 			/* 制作弹幕词云 */
 			this.logger.info("开始制作弹幕词云");
 			this.logger.info("正在获取前90热词");
+			// 获取数据
+			const words = Object.entries(danmakuWeightRecord);
+			const danmaker = Object.entries(danmakuMakerRecord);
+			// 判断是否不足50词
+			if (words.length < 50) {
+				// logger
+				this.logger.info("热词不足50个，本次弹幕词云放弃");
+				// 返回
+				return;
+			}
+			// 判断是否不足五人发言
+			if (danmaker.length < 5) {
+				// logger
+				this.logger.info("发言人数不足5位，本次弹幕词云放弃");
+				// 返回
+				return;
+			}
 			// 拿到前90个热词
-			const top90Words = Object.entries(danmakuWeightRecord)
-				.sort((a, b) => b[1] - a[1])
-				.slice(0, 90);
+			const top90Words = words.sort((a, b) => b[1] - a[1]).slice(0, 90);
 			this.logger.info("弹幕词云前90词及权重：");
 			this.logger.info(top90Words);
 			this.logger.info("正在准备生成弹幕词云");
@@ -1872,7 +1883,7 @@ class ComRegister {
 			// 定义函数是否执行成功flag
 			let flag = true;
 			// 获取直播间信息
-			liveRoomInfo = await this.useLiveRoomInfo(roomId).catch(() => {
+			liveRoomInfo = await this.useLiveRoomInfo(sub.roomid).catch(() => {
 				// 设置flag为false
 				flag = false;
 				// 返回空
@@ -1908,10 +1919,10 @@ class ComRegister {
 				// 关闭定时推送
 				pushAtTimeTimer?.();
 				// 停止服务
-				this.ctx["bilibili-notify-live"].closeListener(roomId);
+				this.ctx["bilibili-notify-live"].closeListener(sub.roomid);
 				// 发送消息
-				await this.sendPrivateMsg(`[${roomId}]直播间连接发生错误！`);
-				this.logger.error(`[${roomId}]直播间连接发生错误！`);
+				await this.sendPrivateMsg(`[${sub.roomid}]直播间连接发生错误！`);
+				this.logger.error(`[${sub.roomid}]直播间连接发生错误！`);
 			},
 			onIncomeDanmu: ({ body }) => {
 				// 分词
@@ -1998,7 +2009,7 @@ class ComRegister {
 						this.config.pushTime * 1000 * 60 * 60,
 					);
 					// 将定时器送入管理器
-					this.liveWSManager.set(roomId, pushAtTimeTimer);
+					this.liveWSManager.set(sub.roomid, pushAtTimeTimer);
 				}
 			},
 			onLiveEnd: async () => {
@@ -2064,7 +2075,7 @@ class ComRegister {
 		};
 		// 启动直播间弹幕监测
 		await this.ctx["bilibili-notify-live"].startLiveRoomListener(
-			roomId,
+			sub.roomid,
 			handler,
 		);
 		// 第一次启动获取信息并判信息是否获取成功
@@ -2117,7 +2128,7 @@ class ComRegister {
 					this.config.pushTime * 1000 * 60 * 60,
 				);
 				// 将定时器送入管理器
-				this.liveWSManager.set(roomId, pushAtTimeTimer);
+				this.liveWSManager.set(sub.roomid, pushAtTimeTimer);
 			}
 			// 设置直播状态为true
 			liveStatus = true;
@@ -2720,50 +2731,56 @@ class ComRegister {
 		for (const sub of Object.values(subs)) {
 			// logger
 			this.logger.info(`加载订阅UID:${sub.uid}中...`);
-			// 定义Data
-			const {
-				code: userInfoCode,
-				message: userInfoMsg,
-				data: userInfoData,
-			} = await withRetry(async () => {
-				// 获取用户信息
-				const data = await this.ctx["bilibili-notify-api"].getUserInfo(sub.uid);
-				// 返回数据
-				return data;
-			}).catch((e) => {
-				this.logger.error(
-					`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
-				);
-				// 返回失败
-				return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
-			});
-			// v_voucher风控
-			if (userInfoCode === -352 && userInfoData.v_voucher) {
+			// 判断是否有直播间号
+			if (!sub.roomid) {
 				// logger
-				this.logger.info("账号被风控，请使用指令 bili cap 进行风控验证");
-				// 发送私聊消息
-				await this.sendPrivateMsg(
-					"账号被风控，请使用指令 bili cap 进行风控验证",
-				);
-				return { code: userInfoCode, message: userInfoMsg };
-			}
-			// 判断是否获取成功
-			if (userInfoCode !== 0)
-				return { code: userInfoCode, message: userInfoMsg };
-			// 判断是否需要订阅直播
-			if (this.config.liveDetectType === "WS" && sub.live) {
+				this.logger.info(`UID:${sub.uid}请求了用户接口~`);
+				// 定义Data
+				const {
+					code: userInfoCode,
+					message: userInfoMsg,
+					data: userInfoData,
+				} = await withRetry(async () => {
+					// 获取用户信息
+					const data = await this.ctx["bilibili-notify-api"].getUserInfo(
+						sub.uid,
+					);
+					// 返回数据
+					return data;
+				}).catch((e) => {
+					this.logger.error(
+						`loadSubFromConfig() getUserInfo() 发生了错误，错误为：${e.message}`,
+					);
+					// 返回失败
+					return { code: -1, message: `加载订阅UID:${sub.uid}失败！` };
+				});
+				// v_voucher风控
+				if (userInfoCode === -352 && userInfoData.v_voucher) {
+					// logger
+					this.logger.info("账号被风控，请使用指令 bili cap 进行风控验证");
+					// 发送私聊消息
+					await this.sendPrivateMsg(
+						"账号被风控，请使用指令 bili cap 进行风控验证",
+					);
+					return { code: userInfoCode, message: userInfoMsg };
+				}
+				// 判断是否获取成功
+				if (userInfoCode !== 0)
+					return { code: userInfoCode, message: userInfoMsg };
 				// 检查roomid是否存在
-				if (!userInfoData.live_room) {
+				if (sub.live && !userInfoData.live_room) {
 					// 用户没有开通直播间，无法订阅直播
 					sub.live = false;
 					// 发送提示
 					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
 				}
-				// 判断是否订阅直播
-				if (sub.live) {
-					// 启动直播监测
-					await this.liveDetectWithListener(userInfoData.live_room.roomid, sub);
-				}
+				// 将roomid设置进去
+				sub.roomid = userInfoData.live_room.roomid;
+			}
+			// 判断是否需要订阅直播
+			if (sub.live && sub.roomid && this.config.liveDetectType === "WS") {
+				// 启动直播监测
+				await this.liveDetectWithListener(sub);
 			}
 			// 在B站中订阅该对象
 			const subInfo = await this.subUserInBili(sub.uid);
@@ -2771,8 +2788,8 @@ class ComRegister {
 			if (subInfo.code !== 0) return subInfo;
 			// 将该订阅添加到sm中
 			this.subManager.set(sub.uid, {
-				uname: userInfoData.name,
-				roomId: sub.live ? userInfoData.live_room.roomid : "",
+				uname: sub.uname,
+				roomId: sub.roomid,
 				target: sub.target,
 				live: sub.live,
 				dynamic: sub.dynamic,

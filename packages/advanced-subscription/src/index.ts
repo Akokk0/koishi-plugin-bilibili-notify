@@ -13,6 +13,7 @@ export const Config: Schema<Config> = Schema.object({
 	subs: Schema.dict(
 		Schema.object({
 			uid: Schema.string().required().description("订阅用户UID"),
+			roomid: Schema.string().description("订阅用户直播间号，不填则会请求用户接口自动获取，但请求该接口容易风控"),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
 			target: Schema.array(
