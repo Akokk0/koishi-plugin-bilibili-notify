@@ -2734,7 +2734,7 @@ class ComRegister {
 			// 判断是否有直播间号
 			if (!sub.roomid) {
 				// logger
-				this.logger.info(`UID:${sub.uid}请求了用户接口~`);
+				this.logger.info(`UID:${sub.uid} 请求了用户接口~`);
 				// 定义Data
 				const {
 					code: userInfoCode,
@@ -2775,7 +2775,7 @@ class ComRegister {
 					this.logger.warn(`UID:${sub.uid} 用户没有开通直播间，无法订阅直播！`);
 				}
 				// 将roomid设置进去
-				sub.roomid = userInfoData.live_room.roomid;
+				sub.roomid = userInfoData.live_room?.roomid;
 			}
 			// 判断是否需要订阅直播
 			if (sub.live && sub.roomid && this.config.liveDetectType === "WS") {
@@ -2798,7 +2798,7 @@ class ComRegister {
 				customLiveSummary: sub.customLiveSummary,
 			});
 			// logger
-			this.logger.info(`UID:${sub.uid}订阅加载完毕！`);
+			this.logger.info(`UID:${sub.uid} 订阅加载完毕！`);
 
 			// 判断是不是最后一个订阅
 			if (sub !== Object.values(subs).pop()) {
