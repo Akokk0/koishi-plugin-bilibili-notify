@@ -2732,7 +2732,7 @@ class ComRegister {
 			// logger
 			this.logger.info(`加载订阅UID:${sub.uid}中...`);
 			// 判断是否有直播间号
-			if (!sub.roomid) {
+			if (sub.live && !sub.roomid) {
 				// logger
 				this.logger.info(`UID:${sub.uid} 请求了用户接口~`);
 				// 定义Data
