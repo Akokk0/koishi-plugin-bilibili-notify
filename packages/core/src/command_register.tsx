@@ -1158,7 +1158,6 @@ class ComRegister {
 					}
 					case -352: {
 						// 风控
-						// 输出日志
 						this.logger.error(
 							"账号被风控，插件已停止工作，请输入指令 bili cap 根据提示解除风控",
 						);
@@ -1174,11 +1173,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1389,11 +1388,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
