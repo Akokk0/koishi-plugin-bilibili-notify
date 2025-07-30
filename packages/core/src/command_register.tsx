@@ -609,6 +609,8 @@ class ComRegister {
 		this.registeringForEvents();
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
+			// logger
+			this.logger.info("开启高级订阅，等待加载订阅...");
 			// 触发准备就绪事件
 			this.ctx.emit("bilibili-notify/ready-to-recive");
 		} else {
@@ -618,7 +620,7 @@ class ComRegister {
 				const subs = this.configSubsToSubscription(config.subs);
 				// 加载后续部分
 				await this.initAsyncPart(subs);
-			}
+			} else this.logger.info("初始化完毕，未添加任何订阅！");
 		}
 	}
 
@@ -641,6 +643,12 @@ class ComRegister {
 		});
 		// 监听bilibili-notify事件
 		this.ctx.on("bilibili-notify/advanced-sub", async (subs: Subscriptions) => {
+			if (Object.keys(subs).length === 0) {
+				// logger
+				this.logger.info("初始化完毕，未添加任何订阅！");
+				// 返回
+				return;
+			}
 			// 判断是否超过一次接收
 			if (this.reciveSubTimes >= 1)
 				await this.ctx["bilibili-notify"].restartPlugin();
@@ -652,7 +660,10 @@ class ComRegister {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
+		// 初始化管理器
 		this.initAllManager();
+		// logger
+		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 加载订阅
 		const { code, message } = await this.loadSubFromConfig(subs);
 		// 判断是否加载成功
@@ -1158,7 +1169,6 @@ class ComRegister {
 					}
 					case -352: {
 						// 风控
-						// 输出日志
 						this.logger.error(
 							"账号被风控，插件已停止工作，请输入指令 bili cap 根据提示解除风控",
 						);
@@ -1174,11 +1184,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1389,11 +1399,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn restart 重启插件`,
+							`获取动态信息错误，错误码为：${content.code}，错误为：${content.message}，请排除错误后输入指令 bn start 重启插件`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -2537,33 +2547,37 @@ class ComRegister {
 	async subUserInBili(mid: string): Promise<Result> {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
+			// 获取所有分组
+			const allGroupData = (await this.ctx[
+				"bilibili-notify-api"
+			].getAllGroup()) as GroupList;
+			// 定义存在标志
+			let existFlag = false;
+			// 遍历所有分组
+			for (const group of allGroupData.data) {
+				// 找到订阅分组
+				if (group.name === "订阅") {
+					// 判断是否和保存的一致
+					if (this.loginDBData.dynamic_group_id !== group.tagid.toString()) {
+						// 拿到分组id
+						this.loginDBData.dynamic_group_id = group.tagid.toString();
+						// 保存到数据库
+						this.ctx.database.set("loginBili", 1, {
+							dynamic_group_id: this.loginDBData.dynamic_group_id,
+						});
+					}
+					// 更改存在标志位
+					existFlag = true;
+				}
+			}
 			// 判断是否有数据
-			if (!this.loginDBData?.dynamic_group_id) {
+			if (!existFlag) {
 				// 没有数据，没有创建分组，尝试创建分组
 				const createGroupData = (await this.ctx[
 					"bilibili-notify-api"
 				].createGroup("订阅")) as CreateGroup;
 				// 如果分组已创建，则获取分组id
-				if (createGroupData.code === 22106) {
-					// 分组已存在，拿到之前的分组id
-					const allGroupData = (await this.ctx[
-						"bilibili-notify-api"
-					].getAllGroup()) as GroupList;
-					// 遍历所有分组
-					for (const group of allGroupData.data) {
-						// 找到订阅分组
-						if (group.name === "订阅") {
-							// 拿到分组id
-							this.loginDBData.dynamic_group_id = group.tagid.toString();
-							// 保存到数据库
-							this.ctx.database.set("loginBili", 1, {
-								dynamic_group_id: this.loginDBData.dynamic_group_id,
-							});
-							// 返回分组已存在
-							return { code: 0, message: "分组已存在" };
-						}
-					}
-				} else if (createGroupData.code !== 0) {
+				if (createGroupData.code !== 0) {
 					// 创建分组失败
 					return {
 						code: createGroupData.code,

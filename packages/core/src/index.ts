@@ -170,7 +170,12 @@ class ServerManager extends Service {
 
 	restartPlugin = async (): Promise<boolean> => {
 		// 如果没有服务则返回false
-		if (this.servers.length === 0) return false;
+		if (this.servers.length === 0) {
+			// logger
+			this.logger.warn("目前插件未运行，请使用 bn start 启动插件");
+			// 返回
+			return false;
+		}
 		// 停用插件
 		await this.disposePlugin();
 		// 隔一秒启动插件

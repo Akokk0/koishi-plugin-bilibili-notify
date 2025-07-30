@@ -42,6 +42,6 @@
   },
   "devDependencies": {
     "koishi-plugin-bilibili-notify": "workspace:^",
-    "tsdown": "^0.12.9"
+    "tsdown": "^0.13.0"
   }
 }

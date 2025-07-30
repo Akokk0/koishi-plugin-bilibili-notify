@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.3.1",
+  "version": "3.3.3",
   "main": "./lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -30,10 +30,10 @@
   "dependencies": {
     "@akokko/blive-message-listener": "^0.5.1",
     "@node-rs/jieba": "^2.0.1",
-    "axios": "^1.10.0",
-    "axios-cookiejar-support": "^6.0.3",
+    "axios": "^1.11.0",
+    "axios-cookiejar-support": "^6.0.4",
     "cacheable-lookup": "^7.0.0",
-    "cron": "^4.3.1",
+    "cron": "^4.3.2",
     "jsdom": "^26.1.0",
     "luxon": "^3.7.1",
     "md5": "^2.3.0",
@@ -48,7 +48,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/tough-cookie": "^4.0.5",
     "koishi-plugin-puppeteer": "^3.9.0",
-    "tsdown": "^0.12.9"
+    "tsdown": "^0.13.0"
   },
   "peerDependencies": {
     "koishi": "^4.18.8"
