@@ -24,19 +24,24 @@ jobs:
         id: check_version
         working-directory: packages/core
         run: |
-          if git cat-file -e HEAD^:packages/core/package.json; then
-            OLD_VERSION=$(git show HEAD^:packages/core/package.json | jq -r '.version')
-          else
-            OLD_VERSION=""
-          fi
-          NEW_VERSION=$(jq -r '.version' package.json)
+          set -e
 
-          echo "Old version: $OLD_VERSION"
+          NEW_VERSION=$(jq -r '.version' package.json)
           echo "New version: $NEW_VERSION"
 
+          if git cat-file -e HEAD^:packages/core/package.json; then
+            OLD_VERSION=$(git show HEAD^:packages/core/package.json | jq -r '.version')
+            echo "Old version: $OLD_VERSION"
+          else
+            echo "No previous version found."
+            OLD_VERSION=""
+          fi
+
           if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
+            echo "Version changed."
             echo "publish=true" >> $GITHUB_OUTPUT
           else
+            echo "Version unchanged."
             echo "publish=false" >> $GITHUB_OUTPUT
           fi
 
