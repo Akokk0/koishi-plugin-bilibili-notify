@@ -2547,33 +2547,37 @@ class ComRegister {
 	async subUserInBili(mid: string): Promise<Result> {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
+			// 获取所有分组
+			const allGroupData = (await this.ctx[
+				"bilibili-notify-api"
+			].getAllGroup()) as GroupList;
+			// 定义存在标志
+			let existFlag = false;
+			// 遍历所有分组
+			for (const group of allGroupData.data) {
+				// 找到订阅分组
+				if (group.name === "订阅") {
+					// 判断是否和保存的一致
+					if (this.loginDBData.dynamic_group_id !== group.tagid.toString()) {
+						// 拿到分组id
+						this.loginDBData.dynamic_group_id = group.tagid.toString();
+						// 保存到数据库
+						this.ctx.database.set("loginBili", 1, {
+							dynamic_group_id: this.loginDBData.dynamic_group_id,
+						});
+					}
+					// 更改存在标志位
+					existFlag = true;
+				}
+			}
 			// 判断是否有数据
-			if (!this.loginDBData?.dynamic_group_id) {
+			if (!existFlag) {
 				// 没有数据，没有创建分组，尝试创建分组
 				const createGroupData = (await this.ctx[
 					"bilibili-notify-api"
 				].createGroup("订阅")) as CreateGroup;
 				// 如果分组已创建，则获取分组id
-				if (createGroupData.code === 22106) {
-					// 分组已存在，拿到之前的分组id
-					const allGroupData = (await this.ctx[
-						"bilibili-notify-api"
-					].getAllGroup()) as GroupList;
-					// 遍历所有分组
-					for (const group of allGroupData.data) {
-						// 找到订阅分组
-						if (group.name === "订阅") {
-							// 拿到分组id
-							this.loginDBData.dynamic_group_id = group.tagid.toString();
-							// 保存到数据库
-							this.ctx.database.set("loginBili", 1, {
-								dynamic_group_id: this.loginDBData.dynamic_group_id,
-							});
-							// 返回分组已存在
-							return { code: 0, message: "分组已存在" };
-						}
-					}
-				} else if (createGroupData.code !== 0) {
+				if (createGroupData.code !== 0) {
 					// 创建分组失败
 					return {
 						code: createGroupData.code,
