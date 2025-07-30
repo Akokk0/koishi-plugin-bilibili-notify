@@ -609,6 +609,8 @@ class ComRegister {
 		this.registeringForEvents();
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
+			// logger
+			this.logger.info("开启高级订阅，等待加载订阅...");
 			// 触发准备就绪事件
 			this.ctx.emit("bilibili-notify/ready-to-recive");
 		} else {
@@ -618,7 +620,7 @@ class ComRegister {
 				const subs = this.configSubsToSubscription(config.subs);
 				// 加载后续部分
 				await this.initAsyncPart(subs);
-			}
+			} else this.logger.info("初始化完毕，未添加任何订阅！");
 		}
 	}
 
@@ -641,6 +643,12 @@ class ComRegister {
 		});
 		// 监听bilibili-notify事件
 		this.ctx.on("bilibili-notify/advanced-sub", async (subs: Subscriptions) => {
+			if (Object.keys(subs).length === 0) {
+				// logger
+				this.logger.info("初始化完毕，未添加任何订阅！");
+				// 返回
+				return;
+			}
 			// 判断是否超过一次接收
 			if (this.reciveSubTimes >= 1)
 				await this.ctx["bilibili-notify"].restartPlugin();
@@ -652,7 +660,10 @@ class ComRegister {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
+		// 初始化管理器
 		this.initAllManager();
+		// logger
+		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 加载订阅
 		const { code, message } = await this.loadSubFromConfig(subs);
 		// 判断是否加载成功
