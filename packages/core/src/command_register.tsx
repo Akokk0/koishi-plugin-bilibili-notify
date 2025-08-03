@@ -999,7 +999,7 @@ class ComRegister {
 					);
 					// 重试
 					this.ctx.setTimeout(async () => {
-						await this.pushMessage(targets, retry * 2);
+						await this.pushMessage(targets, content ,retry * 2);
 					}, retry);
 					// 返回
 					return;
