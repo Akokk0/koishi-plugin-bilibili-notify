@@ -957,8 +957,62 @@ class ComRegister {
 		this.logger.info(this.pushArrMap);
 	}
 
-	checkAllBotsAreReady() {
-		return !this.ctx.bots.some((bot) => bot.status !== Universal.Status.ONLINE);
+	// biome-ignore lint/suspicious/noExplicitAny: <message>
+	async pushMessage(targets: Array<string>, content: any, retry = 3000) {
+		// 初始化目标
+		const t: Record<string, Array<string>> = {};
+		// 遍历获取target
+		for (const target of targets) {
+			// 分解平台和群组
+			const [platform, channleId] = target.split(":");
+			// 将平台群组添加到Record中
+			if (!t[platform]) t[platform] = [channleId];
+			else t[platform].push(channleId);
+		}
+		// 获取平台
+		for (const platform of Object.keys(t)) {
+			// 定义机器人数组
+			const bots: Array<Bot> = [];
+			// 获取所有同平台机器人
+			for (const bot of this.ctx.bots) {
+				// 判断是否为该平台机器人
+				if (bot.platform === platform) bots.push(bot);
+			}
+			// 遍历机器人数组
+			botloop: for (const bot of bots) {
+				// 判断机器人状态
+				if (bot.status !== Universal.Status.ONLINE) {
+					// 有机器人未准备好，直接返回
+					this.logger.error(
+						`${platform} 机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
+					);
+					// 重试
+					this.ctx.setTimeout(async () => {
+						await this.pushMessage(targets, retry * 2);
+					}, retry);
+					// 返回
+					return;
+				}
+				// 开始进行推送
+				let num = 0;
+				// 遍历群组
+				for (const channelId of t[platform]) {
+					// 发送消息
+					try {
+						await bot.sendMessage(channelId, content);
+						// 消息成功发送+1
+						num++;
+					} catch (e) {
+						// logger
+						this.logger.error(e);
+						// 判断是否还有其他机器人
+						if (bots.length > 1) continue botloop;
+					}
+				}
+				// logger
+				this.logger.info(`成功推送消息 ${num} 条`);
+			}
+		}
 	}
 
 	async broadcastToTargets(
@@ -966,20 +1020,7 @@ class ComRegister {
 		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 		type: PushType,
-		retry = 3000,
 	) {
-		// 检查所有bot是否准备好
-		if (!this.checkAllBotsAreReady()) {
-			// 有机器人未准备好，直接返回
-			this.logger.error(
-				`存在机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
-			);
-			// 重试
-			this.ctx.setTimeout(() => {
-				this.broadcastToTargets(uid, content, type, retry * 2);
-			}, retry);
-			return;
-		}
 		// 发起推送
 		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
 		// 拿到需要推送的record
@@ -995,16 +1036,14 @@ class ComRegister {
 			// 深拷贝
 			const atAllArr = structuredClone(record.liveAtAllArr);
 			// 艾特全体
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
+			await withRetry(async () => {
+				return await this.pushMessage(
 					atAllArr,
 					<message>
 						<at type="all" />
 					</message>,
 				);
 			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息：${success.length}条`);
 		}
 		// 推送动态
 		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
@@ -1013,29 +1052,22 @@ class ComRegister {
 				// 深拷贝
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
 				// 艾特全体
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
+				await withRetry(async () => {
+					return await this.pushMessage(
 						dynamicAtAllArr,
 						<message>
 							<at type="all" />
 						</message>,
 					);
 				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送全体成员消息：${success.length}条`);
 			}
 			this.logger.info(record.dynamicArr);
 			// 深拷贝
 			const dynamicArr = structuredClone(record.dynamicArr);
 			// 推送动态
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					dynamicArr,
-					<message>{content}</message>,
-				);
+			await withRetry(async () => {
+				return await this.pushMessage(dynamicArr, <message>{content}</message>);
 			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送动态消息：${success.length}条`);
 		}
 		// 推送直播
 		if (
@@ -1046,11 +1078,9 @@ class ComRegister {
 			// 深拷贝
 			const liveArr = structuredClone(record.liveArr);
 			// 推送直播
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(liveArr, <message>{content}</message>);
+			await withRetry(async () => {
+				return await this.pushMessage(liveArr, <message>{content}</message>);
 			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送直播消息：${success.length}条`);
 		}
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
@@ -1058,14 +1088,12 @@ class ComRegister {
 			// 深拷贝
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			// 推送直播守护购买
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
+			await withRetry(async () => {
+				return await this.pushMessage(
 					liveGuardBuyArr,
 					<message>{content}</message>,
 				);
 			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送上舰消息：${success.length}条`);
 		}
 		// 推送词云
 		if (type === PushType.WordCloudAndLiveSummary) {
@@ -1089,8 +1117,8 @@ class ComRegister {
 				this.logger.info("词云和直播总结");
 				this.logger.info(wordcloudAndLiveSummaryArr);
 				// 推送词云和直播总结
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
+				await withRetry(async () => {
+					return await this.pushMessage(
 						wordcloudAndLiveSummaryArr,
 						<message>
 							{content[0]}
@@ -1098,36 +1126,30 @@ class ComRegister {
 						</message>,
 					);
 				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送词云和直播总结消息：${success.length}条`);
 			}
 			// 推送只需要词云的群组
 			if (wordcloudOnlyArr.length > 0) {
 				this.logger.info("词云");
 				this.logger.info(wordcloudOnlyArr);
 				// 推送词云
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
+				await withRetry(async () => {
+					return await this.pushMessage(
 						wordcloudOnlyArr,
 						<message>{content[0]}</message>,
 					);
 				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送词云消息：${success.length}条`);
 			}
 			// 推送只需要直播总结的群组
 			if (liveSummaryOnlyArr.length > 0) {
 				this.logger.info("直播总结");
 				this.logger.info(liveSummaryOnlyArr);
 				// 推送直播总结
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
+				await withRetry(async () => {
+					return await this.pushMessage(
 						liveSummaryOnlyArr,
 						<message>{content[1]}</message>,
 					);
 				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送直播总结消息：${success.length}条`);
 			}
 		}
 	}
