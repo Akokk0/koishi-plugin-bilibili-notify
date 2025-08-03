@@ -789,7 +789,18 @@ class ComRegister {
 	}
 
 	async sendPrivateMsg(content: string) {
+		// 判断是否开启私聊推送功能
 		if (this.config.master.enable) {
+			// 判断私人机器人是否具备推送条件
+			if (this.privateBot.status !== Universal.Status.ONLINE) {
+				// 不具备推送条件 logger
+				this.logger.error(
+					`${this.privateBot.platform} 机器人未初始化完毕，无法进行推送`,
+				);
+				// 返回
+				return
+			}
+			// 判断是否填写群组号
 			if (this.config.master.masterAccountGuildId) {
 				// 向机器人主人发送消息
 				await this.privateBot.sendPrivateMessage(
