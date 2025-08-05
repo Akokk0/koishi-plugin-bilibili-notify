@@ -14,7 +14,7 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
 // 外部依赖
-import type { MsgHandler } from "@akokko/blive-message-listener";
+import type { MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
