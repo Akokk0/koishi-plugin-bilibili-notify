@@ -752,7 +752,6 @@ class ComRegister {
 				liveGuardBuy: s.liveGuardBuy,
 				wordcloud: s.wordcloud,
 				liveSummary: s.liveSummary,
-				bot: null,
 			}));
 			// 组装Target
 			const target: Target = [{ channelArr, platform: s.platform }];

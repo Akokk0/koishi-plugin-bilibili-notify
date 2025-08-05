@@ -13,7 +13,9 @@ export const Config: Schema<Config> = Schema.object({
 	subs: Schema.dict(
 		Schema.object({
 			uid: Schema.string().required().description("订阅用户UID"),
-			roomid: Schema.string().description("订阅用户直播间号，不填则会请求用户接口自动获取，但请求该接口容易风控"),
+			roomid: Schema.string().description(
+				"订阅用户直播间号，不填则会请求用户接口自动获取，但请求该接口容易风控",
+			),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
 			target: Schema.array(
@@ -41,9 +43,6 @@ export const Config: Schema<Config> = Schema.object({
 							liveSummary: Schema.boolean()
 								.default(true)
 								.description("直播总结通知"),
-							bot: Schema.string().description(
-								"若您有多个相同平台机器人，可在此填写当前群聊执行推送的机器人账号。不填则默认第一个",
-							),
 						}),
 					)
 						.role("table")
