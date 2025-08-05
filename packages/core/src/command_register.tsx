@@ -798,7 +798,7 @@ class ComRegister {
 					`${this.privateBot.platform} 机器人未初始化完毕，无法进行推送`,
 				);
 				// 返回
-				return
+				return;
 			}
 			// 判断是否填写群组号
 			if (this.config.master.masterAccountGuildId) {
@@ -977,7 +977,9 @@ class ComRegister {
 			// 分解平台和群组
 			const [platform, channleId] = target.split(":");
 			// 将平台群组添加到Record中
+			// 如果不存则初始化数组
 			if (!t[platform]) t[platform] = [channleId];
+			// 存在则直接push
 			else t[platform].push(channleId);
 		}
 		// 获取平台
@@ -989,40 +991,43 @@ class ComRegister {
 				// 判断是否为该平台机器人
 				if (bot.platform === platform) bots.push(bot);
 			}
-			// 遍历机器人数组
-			botloop: for (const bot of bots) {
+			// 定义成功发送消息条数
+			let num = 0;
+			// 定义bot发送消息函数
+			const sendMessageByBot = async (channelId: string, botIndex = 0) => {
 				// 判断机器人状态
-				if (bot.status !== Universal.Status.ONLINE) {
+				if (bots[botIndex].status !== Universal.Status.ONLINE) {
 					// 有机器人未准备好，直接返回
 					this.logger.error(
 						`${platform} 机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
 					);
 					// 重试
 					this.ctx.setTimeout(async () => {
-						await this.pushMessage(targets, content ,retry * 2);
+						await this.pushMessage(targets, content, retry * 2);
 					}, retry);
 					// 返回
 					return;
 				}
-				// 开始进行推送
-				let num = 0;
-				// 遍历群组
-				for (const channelId of t[platform]) {
-					// 发送消息
-					try {
-						await bot.sendMessage(channelId, content);
-						// 消息成功发送+1
-						num++;
-					} catch (e) {
-						// logger
-						this.logger.error(e);
-						// 判断是否还有其他机器人
-						if (bots.length > 1) continue botloop;
-					}
+				// 发送消息
+				try {
+					await bots[botIndex].sendMessage(channelId, content);
+					// 消息成功发送+1
+					num++;
+					// 延迟发送
+					await this.ctx.sleep(500);
+				} catch (e) {
+					// logger
+					this.logger.error(e);
+					// 判断是否还有其他机器人
+					if (bots.length > 1) await sendMessageByBot(channelId, botIndex++);
 				}
-				// logger
-				this.logger.info(`成功推送消息 ${num} 条`);
+			};
+			// 发送消息
+			for (const channelId of t[platform]) {
+				await sendMessageByBot(channelId);
 			}
+			// logger
+			this.logger.info(`成功推送消息 ${num} 条`);
 		}
 	}
 
