@@ -29,10 +29,12 @@ jobs:
         run: |
           set -e
 
+          PACKAGE_PATH="packages/core/package.json"
+
           CURRENT_VERSION=$(jq -r '.version' package.json)
           echo "Current version: $CURRENT_VERSION"
 
-          LAST_CHANGE_COMMIT=$(git log -S'"version":' -n 1 --pretty=format:%H -- package.json || echo "")
+          LAST_CHANGE_COMMIT=$(git log -S'"version":' -n 1 --pretty=format:%H -- $PACKAGE_PATH || echo "")
           if [ -z "$LAST_CHANGE_COMMIT" ]; then
             echo "No previous version change found. Assuming version changed."
             echo "publish=true" >> $GITHUB_OUTPUT
@@ -41,7 +43,7 @@ jobs:
 
           echo "Last version change commit: $LAST_CHANGE_COMMIT"
 
-          OLD_VERSION=$(git show ${LAST_CHANGE_COMMIT}:packages/core/package.json | jq -r '.version')
+          OLD_VERSION=$(git show ${LAST_CHANGE_COMMIT}:$PACKAGE_PATH | jq -r '.version')
           echo "Previous version: $OLD_VERSION"
 
           if [ "$CURRENT_VERSION" != "$OLD_VERSION" ]; then
