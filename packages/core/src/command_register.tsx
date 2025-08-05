@@ -942,14 +942,20 @@ class ComRegister {
 				for (const channel of platform.channelArr) {
 					// 构建目标
 					const target = `${platform.platform}:${channel.channelId}`;
+					// 定义条件
+					const conditions: [keyof typeof channel, typeof dynamicArr][] = [
+						["dynamic", dynamicArr],
+						["dynamicAtAll", dynamicAtAllArr],
+						["live", liveArr],
+						["liveAtAll", liveAtAllArr],
+						["liveGuardBuy", liveGuardBuyArr],
+						["wordcloud", wordcloudArr],
+						["liveSummary", liveSummaryArr],
+					];
 					// 判断
-					if (channel.dynamic) dynamicArr.push(target);
-					if (channel.dynamicAtAll) dynamicAtAllArr.push(target);
-					if (channel.live) liveArr.push(target);
-					if (channel.liveAtAll) liveAtAllArr.push(target);
-					if (channel.liveGuardBuy) liveGuardBuyArr.push(target);
-					if (channel.wordcloud) wordcloudArr.push(target);
-					if (channel.liveSummary) liveSummaryArr.push(target);
+					for (const [key, arr] of conditions) {
+						if (channel[key]) arr.push(target);
+					}
 				}
 			}
 			// 组装record
