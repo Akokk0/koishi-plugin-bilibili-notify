@@ -511,12 +511,7 @@ class ComRegister {
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
 
-			await session.send(
-				<message>
-					{img}
-					{summary}
-				</message>,
-			);
+			await session.send(h("message", [img, h.text(summary)]));
 		});
 
 		biliCom.subcommand(".cap").action(async ({ session }) => {
@@ -1058,12 +1053,7 @@ class ComRegister {
 			const atAllArr = structuredClone(record.liveAtAllArr);
 			// 艾特全体
 			await withRetry(async () => {
-				return await this.pushMessage(
-					atAllArr,
-					<message>
-						<at type="all" />
-					</message>,
-				);
+				return await this.pushMessage(atAllArr, h.at("all"));
 			}, 1);
 		}
 		// 推送动态
@@ -1074,12 +1064,7 @@ class ComRegister {
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
 				// 艾特全体
 				await withRetry(async () => {
-					return await this.pushMessage(
-						dynamicAtAllArr,
-						<message>
-							<at type="all" />
-						</message>,
-					);
+					return await this.pushMessage(dynamicAtAllArr, h.at("all"));
 				}, 1);
 			}
 			this.logger.info(record.dynamicArr);
@@ -1087,7 +1072,7 @@ class ComRegister {
 			const dynamicArr = structuredClone(record.dynamicArr);
 			// 推送动态
 			await withRetry(async () => {
-				return await this.pushMessage(dynamicArr, <message>{content}</message>);
+				return await this.pushMessage(dynamicArr, h("message", content));
 			}, 1);
 		}
 		// 推送直播
@@ -1100,7 +1085,7 @@ class ComRegister {
 			const liveArr = structuredClone(record.liveArr);
 			// 推送直播
 			await withRetry(async () => {
-				return await this.pushMessage(liveArr, <message>{content}</message>);
+				return await this.pushMessage(liveArr, h("message", content));
 			}, 1);
 		}
 		// 推送直播守护购买
@@ -1112,7 +1097,7 @@ class ComRegister {
 			await withRetry(async () => {
 				return await this.pushMessage(
 					liveGuardBuyArr,
-					<message>{content}</message>,
+					h(h.Fragment, h(content)),
 				);
 			}, 1);
 		}
@@ -1141,10 +1126,7 @@ class ComRegister {
 				await withRetry(async () => {
 					return await this.pushMessage(
 						wordcloudAndLiveSummaryArr,
-						<message>
-							{content[0]}
-							{content[1]}
-						</message>,
+						h("message", [content[0], content[1]]),
 					);
 				}, 1);
 			}
@@ -1156,7 +1138,7 @@ class ComRegister {
 				await withRetry(async () => {
 					return await this.pushMessage(
 						wordcloudOnlyArr,
-						<message>{content[0]}</message>,
+						h("message", [content[0]]),
 					);
 				}, 1);
 			}
@@ -1168,7 +1150,7 @@ class ComRegister {
 				await withRetry(async () => {
 					return await this.pushMessage(
 						liveSummaryOnlyArr,
-						<message>{content[1]}</message>,
+						h("message", [content[1]]),
 					);
 				}, 1);
 			}
@@ -1275,7 +1257,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
+										h("message", `${name}发布了一条含有屏蔽关键字的动态`),
 										PushType.Dynamic,
 									);
 								}
@@ -1285,7 +1267,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}转发了一条动态，已屏蔽</message>,
+										h("message", `${name}转发了一条动态，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1295,7 +1277,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}投稿了一条专栏，已屏蔽</message>,
+										h("message", `${name}投稿了一条专栏，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1338,10 +1320,7 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							<message>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</message>,
+							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1353,12 +1332,10 @@ class ComRegister {
 								// 判断pics是否存在
 								if (pics) {
 									// 组合消息
-									const picsMsg = (
-										<message forward>
-											{pics.map((pic) => (
-												<img key={pic.url} src={pic.url} alt="动态图片" />
-											))}
-										</message>
+									const picsMsg = h(
+										"message",
+										{ forward: true },
+										pics.map((pic) => h.img(pic.url)),
 									);
 									// 发送消息
 									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
@@ -1509,7 +1486,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
+										h("message", `${name}发布了一条含有屏蔽关键字的动态`),
 										PushType.Dynamic,
 									);
 								}
@@ -1519,7 +1496,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}转发了一条动态，已屏蔽</message>,
+										h("message", `${name}转发了一条动态，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1529,7 +1506,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}投稿了一条专栏，已屏蔽</message>,
+										h("message", `${name}投稿了一条专栏，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1579,10 +1556,7 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							<message>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</message>,
+							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1596,12 +1570,10 @@ class ComRegister {
 								// 判断pics是否存在
 								if (pics) {
 									// 组合消息
-									const picsMsg = (
-										<message forward>
-											{pics.map((pic) => (
-												<img key={pic.url} src={pic.url} alt="动态图片" />
-											))}
-										</message>
+									const picsMsg = h(
+										"message",
+										{ forward: true },
+										pics.map((pic) => h.img(pic.url)),
 									);
 									// 发送消息
 									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
@@ -1742,12 +1714,10 @@ class ComRegister {
 		// 发送私聊消息并重启服务
 		if (!buffer) return await this.sendPrivateMsgAndStopService();
 		// 推送直播信息
-		const msg = (
-			<message>
-				{h.image(buffer, "image/jpeg")}
-				{liveNotifyMsg || ""}
-			</message>
-		);
+		const msg = h("message", [
+			h.image(buffer, "image/jpeg"),
+			h.text(liveNotifyMsg || ""),
+		]);
 		// 只有在开播时才艾特全体成员
 		return await this.broadcastToTargets(
 			uid,
@@ -1995,12 +1965,11 @@ class ComRegister {
 			},
 			onGuardBuy: ({ body }) => {
 				// 定义消息
-				const content = (
-					<message>
-						【{masterInfo.username}的直播间】{body.user.uname}加入了大航海（
-						{body.gift_name}）
-					</message>
-				);
+				const content = h("message", [
+					h.text(
+						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+					),
+				]);
 				// 直接发送消息
 				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
 			},
@@ -2551,7 +2520,8 @@ class ComRegister {
 		// 获取订阅信息
 		const subInfo = this.subShow();
 		// 定义table
-		let table = "";
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
+		let table: any = "";
 		if (subInfo === "没有订阅任何UP") {
 			table = subInfo;
 		} else {
@@ -2559,16 +2529,13 @@ class ComRegister {
 			const subTableArray = subInfo.split("\n");
 			subTableArray.splice(subTableArray.length - 1, 1);
 			// 定义Table
-			table = (
-				<>
-					<p>当前订阅对象：</p>
-					<ul>
-						{subTableArray.map((str) => (
-							<li>{str}</li>
-						))}
-					</ul>
-				</>
-			);
+			table = h(h.Fragment, [
+				h("p", "当前订阅对象："),
+				h(
+					"ul",
+					subTableArray.map((str) => h("li", str)),
+				),
+			]);
 		}
 		// 设置更新后的提示
 		this.subNotifier = this.ctx.notifier.create(table);
