@@ -1037,122 +1037,120 @@ class ComRegister {
 		content: any,
 		type: PushType,
 	) {
-		// 发起推送
-		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
-		// 拿到需要推送的record
 		const record = this.pushArrMap.get(uid);
-		// 推送record
-		this.logger.info("本次推送目标：");
-		// 判断是否需要艾特全体成员
+		if (!record) return;
+
+		// 先判断是否有任何推送目标
+		const hasTargets =
+			(type === PushType.StartBroadcasting &&
+				record.liveAtAllArr?.length > 0) ||
+			(type === PushType.Dynamic &&
+				(record.dynamicArr?.length > 0 ||
+					record.dynamicAtAllArr?.length > 0)) ||
+			((type === PushType.Live || type === PushType.StartBroadcasting) &&
+				record.liveArr?.length > 0) ||
+			(type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) ||
+			(type === PushType.WordCloudAndLiveSummary &&
+				(record.wordcloudArr?.length > 0 || record.liveSummaryArr?.length > 0));
+
+		if (!hasTargets) return; // 没有需要推送的对象，直接结束
+
+		// 有推送目标才打印一次全局信息
+		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
+
+		// 推送 @全体（开播）
 		if (
 			type === PushType.StartBroadcasting &&
-			record.liveAtAllArr?.length >= 1
+			record.liveAtAllArr?.length > 0
 		) {
-			this.logger.info(record.liveAtAllArr);
-			// 深拷贝
+			this.logger.info("推送 @全体：", record.liveAtAllArr);
 			const atAllArr = structuredClone(record.liveAtAllArr);
-			// 艾特全体
-			await withRetry(async () => {
-				return await this.pushMessage(atAllArr, h.at("all"));
-			}, 1);
+			await withRetry(() => this.pushMessage(atAllArr, h.at("all")), 1);
 		}
+
 		// 推送动态
-		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
-			if (record.dynamicAtAllArr?.length >= 1) {
-				this.logger.info(record.dynamicAtAllArr);
-				// 深拷贝
+		if (type === PushType.Dynamic && record.dynamicArr?.length > 0) {
+			if (record.dynamicAtAllArr?.length > 0) {
+				this.logger.info("推送动态 @全体：", record.dynamicAtAllArr);
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
-				// 艾特全体
-				await withRetry(async () => {
-					return await this.pushMessage(dynamicAtAllArr, h.at("all"));
-				}, 1);
+				await withRetry(
+					() => this.pushMessage(dynamicAtAllArr, h.at("all")),
+					1,
+				);
 			}
-			this.logger.info(record.dynamicArr);
-			// 深拷贝
+			this.logger.info("推送动态：", record.dynamicArr);
 			const dynamicArr = structuredClone(record.dynamicArr);
-			// 推送动态
-			await withRetry(async () => {
-				return await this.pushMessage(dynamicArr, h("message", content));
-			}, 1);
+			await withRetry(
+				() => this.pushMessage(dynamicArr, h("message", content)),
+				1,
+			);
 		}
+
 		// 推送直播
 		if (
 			(type === PushType.Live || type === PushType.StartBroadcasting) &&
-			record.liveArr?.length >= 1
+			record.liveArr?.length > 0
 		) {
-			this.logger.info(record.liveArr);
-			// 深拷贝
+			this.logger.info("推送直播：", record.liveArr);
 			const liveArr = structuredClone(record.liveArr);
-			// 推送直播
-			await withRetry(async () => {
-				return await this.pushMessage(liveArr, h("message", content));
-			}, 1);
+			await withRetry(
+				() => this.pushMessage(liveArr, h("message", content)),
+				1,
+			);
 		}
+
 		// 推送直播守护购买
-		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
-			this.logger.info(record.liveGuardBuyArr);
-			// 深拷贝
+		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) {
+			this.logger.info("推送直播守护购买：", record.liveGuardBuyArr);
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
-			// 推送直播守护购买
-			await withRetry(async () => {
-				return await this.pushMessage(
-					liveGuardBuyArr,
-					h(h.Fragment, h(content)),
-				);
-			}, 1);
+			await withRetry(
+				() => this.pushMessage(liveGuardBuyArr, h(h.Fragment, h(content))),
+				1,
+			);
 		}
-		// 推送词云
+
+		// 推送词云和直播总结
 		if (type === PushType.WordCloudAndLiveSummary) {
-			// 深拷贝
 			const wordcloudArr = structuredClone(record.wordcloudArr);
 			const liveSummaryArr = structuredClone(record.liveSummaryArr);
-			// 获取需要推送词云和直播总结的群组
+
 			const wordcloudAndLiveSummaryArr = wordcloudArr.filter((item) =>
 				liveSummaryArr.includes(item),
 			);
-			// 获取只需要推送词云的群组
 			const wordcloudOnlyArr = wordcloudArr.filter(
 				(item) => !liveSummaryArr.includes(item),
 			);
-			// 获取只需要推送直播总结的群组
 			const liveSummaryOnlyArr = liveSummaryArr.filter(
 				(item) => !wordcloudArr.includes(item),
 			);
-			// 推送需要词云和直播总结的群组
+
 			if (wordcloudAndLiveSummaryArr.length > 0) {
-				this.logger.info("词云和直播总结");
-				this.logger.info(wordcloudAndLiveSummaryArr);
-				// 推送词云和直播总结
-				await withRetry(async () => {
-					return await this.pushMessage(
-						wordcloudAndLiveSummaryArr,
-						h("message", [content[0], content[1]]),
-					);
-				}, 1);
+				this.logger.info("推送词云和直播总结：", wordcloudAndLiveSummaryArr);
+				await withRetry(
+					() =>
+						this.pushMessage(
+							wordcloudAndLiveSummaryArr,
+							h("message", [content[0], content[1]]),
+						),
+					1,
+				);
 			}
-			// 推送只需要词云的群组
+
 			if (wordcloudOnlyArr.length > 0) {
-				this.logger.info("词云");
-				this.logger.info(wordcloudOnlyArr);
-				// 推送词云
-				await withRetry(async () => {
-					return await this.pushMessage(
-						wordcloudOnlyArr,
-						h("message", [content[0]]),
-					);
-				}, 1);
+				this.logger.info("推送词云：", wordcloudOnlyArr);
+				await withRetry(
+					() => this.pushMessage(wordcloudOnlyArr, h("message", [content[0]])),
+					1,
+				);
 			}
-			// 推送只需要直播总结的群组
+
 			if (liveSummaryOnlyArr.length > 0) {
-				this.logger.info("直播总结");
-				this.logger.info(liveSummaryOnlyArr);
-				// 推送直播总结
-				await withRetry(async () => {
-					return await this.pushMessage(
-						liveSummaryOnlyArr,
-						h("message", [content[1]]),
-					);
-				}, 1);
+				this.logger.info("推送直播总结：", liveSummaryOnlyArr);
+				await withRetry(
+					() =>
+						this.pushMessage(liveSummaryOnlyArr, h("message", [content[1]])),
+					1,
+				);
 			}
 		}
 	}
