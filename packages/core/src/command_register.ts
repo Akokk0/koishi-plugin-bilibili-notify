@@ -1932,69 +1932,83 @@ class ComRegister {
 			return flag;
 		};
 
-		// 构建消息处理函数
+		/* 
+			直播监听相关
+		*/
+
+		// 事件冷却时间（毫秒）
+		const LIVE_EVENT_COOLDOWN = 10 * 1000; // 10 秒
+
+		// 记录上次事件触发时间
+		let lastLiveStart = 0;
+		let lastLiveEnd = 0;
+
 		const handler: MsgHandler = {
 			onError: async () => {
-				// 更直播状态
 				liveStatus = false;
-				// 关闭定时推送
 				pushAtTimeTimer?.();
-				// 停止服务
+				pushAtTimeTimer = null;
 				this.ctx["bilibili-notify-live"].closeListener(sub.roomid);
-				// 发送消息
 				await this.sendPrivateMsg(`[${sub.roomid}]直播间连接发生错误！`);
 				this.logger.error(`[${sub.roomid}]直播间连接发生错误！`);
 			},
+
 			onIncomeDanmu: ({ body }) => {
-				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				// 添加发送者
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
+
 			onIncomeSuperChat: ({ body }) => {
-				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				// 添加发送者
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
+
 			onWatchedChange: ({ body }) => {
-				// 保存观看人数到变量
 				watchedNum = body.text_small;
 			},
+
 			onGuardBuy: ({ body }) => {
-				// 定义消息
 				const content = h("message", [
 					h.text(
 						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
 					),
 				]);
-				// 直接发送消息
 				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
 			},
+
 			onLiveStart: async () => {
-				// 判断是否已经开播
-				if (liveStatus) return;
-				// 设置开播状态为true
+				const now = Date.now();
+
+				// 冷却期保护
+				if (now - lastLiveStart < LIVE_EVENT_COOLDOWN) {
+					this.logger.warn(`[${sub.roomid}] 开播事件冷却期内被忽略`);
+					return;
+				}
+				lastLiveStart = now;
+
+				// 状态守卫
+				if (liveStatus) {
+					this.logger.warn(`[${sub.roomid}] 已是开播状态，忽略重复开播事件`);
+					return;
+				}
+
 				liveStatus = true;
-				// 判断是否信息是否获取成功
+
 				if (!(await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting))) {
-					// 设置开播状态为false
 					liveStatus = false;
-					// 未获取成功，直接返回
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播开播卡片失败！",
 					);
-					// 停止服务
 					return await this.sendPrivateMsgAndStopService();
 				}
-				// 设置开播时间
+
 				liveTime = liveRoomInfo.live_time;
-				// 获取当前粉丝数
+
 				const follower =
 					masterInfo.liveOpenFollowerNum >= 10_000
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
-				// 定义开播通知语
+
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
 					.replace(
@@ -2007,62 +2021,70 @@ class ComRegister {
 					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
-						`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+						`https://live.bilibili.com/${
+							liveRoomInfo.short_id === 0
+								? liveRoomInfo.room_id
+								: liveRoomInfo.short_id
+						}`,
 					);
-				// 推送开播通知
+
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
 					follower,
-					{
-						liveRoomInfo,
-						masterInfo,
-						cardStyle: sub.customCardStyle,
-					},
+					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveStartMsg,
 				);
-				// 判断定时器是否已开启
+
+				// 定时器安全开启
 				if (this.config.pushTime !== 0 && !pushAtTimeTimer) {
-					// 开始直播，开启定时器
 					pushAtTimeTimer = this.ctx.setInterval(
 						pushAtTimeFunc,
 						this.config.pushTime * 1000 * 60 * 60,
 					);
-					// 将定时器送入管理器
 					this.liveWSManager.set(sub.roomid, pushAtTimeTimer);
 				}
 			},
+
 			onLiveEnd: async () => {
-				// 将直播状态设置为false
+				const now = Date.now();
+
+				// 冷却期保护
+				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
+					this.logger.warn(`[${sub.roomid}] 下播事件冷却期内被忽略`);
+					return;
+				}
+				lastLiveEnd = now;
+
+				// 状态守卫
+				if (!liveStatus) {
+					this.logger.warn(`[${sub.roomid}] 已是下播状态，忽略重复下播事件`);
+					return;
+				}
+
 				liveStatus = false;
-				// 判断是否信息是否获取成功
+
 				if (!(await useMasterAndLiveRoomInfo(LiveType.StopBroadcast))) {
-					// 未获取成功，直接返回
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播下播卡片失败！",
 					);
-					// 停止服务
 					return await this.sendPrivateMsgAndStopService();
 				}
-				// 更改直播时长
+
 				liveRoomInfo.live_time = liveTime;
-				// 获取粉丝数变化
+
 				const followerChange = (() => {
-					// 获取直播关注变化值
 					const liveFollowerChangeNum = masterInfo.liveFollowerChange;
-					// 判断是否大于0
 					if (liveFollowerChangeNum > 0) {
-						// 大于0则加+
 						return liveFollowerChangeNum >= 10_000
-							? `+${liveFollowerChangeNum.toFixed(1)}万`
+							? `+${(liveFollowerChangeNum / 10000).toFixed(1)}万`
 							: `+${liveFollowerChangeNum}`;
 					}
-					// 小于0
 					return liveFollowerChangeNum <= -10_000
-						? `${liveFollowerChangeNum.toFixed(1)}万`
+						? `${(liveFollowerChangeNum / 10000).toFixed(1)}万`
 						: liveFollowerChangeNum.toString();
 				})();
-				// 定义下播播通知语
+
 				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
 					.replace(
@@ -2073,26 +2095,26 @@ class ComRegister {
 					)
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
-				// 推送通知卡片
+
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
 					followerChange,
-					{
-						liveRoomInfo,
-						masterInfo,
-						cardStyle: sub.customCardStyle,
-					},
+					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveEndMsg,
 				);
-				// 关闭定时推送定时器
-				pushAtTimeTimer();
-				// 将推送定时器变量置空
-				pushAtTimeTimer = null;
-				// 发送弹幕词云和直播总结
+
+				// 定时器安全关闭
+				if (pushAtTimeTimer) {
+					pushAtTimeTimer();
+					pushAtTimeTimer = null;
+					this.liveWSManager.delete(sub.roomid);
+				}
+
 				await sendDanmakuWordCloudAndLiveSummary(liveMsgObj.liveSummary);
 			},
 		};
+
 		// 启动直播间弹幕监测
 		await this.ctx["bilibili-notify-live"].startLiveRoomListener(
 			sub.roomid,
