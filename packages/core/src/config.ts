@@ -119,7 +119,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	advancedSub: Schema.boolean()
 		.default(false)
 		.description(
-			"是否开启高级订阅，若开启高级订阅，请打开该选项并下载插件 bilibili-notify-advanced-subscription",
+			"是否开启高级订阅，高级订阅是独立于本插件的一个专门用于订阅配置的插件，用于高度自定义订阅消息。若开启高级订阅，请打开该选项并下载插件 bilibili-notify-advanced-subscription",
 		),
 
 	subs: Schema.array(
