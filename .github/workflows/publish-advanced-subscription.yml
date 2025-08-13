@@ -25,33 +25,39 @@ jobs:
 
       - name: Check version change
         id: check_version
-        working-directory: packages/advanced-subscription
         run: |
           set -e
 
-          PACKAGE_PATH="package.json"
+          REPO_PACKAGE_PATH="packages/advanced-subscription/package.json"
 
-          CURRENT_VERSION=$(jq -r '.version' package.json)
+          CURRENT_VERSION=$(jq -r '.version' "$REPO_PACKAGE_PATH")
           echo "Current version: $CURRENT_VERSION"
 
-          LAST_CHANGE_COMMIT=$(git log -S'"version":' -n 1 --pretty=format:%H -- $PACKAGE_PATH || echo "")
-          if [ -z "$LAST_CHANGE_COMMIT" ]; then
-            echo "No previous version change found. Assuming version changed."
-            echo "publish=true" >> $GITHUB_OUTPUT
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              BEFORE_SHA=$(git rev-parse HEAD^)
+            else
+              echo "First commit on branch — assuming version changed."
+              echo "publish=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+
+          if ! git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" -- "$REPO_PACKAGE_PATH" | grep -q .; then
+            echo "package.json not changed in this push (no publish)."
+            echo "publish=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "Last version change commit: $LAST_CHANGE_COMMIT"
-
-          OLD_VERSION=$(git show ${LAST_CHANGE_COMMIT}:$PACKAGE_PATH | jq -r '.version')
-          echo "Previous version: $OLD_VERSION"
-
-          if [ "$CURRENT_VERSION" != "$OLD_VERSION" ]; then
-            echo "Version changed."
-            echo "publish=true" >> $GITHUB_OUTPUT
-          else
-            echo "Version unchanged."
+          if git diff -U0 -G '^\s*"version"\s*:\s*"' "$BEFORE_SHA" "$AFTER_SHA" -- "$REPO_PACKAGE_PATH" --quiet; then
+            echo "Version unchanged in this push."
             echo "publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version changed in this push."
+            echo "publish=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Setup Node
