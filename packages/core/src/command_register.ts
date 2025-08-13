@@ -1986,6 +1986,11 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveStart < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(`[${sub.roomid}] 开播事件冷却期内被忽略`);
+					// 即使冷却期内，也尽量更新 liveTime
+					if (!liveTime) {
+						await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting);
+						liveTime = liveRoomInfo?.live_time || Date.now();
+					}
 					return;
 				}
 				lastLiveStart = now;
@@ -2006,7 +2011,12 @@ class ComRegister {
 					return await this.sendPrivateMsgAndStopService();
 				}
 
-				liveTime = liveRoomInfo.live_time;
+				liveTime = liveRoomInfo?.live_time || Date.now(); // 兜底
+
+				const diffTime =
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					);
 
 				const follower =
 					masterInfo.liveOpenFollowerNum >= 10_000
@@ -2015,12 +2025,7 @@ class ComRegister {
 
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
-					.replace(
-						"-time",
-						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
-							liveTime,
-						),
-					)
+					.replace("-time", diffTime)
 					.replace("-follower", follower)
 					.replaceAll("\\n", "\n")
 					.replace(
@@ -2056,6 +2061,11 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(`[${sub.roomid}] 下播事件冷却期内被忽略`);
+					// 冷却期内也尝试保证 liveTime 有值
+					if (!liveTime) {
+						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
+						liveTime = liveRoomInfo?.live_time || Date.now();
+					}
 					return;
 				}
 				lastLiveEnd = now;
@@ -2075,7 +2085,13 @@ class ComRegister {
 					return await this.sendPrivateMsgAndStopService();
 				}
 
-				liveRoomInfo.live_time = liveTime;
+				// 保证 liveTime 必然有值
+				liveTime = liveTime || liveRoomInfo?.live_time || Date.now();
+
+				const diffTime =
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					);
 
 				const followerChange = (() => {
 					const liveFollowerChangeNum = masterInfo.liveFollowerChange;
@@ -2091,12 +2107,7 @@ class ComRegister {
 
 				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
-					.replace(
-						"-time",
-						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
-							liveTime,
-						),
-					)
+					.replace("-time", diffTime)
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
 
