@@ -331,8 +331,12 @@ class ComRegister {
 				// 定义table字符串
 				let table = "";
 				// 遍历liveUsers
-				for (const user of subLiveUsers) {
-					table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? "正在直播" : "未开播"}\n`;
+				if (subLiveUsers.length === 0) {
+					table += "当前没有正在直播的订阅对象";
+				} else {
+					for (const user of subLiveUsers) {
+						table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? "正在直播" : "未开播"}\n`;
+					}
 				}
 				return table;
 			});
@@ -600,6 +604,8 @@ class ComRegister {
 		}
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
+		// 初始化管理器
+		this.initAllManager();
 		// 注册事件
 		this.registeringForEvents();
 		// 判断是否是高级订阅
@@ -655,8 +661,6 @@ class ComRegister {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
-		// 初始化管理器
-		this.initAllManager();
 		// logger
 		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 加载订阅
@@ -672,7 +676,7 @@ class ComRegister {
 			return;
 		}
 		// 初始化管理器
-		this.initManager();
+		this.initManagerAfterLoadSub();
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 检查是否需要直播监测(仅API模式)
@@ -698,7 +702,7 @@ class ComRegister {
 		this.stopwords = new Set([...definedStopWords, ...additionalStopWords]);
 	}
 
-	initManager() {
+	initManagerAfterLoadSub() {
 		for (const [uid, sub] of this.subManager) {
 			// 判断是否订阅动态
 			if (sub.dynamic) {
