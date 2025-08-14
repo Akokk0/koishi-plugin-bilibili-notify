@@ -14,7 +14,7 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
 // 外部依赖
-import type { MsgHandler } from "@akokko/blive-message-listener";
+import type { MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
@@ -331,8 +331,12 @@ class ComRegister {
 				// 定义table字符串
 				let table = "";
 				// 遍历liveUsers
-				for (const user of subLiveUsers) {
-					table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? "正在直播" : "未开播"}\n`;
+				if (subLiveUsers.length === 0) {
+					table += "当前没有正在直播的订阅对象";
+				} else {
+					for (const user of subLiveUsers) {
+						table += `[UID:${user.uid}] 「${user.uname}」 ${user.onLive ? "正在直播" : "未开播"}\n`;
+					}
 				}
 				return table;
 			});
@@ -511,12 +515,7 @@ class ComRegister {
 				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
 				.replaceAll("\\n", "\n");
 
-			await session.send(
-				<message>
-					{img}
-					{summary}
-				</message>,
-			);
+			await session.send(h("message", [img, h.text(summary)]));
 		});
 
 		biliCom.subcommand(".cap").action(async ({ session }) => {
@@ -605,6 +604,8 @@ class ComRegister {
 		}
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
+		// 初始化管理器
+		this.initAllManager();
 		// 注册事件
 		this.registeringForEvents();
 		// 判断是否是高级订阅
@@ -660,8 +661,6 @@ class ComRegister {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
-		// 初始化管理器
-		this.initAllManager();
 		// logger
 		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 加载订阅
@@ -677,7 +676,7 @@ class ComRegister {
 			return;
 		}
 		// 初始化管理器
-		this.initManager();
+		this.initManagerAfterLoadSub();
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
 		// 检查是否需要直播监测(仅API模式)
@@ -703,7 +702,7 @@ class ComRegister {
 		this.stopwords = new Set([...definedStopWords, ...additionalStopWords]);
 	}
 
-	initManager() {
+	initManagerAfterLoadSub() {
 		for (const [uid, sub] of this.subManager) {
 			// 判断是否订阅动态
 			if (sub.dynamic) {
@@ -752,7 +751,6 @@ class ComRegister {
 				liveGuardBuy: s.liveGuardBuy,
 				wordcloud: s.wordcloud,
 				liveSummary: s.liveSummary,
-				bot: null,
 			}));
 			// 组装Target
 			const target: Target = [{ channelArr, platform: s.platform }];
@@ -789,7 +787,18 @@ class ComRegister {
 	}
 
 	async sendPrivateMsg(content: string) {
+		// 判断是否开启私聊推送功能
 		if (this.config.master.enable) {
+			// 判断私人机器人是否具备推送条件
+			if (this.privateBot?.status !== Universal.Status.ONLINE) {
+				// 不具备推送条件 logger
+				this.logger.error(
+					`${this.privateBot.platform} 机器人未初始化完毕，无法进行推送`,
+				);
+				// 返回
+				return;
+			}
+			// 判断是否填写群组号
 			if (this.config.master.masterAccountGuildId) {
 				// 向机器人主人发送消息
 				await this.privateBot.sendPrivateMessage(
@@ -931,14 +940,20 @@ class ComRegister {
 				for (const channel of platform.channelArr) {
 					// 构建目标
 					const target = `${platform.platform}:${channel.channelId}`;
+					// 定义条件
+					const conditions: [keyof typeof channel, typeof dynamicArr][] = [
+						["dynamic", dynamicArr],
+						["dynamicAtAll", dynamicAtAllArr],
+						["live", liveArr],
+						["liveAtAll", liveAtAllArr],
+						["liveGuardBuy", liveGuardBuyArr],
+						["wordcloud", wordcloudArr],
+						["liveSummary", liveSummaryArr],
+					];
 					// 判断
-					if (channel.dynamic) dynamicArr.push(target);
-					if (channel.dynamicAtAll) dynamicAtAllArr.push(target);
-					if (channel.live) liveArr.push(target);
-					if (channel.liveAtAll) liveAtAllArr.push(target);
-					if (channel.liveGuardBuy) liveGuardBuyArr.push(target);
-					if (channel.wordcloud) wordcloudArr.push(target);
-					if (channel.liveSummary) liveSummaryArr.push(target);
+					for (const [key, arr] of conditions) {
+						if (channel[key]) arr.push(target);
+					}
 				}
 			}
 			// 组装record
@@ -957,8 +972,67 @@ class ComRegister {
 		this.logger.info(this.pushArrMap);
 	}
 
-	checkAllBotsAreReady() {
-		return !this.ctx.bots.some((bot) => bot.status !== Universal.Status.ONLINE);
+	// biome-ignore lint/suspicious/noExplicitAny: <message>
+	async pushMessage(targets: Array<string>, content: any, retry = 3000) {
+		// 初始化目标
+		const t: Record<string, Array<string>> = {};
+		// 遍历获取target
+		for (const target of targets) {
+			// 分解平台和群组
+			const [platform, channleId] = target.split(":");
+			// 将平台群组添加到Record中
+			// 如果不存则初始化数组
+			if (!t[platform]) t[platform] = [channleId];
+			// 存在则直接push
+			else t[platform].push(channleId);
+		}
+		// 获取平台
+		for (const platform of Object.keys(t)) {
+			// 定义机器人数组
+			const bots: Array<Bot> = [];
+			// 获取所有同平台机器人
+			for (const bot of this.ctx.bots) {
+				// 判断是否为该平台机器人
+				if (bot.platform === platform) bots.push(bot);
+			}
+			// 定义成功发送消息条数
+			let num = 0;
+			// 定义bot发送消息函数
+			const sendMessageByBot = async (channelId: string, botIndex = 0) => {
+				// 判断机器人状态
+				if (bots[botIndex].status !== Universal.Status.ONLINE) {
+					// 有机器人未准备好，直接返回
+					this.logger.error(
+						`${platform} 机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
+					);
+					// 重试
+					this.ctx.setTimeout(async () => {
+						await this.pushMessage(targets, content, retry * 2);
+					}, retry);
+					// 返回
+					return;
+				}
+				// 发送消息
+				try {
+					await bots[botIndex].sendMessage(channelId, content);
+					// 消息成功发送+1
+					num++;
+					// 延迟发送
+					await this.ctx.sleep(500);
+				} catch (e) {
+					// logger
+					this.logger.error(e);
+					// 判断是否还有其他机器人
+					if (bots.length > 1) await sendMessageByBot(channelId, botIndex++);
+				}
+			};
+			// 发送消息
+			for (const channelId of t[platform]) {
+				await sendMessageByBot(channelId);
+			}
+			// logger
+			this.logger.info(`成功推送消息 ${num} 条`);
+		}
 	}
 
 	async broadcastToTargets(
@@ -966,168 +1040,121 @@ class ComRegister {
 		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 		type: PushType,
-		retry = 3000,
 	) {
-		// 检查所有bot是否准备好
-		if (!this.checkAllBotsAreReady()) {
-			// 有机器人未准备好，直接返回
-			this.logger.error(
-				`存在机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
-			);
-			// 重试
-			this.ctx.setTimeout(() => {
-				this.broadcastToTargets(uid, content, type, retry * 2);
-			}, retry);
-			return;
-		}
-		// 发起推送
-		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
-		// 拿到需要推送的record
 		const record = this.pushArrMap.get(uid);
-		// 推送record
-		this.logger.info("本次推送目标：");
-		// 判断是否需要艾特全体成员
+		if (!record) return;
+
+		// 先判断是否有任何推送目标
+		const hasTargets =
+			(type === PushType.StartBroadcasting &&
+				record.liveAtAllArr?.length > 0) ||
+			(type === PushType.Dynamic &&
+				(record.dynamicArr?.length > 0 ||
+					record.dynamicAtAllArr?.length > 0)) ||
+			((type === PushType.Live || type === PushType.StartBroadcasting) &&
+				record.liveArr?.length > 0) ||
+			(type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) ||
+			(type === PushType.WordCloudAndLiveSummary &&
+				(record.wordcloudArr?.length > 0 || record.liveSummaryArr?.length > 0));
+
+		if (!hasTargets) return; // 没有需要推送的对象，直接结束
+
+		// 有推送目标才打印一次全局信息
+		this.logger.info(`本次推送对象：${uid}，推送类型：${PushTypeMsg[type]}`);
+
+		// 推送 @全体（开播）
 		if (
 			type === PushType.StartBroadcasting &&
-			record.liveAtAllArr?.length >= 1
+			record.liveAtAllArr?.length > 0
 		) {
-			this.logger.info(record.liveAtAllArr);
-			// 深拷贝
+			this.logger.info("推送 @全体：", record.liveAtAllArr);
 			const atAllArr = structuredClone(record.liveAtAllArr);
-			// 艾特全体
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					atAllArr,
-					<message>
-						<at type="all" />
-					</message>,
-				);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送全体成员消息：${success.length}条`);
+			await withRetry(() => this.pushMessage(atAllArr, h.at("all")), 1);
 		}
+
 		// 推送动态
-		if (type === PushType.Dynamic && record.dynamicArr?.length >= 1) {
-			if (record.dynamicAtAllArr?.length >= 1) {
-				this.logger.info(record.dynamicAtAllArr);
-				// 深拷贝
+		if (type === PushType.Dynamic && record.dynamicArr?.length > 0) {
+			if (record.dynamicAtAllArr?.length > 0) {
+				this.logger.info("推送动态 @全体：", record.dynamicAtAllArr);
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
-				// 艾特全体
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
-						dynamicAtAllArr,
-						<message>
-							<at type="all" />
-						</message>,
-					);
-				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送全体成员消息：${success.length}条`);
-			}
-			this.logger.info(record.dynamicArr);
-			// 深拷贝
-			const dynamicArr = structuredClone(record.dynamicArr);
-			// 推送动态
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					dynamicArr,
-					<message>{content}</message>,
+				await withRetry(
+					() => this.pushMessage(dynamicAtAllArr, h.at("all")),
+					1,
 				);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送动态消息：${success.length}条`);
+			}
+			this.logger.info("推送动态：", record.dynamicArr);
+			const dynamicArr = structuredClone(record.dynamicArr);
+			await withRetry(
+				() => this.pushMessage(dynamicArr, h("message", content)),
+				1,
+			);
 		}
+
 		// 推送直播
 		if (
 			(type === PushType.Live || type === PushType.StartBroadcasting) &&
-			record.liveArr?.length >= 1
+			record.liveArr?.length > 0
 		) {
-			this.logger.info(record.liveArr);
-			// 深拷贝
+			this.logger.info("推送直播：", record.liveArr);
 			const liveArr = structuredClone(record.liveArr);
-			// 推送直播
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(liveArr, <message>{content}</message>);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送直播消息：${success.length}条`);
+			await withRetry(
+				() => this.pushMessage(liveArr, h("message", content)),
+				1,
+			);
 		}
+
 		// 推送直播守护购买
-		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length >= 1) {
-			this.logger.info(record.liveGuardBuyArr);
-			// 深拷贝
+		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) {
+			this.logger.info("推送直播守护购买：", record.liveGuardBuyArr);
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
-			// 推送直播守护购买
-			const success = await withRetry(async () => {
-				return await this.ctx.broadcast(
-					liveGuardBuyArr,
-					<message>{content}</message>,
-				);
-			}, 1);
-			// 发送成功群组
-			this.logger.info(`成功推送上舰消息：${success.length}条`);
+			await withRetry(
+				() => this.pushMessage(liveGuardBuyArr, h(h.Fragment, h(content))),
+				1,
+			);
 		}
-		// 推送词云
+
+		// 推送词云和直播总结
 		if (type === PushType.WordCloudAndLiveSummary) {
-			// 深拷贝
 			const wordcloudArr = structuredClone(record.wordcloudArr);
 			const liveSummaryArr = structuredClone(record.liveSummaryArr);
-			// 获取需要推送词云和直播总结的群组
+
 			const wordcloudAndLiveSummaryArr = wordcloudArr.filter((item) =>
 				liveSummaryArr.includes(item),
 			);
-			// 获取只需要推送词云的群组
 			const wordcloudOnlyArr = wordcloudArr.filter(
 				(item) => !liveSummaryArr.includes(item),
 			);
-			// 获取只需要推送直播总结的群组
 			const liveSummaryOnlyArr = liveSummaryArr.filter(
 				(item) => !wordcloudArr.includes(item),
 			);
-			// 推送需要词云和直播总结的群组
+
 			if (wordcloudAndLiveSummaryArr.length > 0) {
-				this.logger.info("词云和直播总结");
-				this.logger.info(wordcloudAndLiveSummaryArr);
-				// 推送词云和直播总结
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
-						wordcloudAndLiveSummaryArr,
-						<message>
-							{content[0]}
-							{content[1]}
-						</message>,
-					);
-				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送词云和直播总结消息：${success.length}条`);
+				this.logger.info("推送词云和直播总结：", wordcloudAndLiveSummaryArr);
+				await withRetry(
+					() =>
+						this.pushMessage(
+							wordcloudAndLiveSummaryArr,
+							h("message", [content[0], content[1]]),
+						),
+					1,
+				);
 			}
-			// 推送只需要词云的群组
+
 			if (wordcloudOnlyArr.length > 0) {
-				this.logger.info("词云");
-				this.logger.info(wordcloudOnlyArr);
-				// 推送词云
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
-						wordcloudOnlyArr,
-						<message>{content[0]}</message>,
-					);
-				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送词云消息：${success.length}条`);
+				this.logger.info("推送词云：", wordcloudOnlyArr);
+				await withRetry(
+					() => this.pushMessage(wordcloudOnlyArr, h("message", [content[0]])),
+					1,
+				);
 			}
-			// 推送只需要直播总结的群组
+
 			if (liveSummaryOnlyArr.length > 0) {
-				this.logger.info("直播总结");
-				this.logger.info(liveSummaryOnlyArr);
-				// 推送直播总结
-				const success = await withRetry(async () => {
-					return await this.ctx.broadcast(
-						liveSummaryOnlyArr,
-						<message>{content[1]}</message>,
-					);
-				}, 1);
-				// 发送成功群组
-				this.logger.info(`成功推送直播总结消息：${success.length}条`);
+				this.logger.info("推送直播总结：", liveSummaryOnlyArr);
+				await withRetry(
+					() =>
+						this.pushMessage(liveSummaryOnlyArr, h("message", [content[1]])),
+					1,
+				);
 			}
 		}
 	}
@@ -1232,7 +1259,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
+										h("message", `${name}发布了一条含有屏蔽关键字的动态`),
 										PushType.Dynamic,
 									);
 								}
@@ -1242,7 +1269,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}转发了一条动态，已屏蔽</message>,
+										h("message", `${name}转发了一条动态，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1252,7 +1279,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}投稿了一条专栏，已屏蔽</message>,
+										h("message", `${name}投稿了一条专栏，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1295,10 +1322,7 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							<message>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</message>,
+							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1310,12 +1334,10 @@ class ComRegister {
 								// 判断pics是否存在
 								if (pics) {
 									// 组合消息
-									const picsMsg = (
-										<message forward>
-											{pics.map((pic) => (
-												<img key={pic.url} src={pic.url} alt="动态图片" />
-											))}
-										</message>
+									const picsMsg = h(
+										"message",
+										{ forward: true },
+										pics.map((pic) => h.img(pic.url)),
 									);
 									// 发送消息
 									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
@@ -1466,7 +1488,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}发布了一条含有屏蔽关键字的动态</message>,
+										h("message", `${name}发布了一条含有屏蔽关键字的动态`),
 										PushType.Dynamic,
 									);
 								}
@@ -1476,7 +1498,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}转发了一条动态，已屏蔽</message>,
+										h("message", `${name}转发了一条动态，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1486,7 +1508,7 @@ class ComRegister {
 								if (this.config.filter.notify) {
 									await this.broadcastToTargets(
 										uid,
-										<message>{name}投稿了一条专栏，已屏蔽</message>,
+										h("message", `${name}投稿了一条专栏，已屏蔽`),
 										PushType.Dynamic,
 									);
 								}
@@ -1536,10 +1558,7 @@ class ComRegister {
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							<message>
-								{h.image(buffer, "image/jpeg")}
-								{dUrl}
-							</message>,
+							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1553,12 +1572,10 @@ class ComRegister {
 								// 判断pics是否存在
 								if (pics) {
 									// 组合消息
-									const picsMsg = (
-										<message forward>
-											{pics.map((pic) => (
-												<img key={pic.url} src={pic.url} alt="动态图片" />
-											))}
-										</message>
+									const picsMsg = h(
+										"message",
+										{ forward: true },
+										pics.map((pic) => h.img(pic.url)),
 									);
 									// 发送消息
 									await this.broadcastToTargets(uid, picsMsg, PushType.Dynamic);
@@ -1699,12 +1716,10 @@ class ComRegister {
 		// 发送私聊消息并重启服务
 		if (!buffer) return await this.sendPrivateMsgAndStopService();
 		// 推送直播信息
-		const msg = (
-			<message>
-				{h.image(buffer, "image/jpeg")}
-				{liveNotifyMsg || ""}
-			</message>
-		);
+		const msg = h("message", [
+			h.image(buffer, "image/jpeg"),
+			h.text(liveNotifyMsg || ""),
+		]);
 		// 只有在开播时才艾特全体成员
 		return await this.broadcastToTargets(
 			uid,
@@ -1921,168 +1936,200 @@ class ComRegister {
 			return flag;
 		};
 
-		// 构建消息处理函数
+		/* 
+			直播监听相关
+		*/
+
+		// 事件冷却时间（毫秒）
+		const LIVE_EVENT_COOLDOWN = 10 * 1000; // 10 秒
+
+		// 记录上次事件触发时间
+		let lastLiveStart = 0;
+		let lastLiveEnd = 0;
+
 		const handler: MsgHandler = {
 			onError: async () => {
-				// 更直播状态
 				liveStatus = false;
-				// 关闭定时推送
 				pushAtTimeTimer?.();
-				// 停止服务
+				pushAtTimeTimer = null;
 				this.ctx["bilibili-notify-live"].closeListener(sub.roomid);
-				// 发送消息
 				await this.sendPrivateMsg(`[${sub.roomid}]直播间连接发生错误！`);
 				this.logger.error(`[${sub.roomid}]直播间连接发生错误！`);
 			},
+
 			onIncomeDanmu: ({ body }) => {
-				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				// 添加发送者
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
+
 			onIncomeSuperChat: ({ body }) => {
-				// 分词
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				// 添加发送者
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
 			},
+
 			onWatchedChange: ({ body }) => {
-				// 保存观看人数到变量
 				watchedNum = body.text_small;
 			},
+
 			onGuardBuy: ({ body }) => {
-				// 定义消息
-				const content = (
-					<message>
-						【{masterInfo.username}的直播间】{body.user.uname}加入了大航海（
-						{body.gift_name}）
-					</message>
-				);
-				// 直接发送消息
+				const content = h("message", [
+					h.text(
+						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+					),
+				]);
 				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
 			},
+
 			onLiveStart: async () => {
-				// 判断是否已经开播
-				if (liveStatus) return;
-				// 设置开播状态为true
+				const now = Date.now();
+
+				// 冷却期保护
+				if (now - lastLiveStart < LIVE_EVENT_COOLDOWN) {
+					this.logger.warn(`[${sub.roomid}] 开播事件冷却期内被忽略`);
+					// 即使冷却期内，也尽量更新 liveTime
+					if (!liveTime) {
+						await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting);
+						liveTime = liveRoomInfo?.live_time || Date.now();
+					}
+					return;
+				}
+				lastLiveStart = now;
+
+				// 状态守卫
+				if (liveStatus) {
+					this.logger.warn(`[${sub.roomid}] 已是开播状态，忽略重复开播事件`);
+					return;
+				}
+
 				liveStatus = true;
-				// 判断是否信息是否获取成功
+
 				if (!(await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting))) {
-					// 设置开播状态为false
 					liveStatus = false;
-					// 未获取成功，直接返回
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播开播卡片失败！",
 					);
-					// 停止服务
 					return await this.sendPrivateMsgAndStopService();
 				}
-				// 设置开播时间
-				liveTime = liveRoomInfo.live_time;
-				// 获取当前粉丝数
+
+				liveTime = liveRoomInfo?.live_time || Date.now(); // 兜底
+
+				const diffTime =
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					);
+
 				const follower =
 					masterInfo.liveOpenFollowerNum >= 10_000
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
-				// 定义开播通知语
+
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
-					.replace(
-						"-time",
-						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
-							liveTime,
-						),
-					)
+					.replace("-time", diffTime)
 					.replace("-follower", follower)
 					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
-						`https://live.bilibili.com/${liveRoomInfo.short_id === 0 ? liveRoomInfo.room_id : liveRoomInfo.short_id}`,
+						`https://live.bilibili.com/${
+							liveRoomInfo.short_id === 0
+								? liveRoomInfo.room_id
+								: liveRoomInfo.short_id
+						}`,
 					);
-				// 推送开播通知
+
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
 					follower,
-					{
-						liveRoomInfo,
-						masterInfo,
-						cardStyle: sub.customCardStyle,
-					},
+					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveStartMsg,
 				);
-				// 判断定时器是否已开启
+
+				// 定时器安全开启
 				if (this.config.pushTime !== 0 && !pushAtTimeTimer) {
-					// 开始直播，开启定时器
 					pushAtTimeTimer = this.ctx.setInterval(
 						pushAtTimeFunc,
 						this.config.pushTime * 1000 * 60 * 60,
 					);
-					// 将定时器送入管理器
 					this.liveWSManager.set(sub.roomid, pushAtTimeTimer);
 				}
 			},
+
 			onLiveEnd: async () => {
-				// 将直播状态设置为false
+				const now = Date.now();
+
+				// 冷却期保护
+				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
+					this.logger.warn(`[${sub.roomid}] 下播事件冷却期内被忽略`);
+					// 冷却期内也尝试保证 liveTime 有值
+					if (!liveTime) {
+						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
+						liveTime = liveRoomInfo?.live_time || Date.now();
+					}
+					return;
+				}
+				lastLiveEnd = now;
+
+				// 状态守卫
+				if (!liveStatus) {
+					this.logger.warn(`[${sub.roomid}] 已是下播状态，忽略重复下播事件`);
+					return;
+				}
+
 				liveStatus = false;
-				// 判断是否信息是否获取成功
+
 				if (!(await useMasterAndLiveRoomInfo(LiveType.StopBroadcast))) {
-					// 未获取成功，直接返回
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播下播卡片失败！",
 					);
-					// 停止服务
 					return await this.sendPrivateMsgAndStopService();
 				}
-				// 更改直播时长
-				liveRoomInfo.live_time = liveTime;
-				// 获取粉丝数变化
+
+				// 保证 liveTime 必然有值
+				liveTime = liveTime || liveRoomInfo?.live_time || Date.now();
+
+				const diffTime =
+					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
+						liveTime,
+					);
+
 				const followerChange = (() => {
-					// 获取直播关注变化值
 					const liveFollowerChangeNum = masterInfo.liveFollowerChange;
-					// 判断是否大于0
 					if (liveFollowerChangeNum > 0) {
-						// 大于0则加+
 						return liveFollowerChangeNum >= 10_000
-							? `+${liveFollowerChangeNum.toFixed(1)}万`
+							? `+${(liveFollowerChangeNum / 10000).toFixed(1)}万`
 							: `+${liveFollowerChangeNum}`;
 					}
-					// 小于0
 					return liveFollowerChangeNum <= -10_000
-						? `${liveFollowerChangeNum.toFixed(1)}万`
+						? `${(liveFollowerChangeNum / 10000).toFixed(1)}万`
 						: liveFollowerChangeNum.toString();
 				})();
-				// 定义下播播通知语
+
 				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
-					.replace(
-						"-time",
-						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
-							liveTime,
-						),
-					)
+					.replace("-time", diffTime)
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
-				// 推送通知卡片
+
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
 					followerChange,
-					{
-						liveRoomInfo,
-						masterInfo,
-						cardStyle: sub.customCardStyle,
-					},
+					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveEndMsg,
 				);
-				// 关闭定时推送定时器
-				pushAtTimeTimer();
-				// 将推送定时器变量置空
-				pushAtTimeTimer = null;
-				// 发送弹幕词云和直播总结
+
+				// 定时器安全关闭
+				if (pushAtTimeTimer) {
+					pushAtTimeTimer();
+					pushAtTimeTimer = null;
+					this.liveWSManager.delete(sub.roomid);
+				}
+
 				await sendDanmakuWordCloudAndLiveSummary(liveMsgObj.liveSummary);
 			},
 		};
+
 		// 启动直播间弹幕监测
 		await this.ctx["bilibili-notify-live"].startLiveRoomListener(
 			sub.roomid,
@@ -2508,7 +2555,8 @@ class ComRegister {
 		// 获取订阅信息
 		const subInfo = this.subShow();
 		// 定义table
-		let table = "";
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
+		let table: any = "";
 		if (subInfo === "没有订阅任何UP") {
 			table = subInfo;
 		} else {
@@ -2516,16 +2564,13 @@ class ComRegister {
 			const subTableArray = subInfo.split("\n");
 			subTableArray.splice(subTableArray.length - 1, 1);
 			// 定义Table
-			table = (
-				<>
-					<p>当前订阅对象：</p>
-					<ul>
-						{subTableArray.map((str) => (
-							<li>{str}</li>
-						))}
-					</ul>
-				</>
-			);
+			table = h(h.Fragment, [
+				h("p", "当前订阅对象："),
+				h(
+					"ul",
+					subTableArray.map((str) => h("li", str)),
+				),
+			]);
 		}
 		// 设置更新后的提示
 		this.subNotifier = this.ctx.notifier.create(table);

@@ -4,7 +4,7 @@ import {
 	type MessageListener,
 	startListen,
 	type MsgHandler,
-} from "@akokko/blive-message-listener";
+} from "blive-message-listener";
 
 declare module "koishi" {
 	interface Context {

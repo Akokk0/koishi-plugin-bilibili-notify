@@ -15,7 +15,6 @@ export type Channel = {
 	liveGuardBuy: boolean;
 	wordcloud: boolean;
 	liveSummary: boolean;
-	bot: string;
 };
 
 export type ChannelArr = Array<Channel>;
@@ -451,4 +450,4 @@ export type LiveAPIManager = Map<string, LiveAPIStatus>;
 
 export type LiveMsgManager = Map<string, LiveMsg>;
 
-export type LiveWSManager = Map<string, () => void>
+export type LiveWSManager = Map<string, () => void>;
