@@ -999,6 +999,11 @@ class ComRegister {
 			let num = 0;
 			// 定义bot发送消息函数
 			const sendMessageByBot = async (channelId: string, botIndex = 0) => {
+				// 判断机器人是否存在
+				if (!bots[botIndex]) {
+					this.logger.warn(`${platform} 没有配置对应机器人，无法进行推送！`);
+					return;
+				}
 				// 判断机器人状态
 				if (bots[botIndex].status !== Universal.Status.ONLINE) {
 					// 有机器人未准备好，直接返回
