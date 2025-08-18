@@ -13,6 +13,7 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import type {
 	BACookie,
 	BiliTicket,
+	LiveRoomInfoData,
 	V_VoucherCaptchaData,
 	ValidateCaptchaData,
 } from "./type";
@@ -652,7 +653,7 @@ class BiliAPI extends Service {
 		});
 	}
 
-	async getLiveRoomInfo(roomId: string) {
+	async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData> {
 		const run = async () => {
 			const { data } = await this.client.get(
 				`${GET_LIVE_ROOM_INFO}?room_id=${roomId}`,
