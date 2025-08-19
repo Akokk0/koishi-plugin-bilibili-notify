@@ -2176,7 +2176,7 @@ class ComRegister {
 				);
 			// 发送直播通知卡片
 			if (this.config.restartPush) {
-				await this.sendLiveNotifyCard(
+				this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
 					watched,
 					{
