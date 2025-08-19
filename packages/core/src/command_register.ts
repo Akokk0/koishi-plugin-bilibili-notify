@@ -974,15 +974,17 @@ class ComRegister {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <message>
-	async pushMessage(targets: Array<string>, content: any, retry = 3000) {
+	async pushMessage(targets: Array<string>, content: any) {
 		// 初始化目标
 		const t: Record<string, Array<string>> = {};
 		// 遍历获取target
 		for (const target of targets) {
 			// 分解平台和群组
 			const [platform, channleId] = target.split(":");
-			// 将平台群组添加到Record中
-			// 如果不存则初始化数组
+			/* 
+				将平台群组添加到Record中
+				如果不存则初始化数组
+			*/
 			if (!t[platform]) t[platform] = [channleId];
 			// 存在则直接push
 			else t[platform].push(channleId);
@@ -999,7 +1001,7 @@ class ComRegister {
 			// 定义成功发送消息条数
 			let num = 0;
 			// 定义bot发送消息函数
-			const sendMessageByBot = async (channelId: string, botIndex = 0) => {
+			const sendMessageByBot = async (channelId: string, botIndex = 0, retry = 3000) => {
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
 					this.logger.warn(`${platform} 没有配置对应机器人，无法进行推送！`);
@@ -1008,7 +1010,7 @@ class ComRegister {
 				// 判断机器人状态
 				if (bots[botIndex].status !== Universal.Status.ONLINE) {
 					// 判断是否超过5次重试
-					if (retry >= 3000 * 2 * 2 * 2 * 2 * 2) {
+					if (retry >= 3000 * (2 ** 5)) {
 						// logger
 						this.logger.error(
 							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
@@ -1027,7 +1029,7 @@ class ComRegister {
 					// 等待
 					await this.ctx.sleep(retry);
 					// 重试(指数退避)
-					await this.pushMessage(targets, content, retry * 2);
+					await sendMessageByBot(channelId, botIndex, retry * 2);
 					// 返回
 					return;
 				}
