@@ -1007,14 +1007,27 @@ class ComRegister {
 				}
 				// 判断机器人状态
 				if (bots[botIndex].status !== Universal.Status.ONLINE) {
+					// 判断是否超过5次重试
+					if (retry >= 3000 * 2 * 2 * 2 * 2 * 2) {
+						// logger
+						this.logger.error(
+							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
+						);
+						// 返回
+						return;
+					}
 					// 有机器人未准备好，直接返回
 					this.logger.error(
 						`${platform} 机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
 					);
-					// 重试
-					this.ctx.setTimeout(async () => {
-						await this.pushMessage(targets, content, retry * 2);
-					}, retry);
+					// 等待
+					await this.ctx.sleep(retry);
+					// 重试(指数退避)
+					await this.pushMessage(targets, content, retry * 2);
 					// 返回
 					return;
 				}
