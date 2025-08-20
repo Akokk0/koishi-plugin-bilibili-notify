@@ -44,6 +44,7 @@ import {
 	type Subscriptions,
 	type Target,
 	type LiveAPIManager,
+	type LiveRoomInfoData,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -973,15 +974,17 @@ class ComRegister {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <message>
-	async pushMessage(targets: Array<string>, content: any, retry = 3000) {
+	async pushMessage(targets: Array<string>, content: any) {
 		// 初始化目标
 		const t: Record<string, Array<string>> = {};
 		// 遍历获取target
 		for (const target of targets) {
 			// 分解平台和群组
 			const [platform, channleId] = target.split(":");
-			// 将平台群组添加到Record中
-			// 如果不存则初始化数组
+			/* 
+				将平台群组添加到Record中
+				如果不存则初始化数组
+			*/
 			if (!t[platform]) t[platform] = [channleId];
 			// 存在则直接push
 			else t[platform].push(channleId);
@@ -998,7 +1001,7 @@ class ComRegister {
 			// 定义成功发送消息条数
 			let num = 0;
 			// 定义bot发送消息函数
-			const sendMessageByBot = async (channelId: string, botIndex = 0) => {
+			const sendMessageByBot = async (channelId: string, botIndex = 0, retry = 3000) => {
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
 					this.logger.warn(`${platform} 没有配置对应机器人，无法进行推送！`);
@@ -1006,14 +1009,27 @@ class ComRegister {
 				}
 				// 判断机器人状态
 				if (bots[botIndex].status !== Universal.Status.ONLINE) {
+					// 判断是否超过5次重试
+					if (retry >= 3000 * (2 ** 5)) {
+						// logger
+						this.logger.error(
+							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
+						);
+						// 发送私聊消息
+						await this.sendPrivateMsg(
+							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
+						);
+						// 返回
+						return;
+					}
 					// 有机器人未准备好，直接返回
 					this.logger.error(
 						`${platform} 机器人未初始化完毕，无法进行推送，${retry / 1000}秒后重试`,
 					);
-					// 重试
-					this.ctx.setTimeout(async () => {
-						await this.pushMessage(targets, content, retry * 2);
-					}, retry);
+					// 等待
+					await this.ctx.sleep(retry);
+					// 重试(指数退避)
+					await sendMessageByBot(channelId, botIndex, retry * 2);
 					// 返回
 					return;
 				}
@@ -1671,7 +1687,7 @@ class ComRegister {
 		};
 	}
 
-	async useLiveRoomInfo(roomId: string) {
+	async useLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData["data"]> {
 		// 发送请求获取直播间信息
 		const data = await withRetry(
 			async () => await this.ctx["bilibili-notify-api"].getLiveRoomInfo(roomId),
@@ -1681,11 +1697,12 @@ class ComRegister {
 				this.logger.error(
 					`liveDetect getLiveRoomInfo 发生了错误，错误为：${e.message}`,
 				);
-				// 返回错误
-				return false;
 			});
 		// 发送私聊消息并重启服务
-		if (!data) return await this.sendPrivateMsgAndStopService();
+		if (!data) {
+			await this.sendPrivateMsgAndStopService();
+			return;
+		}
 		// 返回
 		return data;
 	}
@@ -1768,8 +1785,7 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		// biome-ignore lint/suspicious/noExplicitAny: <any>
-		let liveRoomInfo: any;
+		let liveRoomInfo: LiveRoomInfoData["data"];
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
 		// 获取推送信息对象
@@ -1928,7 +1944,7 @@ class ComRegister {
 			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
 			masterInfo = await this.useMasterInfo(
-				liveRoomInfo.uid,
+				liveRoomInfo.uid.toString(),
 				masterInfo,
 				liveType,
 			).catch(() => {
@@ -1991,13 +2007,9 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveStart < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(`[${sub.roomid}] 开播事件冷却期内被忽略`);
-					// 即使冷却期内，也尽量更新 liveTime
-					if (!liveTime) {
-						await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting);
-						liveTime = liveRoomInfo?.live_time || Date.now();
-					}
 					return;
 				}
+
 				lastLiveStart = now;
 
 				// 状态守卫
@@ -2016,7 +2028,7 @@ class ComRegister {
 					return await this.sendPrivateMsgAndStopService();
 				}
 
-				liveTime = liveRoomInfo?.live_time || Date.now(); // 兜底
+				liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss"); // 兜底
 
 				const diffTime =
 					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
@@ -2069,10 +2081,11 @@ class ComRegister {
 					// 冷却期内也尝试保证 liveTime 有值
 					if (!liveTime) {
 						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
-						liveTime = liveRoomInfo?.live_time || Date.now();
+						liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
 					}
 					return;
 				}
+
 				lastLiveEnd = now;
 
 				// 状态守卫
@@ -2083,15 +2096,8 @@ class ComRegister {
 
 				liveStatus = false;
 
-				if (!(await useMasterAndLiveRoomInfo(LiveType.StopBroadcast))) {
-					await this.sendPrivateMsg(
-						"获取直播间信息失败，推送直播下播卡片失败！",
-					);
-					return await this.sendPrivateMsgAndStopService();
-				}
-
 				// 保证 liveTime 必然有值
-				liveTime = liveTime || liveRoomInfo?.live_time || Date.now();
+				liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
 
 				const diffTime =
 					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
@@ -2170,7 +2176,7 @@ class ComRegister {
 				);
 			// 发送直播通知卡片
 			if (this.config.restartPush) {
-				await this.sendLiveNotifyCard(
+				this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
 					watched,
 					{
