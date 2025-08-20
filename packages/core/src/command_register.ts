@@ -1145,7 +1145,7 @@ class ComRegister {
 			this.logger.info("推送直播守护购买：", record.liveGuardBuyArr);
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			await withRetry(
-				() => this.pushMessage(liveGuardBuyArr, h(h.Fragment, h(content))),
+				() => this.pushMessage(liveGuardBuyArr, h("message", content)),
 				1,
 			);
 		}
