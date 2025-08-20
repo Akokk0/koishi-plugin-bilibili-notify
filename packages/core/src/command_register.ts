@@ -108,6 +108,9 @@ class ComRegister {
 	stopwords: Set<string>;
 	// recive subs times
 	reciveSubTimes = 0;
+	// GroupInfo
+	// biome-ignore lint/suspicious/noExplicitAny: <data>
+	groupInfo: any | null = null;
 	// 构造函数
 	constructor(ctx: Context, config: ComRegister.Config) {
 		// 将ctx赋值给类属性
@@ -664,6 +667,15 @@ class ComRegister {
 	async initAsyncPart(subs: Subscriptions) {
 		// logger
 		this.logger.info("获取到订阅信息，开始加载订阅...");
+		// 判断订阅分组是否存在
+		const groupInfoResult = await this.getGroupInfo();
+		// 判断是否获取成功
+		if (groupInfoResult.code !== 0) {
+			this.logger.error("获取分组信息失败，插件初始化失败！");
+			return;
+		}
+		// 赋值给成员变量
+		this.groupInfo = groupInfoResult.data;
 		// 加载订阅
 		const { code, message } = await this.loadSubFromConfig(subs);
 		// 判断是否加载成功
@@ -1001,7 +1013,11 @@ class ComRegister {
 			// 定义成功发送消息条数
 			let num = 0;
 			// 定义bot发送消息函数
-			const sendMessageByBot = async (channelId: string, botIndex = 0, retry = 3000) => {
+			const sendMessageByBot = async (
+				channelId: string,
+				botIndex = 0,
+				retry = 3000,
+			) => {
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
 					this.logger.warn(`${platform} 没有配置对应机器人，无法进行推送！`);
@@ -1010,7 +1026,7 @@ class ComRegister {
 				// 判断机器人状态
 				if (bots[botIndex].status !== Universal.Status.ONLINE) {
 					// 判断是否超过5次重试
-					if (retry >= 3000 * (2 ** 5)) {
+					if (retry >= 3000 * 2 ** 5) {
 						// logger
 						this.logger.error(
 							`${platform} 机器人未初始化完毕，无法进行推送，已重试5次，放弃推送`,
@@ -2028,7 +2044,9 @@ class ComRegister {
 					return await this.sendPrivateMsgAndStopService();
 				}
 
-				liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss"); // 兜底
+				liveTime =
+					liveRoomInfo?.live_time ||
+					DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss"); // 兜底
 
 				const diffTime =
 					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
@@ -2081,7 +2099,9 @@ class ComRegister {
 					// 冷却期内也尝试保证 liveTime 有值
 					if (!liveTime) {
 						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
-						liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
+						liveTime =
+							liveRoomInfo?.live_time ||
+							DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
 					}
 					return;
 				}
@@ -2097,7 +2117,9 @@ class ComRegister {
 				liveStatus = false;
 
 				// 保证 liveTime 必然有值
-				liveTime = liveRoomInfo?.live_time || DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
+				liveTime =
+					liveRoomInfo?.live_time ||
+					DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
 
 				const diffTime =
 					await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
@@ -2600,7 +2622,7 @@ class ComRegister {
 		});
 	}
 
-	async subUserInBili(mid: string): Promise<Result> {
+	async getGroupInfo(): Promise<Result> {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
 			// 获取所有分组
@@ -2690,8 +2712,12 @@ class ComRegister {
 		if (code !== 0) {
 			return { code, message };
 		}
+		return { code: 0, message: "获取分组明细成功", data };
+	}
+
+	async subUserInBili(mid: string): Promise<Result> {
 		// 判断是否已经订阅该对象
-		for (const user of data) {
+		for (const user of this.groupInfo) {
 			if (user.mid === mid) {
 				// 已关注订阅对象
 				return { code: 0, message: "订阅对象已存在于分组中" };
