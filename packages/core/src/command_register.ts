@@ -2718,7 +2718,7 @@ class ComRegister {
 	async subUserInBili(mid: string): Promise<Result> {
 		// 判断是否已经订阅该对象
 		for (const user of this.groupInfo) {
-			if (user.mid === mid) {
+			if (user.mid.toString() === mid) {
 				// 已关注订阅对象
 				return { code: 0, message: "订阅对象已存在于分组中" };
 			}
@@ -2789,6 +2789,7 @@ class ComRegister {
 				// 添加成功
 				return { code: 0, message: "订阅对象添加成功" };
 			},
+			// 账号异常
 			22015: async () => {
 				return { code: subUserData.code, message: subUserData.message };
 			},
@@ -2827,6 +2828,28 @@ class ComRegister {
 		for (const sub of Object.values(subs)) {
 			// logger
 			this.logger.info(`加载订阅UID:${sub.uid}中...`);
+			// 在B站中订阅该对象
+			const subInfo = await this.subUserInBili(sub.uid);
+			// 判断订阅是否成功
+			if (subInfo.code !== 0 && subInfo.code !== 22015) return subInfo;
+			// 判断是否是账号异常
+			if (subInfo.code === 22015) {
+				// 账号异常
+				this.logger.warn(
+					`账号异常，无法进行订阅操作，请手动订阅 UID:${sub.uid} 备注:${sub.uname}`,
+				);
+			}
+			// 将该订阅添加到sm中
+			this.subManager.set(sub.uid, {
+				uname: sub.uname,
+				roomId: sub.roomid,
+				target: sub.target,
+				live: sub.live,
+				dynamic: sub.dynamic,
+				customCardStyle: sub.customCardStyle,
+				customLiveMsg: sub.customLiveMsg,
+				customLiveSummary: sub.customLiveSummary,
+			});
 			// 判断是否有直播间号
 			if (sub.live && !sub.roomid) {
 				// logger
@@ -2878,24 +2901,8 @@ class ComRegister {
 				// 启动直播监测
 				await this.liveDetectWithListener(sub);
 			}
-			// 在B站中订阅该对象
-			const subInfo = await this.subUserInBili(sub.uid);
-			// 判断订阅是否成功
-			if (subInfo.code !== 0) return subInfo;
-			// 将该订阅添加到sm中
-			this.subManager.set(sub.uid, {
-				uname: sub.uname,
-				roomId: sub.roomid,
-				target: sub.target,
-				live: sub.live,
-				dynamic: sub.dynamic,
-				customCardStyle: sub.customCardStyle,
-				customLiveMsg: sub.customLiveMsg,
-				customLiveSummary: sub.customLiveSummary,
-			});
 			// logger
 			this.logger.info(`UID:${sub.uid} 订阅加载完毕！`);
-
 			// 判断是不是最后一个订阅
 			if (sub !== Object.values(subs).pop()) {
 				// 不是最后一个订阅，执行delay

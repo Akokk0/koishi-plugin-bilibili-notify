@@ -750,8 +750,8 @@ class BiliAPI extends Service {
 					"User-Agent":
 						this.apiConfig.userAgent ||
 						"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
-					Origin: "https://space.bilibili.com",
-					Referer: "https://space.bilibili.com/",
+					Origin: "https://www.bilibili.com",
+					Referer: "https://www.bilibili.com/",
 					priority: "u=1, i",
 					"sec-ch-ua": '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
 					"sec-ch-ua-mobile": "?0",
