@@ -647,22 +647,27 @@ class ComRegister {
 				if (timer) timer();
 			}
 		});
-		// 监听bilibili-notify事件
-		this.ctx.on("bilibili-notify/advanced-sub", async (subs: Subscriptions) => {
-			if (Object.keys(subs).length === 0) {
-				// logger
-				this.logger.info("初始化完毕，未添加任何订阅！");
-				// 返回
-				return;
-			}
-			// 判断是否超过一次接收
-			if (this.reciveSubTimes >= 1)
-				await this.ctx["bilibili-notify"].restartPlugin();
-			// 初始化后续部分
-			else await this.initAsyncPart(subs);
-			// +1
-			this.reciveSubTimes++;
-		});
+		// 如果开启高级订阅才监听bilibili-notify事件
+		if (this.config.advancedSub) {
+			this.ctx.on(
+				"bilibili-notify/advanced-sub",
+				async (subs: Subscriptions) => {
+					if (Object.keys(subs).length === 0) {
+						// logger
+						this.logger.info("初始化完毕，未添加任何订阅！");
+						// 返回
+						return;
+					}
+					// 判断是否超过一次接收
+					if (this.reciveSubTimes >= 1)
+						await this.ctx["bilibili-notify"].restartPlugin();
+					// 初始化后续部分
+					else await this.initAsyncPart(subs);
+					// +1
+					this.reciveSubTimes++;
+				},
+			);
+		}
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
