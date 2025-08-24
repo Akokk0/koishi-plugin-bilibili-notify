@@ -45,6 +45,7 @@ import {
 	type Target,
 	type LiveAPIManager,
 	type LiveRoomInfoData,
+	type LiveRoomInfo,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -1655,7 +1656,7 @@ class ComRegister {
 		return withLock(handler);
 	}
 
-	async useMasterInfo(
+	async getMasterInfo(
 		uid: string,
 		masterInfo: MasterInfo,
 		liveType: LiveType,
@@ -1703,7 +1704,7 @@ class ComRegister {
 		};
 	}
 
-	async useLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData["data"]> {
+	async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData["data"]> {
 		// 发送请求获取直播间信息
 		const data = await withRetry(
 			async () => await this.ctx["bilibili-notify-api"].getLiveRoomInfo(roomId),
@@ -1801,7 +1802,7 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		let liveRoomInfo: LiveRoomInfoData["data"];
+		let liveRoomInfo: LiveRoomInfo;
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
 		// 获取推送信息对象
@@ -1888,7 +1889,10 @@ class ComRegister {
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
-			if (!(await useMasterAndLiveRoomInfo(LiveType.LiveBroadcast))) {
+			if (
+				!(await useLiveRoomInfo(LiveType.LiveBroadcast)) &&
+				!(await useMasterInfo(LiveType.LiveBroadcast))
+			) {
 				// 未获取成功，直接返回
 				await this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
 				// 停止服务
@@ -1940,26 +1944,11 @@ class ComRegister {
 			);
 		};
 
-		// 定义直播间信息获取函数
-		const useMasterAndLiveRoomInfo = async (liveType: LiveType) => {
+		const useMasterInfo = async (liveType: LiveType) => {
 			// 定义函数是否执行成功flag
 			let flag = true;
-			// 获取直播间信息
-			liveRoomInfo = await this.useLiveRoomInfo(sub.roomid).catch(() => {
-				// 设置flag为false
-				flag = false;
-				// 返回空
-				return null;
-			});
-			// 判断是否成功获取信息
-			if (!flag || !liveRoomInfo || !liveRoomInfo.uid) {
-				// 上一步未成功
-				flag = false;
-				// 返回flag
-				return flag;
-			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			masterInfo = await this.useMasterInfo(
+			masterInfo = await this.getMasterInfo(
 				liveRoomInfo.uid.toString(),
 				masterInfo,
 				liveType,
@@ -1971,6 +1960,47 @@ class ComRegister {
 			});
 			// 返回信息
 			return flag;
+		};
+
+		// 定义直播间信息获取函数
+		const useLiveRoomInfo = async (liveType: LiveType) => {
+			// 定义函数是否执行成功flag
+			let flag = true;
+			// 获取直播间信息
+			const liveRoomInfoData = await this.getLiveRoomInfo(sub.roomid).catch(
+				() => {
+					// 设置flag为false
+					flag = false;
+					// 返回空
+					return null;
+				},
+			);
+			// 判断是否成功获取信息
+			if (!flag || !liveRoomInfoData || !liveRoomInfoData.uid) {
+				// 上一步未成功
+				flag = false;
+				// 返回flag
+				return flag;
+			}
+			// 如果是开播或第一次订阅
+			if (
+				liveType === LiveType.StartBroadcasting ||
+				liveType === LiveType.FirstLiveBroadcast
+			) {
+				liveRoomInfo.uid = liveRoomInfoData.uid;
+				liveRoomInfo.live_time = liveRoomInfoData.live_time;
+				liveRoomInfo.short_id = liveRoomInfoData.short_id;
+				liveRoomInfo.room_id = liveRoomInfoData.room_id;
+				// 最大人气设置为0
+				liveRoomInfo.online_max = 0;
+			}
+			// 赋值
+			liveRoomInfo.live_status = liveRoomInfoData.live_status;
+			liveRoomInfo.online = liveRoomInfoData.online;
+			// 判断人气高低
+			if (liveRoomInfo.online > liveRoomInfo.online_max) {
+				liveRoomInfo.online_max = liveRoomInfo.online;
+			}
 		};
 
 		/* 
@@ -2036,13 +2066,19 @@ class ComRegister {
 
 				liveStatus = true;
 
-				if (!(await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting))) {
+				if (
+					!(await useLiveRoomInfo(LiveType.StartBroadcasting)) &&
+					!(await useMasterInfo(LiveType.StartBroadcasting))
+				) {
 					liveStatus = false;
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播开播卡片失败！",
 					);
 					return await this.sendPrivateMsgAndStopService();
 				}
+
+				// fans number log
+				this.logger.info(`开播粉丝数：${masterInfo.liveOpenFollowerNum}`);
 
 				liveTime =
 					liveRoomInfo?.live_time ||
@@ -2096,13 +2132,6 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(`[${sub.roomid}] 下播事件冷却期内被忽略`);
-					// 冷却期内也尝试保证 liveTime 有值
-					if (!liveTime) {
-						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
-						liveTime =
-							liveRoomInfo?.live_time ||
-							DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
-					}
 					return;
 				}
 
@@ -2114,7 +2143,24 @@ class ComRegister {
 					return;
 				}
 
+				// 获取信息
+				if (
+					!(await useLiveRoomInfo(LiveType.StopBroadcast)) &&
+					!(await useMasterInfo(LiveType.StopBroadcast))
+				) {
+					liveStatus = false;
+					await this.sendPrivateMsg(
+						"获取直播间信息失败，推送直播开播卡片失败！",
+					);
+					return await this.sendPrivateMsgAndStopService();
+				}
+
 				liveStatus = false;
+
+				// fans number log
+				this.logger.info(
+					`开播时粉丝数：${masterInfo.liveOpenFollowerNum}，下播时粉丝数：${masterInfo.liveEndFollowerNum}，粉丝数变化：${masterInfo.liveFollowerChange}`,
+				);
 
 				// 保证 liveTime 必然有值
 				liveTime =
@@ -2169,12 +2215,17 @@ class ComRegister {
 			handler,
 		);
 		// 第一次启动获取信息并判信息是否获取成功
-		if (!(await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast))) {
+		if (
+			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) &&
+			!(await useMasterInfo(LiveType.FirstLiveBroadcast))
+		) {
 			// 未获取成功，直接返回
 			return this.sendPrivateMsg(
 				"获取直播间信息失败，启动直播间弹幕检测失败！",
 			);
 		}
+		// fans number log
+		this.logger.info(`当前粉丝数：${masterInfo.liveOpenFollowerNum}`);
 		// 判断直播状态
 		if (liveRoomInfo.live_status === 1) {
 			// 设置开播时间
@@ -2234,7 +2285,7 @@ class ComRegister {
 			// 定义函数是否执行成功flag
 			let flag = true;
 			// 获取直播间信息
-			LiveAPIStatus.liveRoomInfo = await this.useLiveRoomInfo(
+			LiveAPIStatus.liveRoomInfo = await this.getLiveRoomInfo(
 				LiveAPIStatus.roomId,
 			).catch(() => {
 				// 设置flag为false
@@ -2250,7 +2301,7 @@ class ComRegister {
 				return flag;
 			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			LiveAPIStatus.masterInfo = await this.useMasterInfo(
+			LiveAPIStatus.masterInfo = await this.getMasterInfo(
 				LiveAPIStatus.liveRoomInfo.uid,
 				LiveAPIStatus.masterInfo,
 				liveType,
