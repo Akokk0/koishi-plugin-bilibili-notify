@@ -475,7 +475,7 @@ type LiveRoomInfoDataBadge = {
 	desc: string;
 };
 
-export type LiveRoomInfoData = {
+export type LiveRoomInfo = {
 	code: number;
 	message: string;
 	msg: string;
@@ -525,16 +525,6 @@ export type LiveRoomInfoData = {
 			status: number;
 			master_list: [];
 		};
-		online_max: number;
+		online_max?: number;
 	};
-};
-
-export type LiveRoomInfo = {
-	live_status?: number;
-	live_time?: string;
-	short_id?: number;
-	room_id?: number;
-	uid?: number;
-	online_max?: number;
-	online?: number;
 };

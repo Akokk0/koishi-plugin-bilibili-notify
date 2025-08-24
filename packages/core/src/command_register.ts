@@ -44,7 +44,6 @@ import {
 	type Subscriptions,
 	type Target,
 	type LiveAPIManager,
-	type LiveRoomInfoData,
 	type LiveRoomInfo,
 } from "./type";
 import { DateTime } from "luxon";
@@ -662,11 +661,23 @@ class ComRegister {
 					if (this.reciveSubTimes >= 1)
 						await this.ctx["bilibili-notify"].restartPlugin();
 					// 初始化后续部分
-					else await this.initAsyncPart(subs);
+					else {
+						// 处理uname
+						this.processUname(subs);
+						// 加载后续部分
+						await this.initAsyncPart(subs);
+					}
 					// +1
 					this.reciveSubTimes++;
 				},
 			);
+		}
+	}
+
+	processUname(subs: Subscriptions) {
+		// 处理uname
+		for (const uname of Object.keys(subs)) {
+			subs[uname].uname = uname;
 		}
 	}
 
@@ -1724,7 +1735,7 @@ class ComRegister {
 		};
 	}
 
-	async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData["data"]> {
+	async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfo["data"]> {
 		// 发送请求获取直播间信息
 		const data = await withRetry(
 			async () => await this.ctx["bilibili-notify-api"].getLiveRoomInfo(roomId),
@@ -1748,8 +1759,7 @@ class ComRegister {
 		liveType: LiveType,
 		followerDisplay: string,
 		liveInfo: {
-			// biome-ignore lint/suspicious/noExplicitAny: <any>
-			liveRoomInfo: any;
+			liveRoomInfo: LiveRoomInfo["data"];
 			masterInfo: MasterInfo;
 			cardStyle: Subscription["customCardStyle"];
 		},
@@ -1822,7 +1832,7 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		const liveRoomInfo: LiveRoomInfo = {};
+		let liveRoomInfo: LiveRoomInfo["data"];
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
 		// 获取推送信息对象
@@ -1987,39 +1997,26 @@ class ComRegister {
 			// 定义函数是否执行成功flag
 			let flag = true;
 			// 获取直播间信息
-			const liveRoomInfoData = await this.getLiveRoomInfo(sub.roomid).catch(
-				() => {
-					// 设置flag为false
-					flag = false;
-					// 返回空
-					return null;
-				},
-			);
+			const data = await this.getLiveRoomInfo(sub.roomid).catch(() => {
+				// 设置flag为false
+				flag = false;
+			});
 			// 判断是否成功获取信息
-			if (!flag || !liveRoomInfoData || !liveRoomInfoData.uid) {
+			if (!flag || !data || !data.uid) {
 				// 上一步未成功
 				flag = false;
 				// 返回flag
 				return flag;
 			}
+			// 更新
+			liveRoomInfo = { ...liveRoomInfo, ...data };
 			// 如果是开播或第一次订阅
 			if (
 				liveType === LiveType.StartBroadcasting ||
 				liveType === LiveType.FirstLiveBroadcast
 			) {
-				liveRoomInfo.uid = liveRoomInfoData.uid;
-				liveRoomInfo.live_time = liveRoomInfoData.live_time;
-				liveRoomInfo.short_id = liveRoomInfoData.short_id;
-				liveRoomInfo.room_id = liveRoomInfoData.room_id;
 				// 最大人气设置为0
 				liveRoomInfo.online_max = 0;
-			}
-			// 赋值
-			liveRoomInfo.live_status = liveRoomInfoData.live_status;
-			liveRoomInfo.online = liveRoomInfoData.online;
-			// 判断人气高低
-			if (liveRoomInfo.online > liveRoomInfo.online_max) {
-				liveRoomInfo.online_max = liveRoomInfo.online;
 			}
 		};
 
@@ -2063,6 +2060,16 @@ class ComRegister {
 
 			onWatchedChange: ({ body }) => {
 				watchedNum = body.text_small;
+			},
+
+			onAttentionChange: ({ body }) => {
+				// 判断热度变化
+				if (
+					liveRoomInfo?.online_max &&
+					liveRoomInfo.online_max < body.attention
+				) {
+					liveRoomInfo.online_max = body.attention;
+				}
 			},
 
 			onGuardBuy: ({ body }) => {
