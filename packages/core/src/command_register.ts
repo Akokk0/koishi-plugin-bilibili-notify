@@ -763,6 +763,7 @@ class ComRegister {
 				live: s.live,
 				liveAtAll: s.liveAtAll,
 				liveGuardBuy: s.liveGuardBuy,
+				superchat: s.superchat,
 				wordcloud: s.wordcloud,
 				liveSummary: s.liveSummary,
 			}));
@@ -946,6 +947,7 @@ class ComRegister {
 			const liveArr: Array<string> = [];
 			const liveAtAllArr: Array<string> = [];
 			const liveGuardBuyArr: Array<string> = [];
+			const superchatArr: Array<string> = [];
 			const wordcloudArr: Array<string> = [];
 			const liveSummaryArr: Array<string> = [];
 			// 遍历target
@@ -961,6 +963,7 @@ class ComRegister {
 						["live", liveArr],
 						["liveAtAll", liveAtAllArr],
 						["liveGuardBuy", liveGuardBuyArr],
+						["superchat", superchatArr],
 						["wordcloud", wordcloudArr],
 						["liveSummary", liveSummaryArr],
 					];
@@ -978,6 +981,7 @@ class ComRegister {
 				liveAtAllArr,
 				liveSummaryArr,
 				liveGuardBuyArr,
+				superchatArr,
 				wordcloudArr,
 			});
 		}
@@ -1092,6 +1096,7 @@ class ComRegister {
 			((type === PushType.Live || type === PushType.StartBroadcasting) &&
 				record.liveArr?.length > 0) ||
 			(type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) ||
+			(type === PushType.Superchat && record.superchatArr?.length > 0) ||
 			(type === PushType.WordCloudAndLiveSummary &&
 				(record.wordcloudArr?.length > 0 || record.liveSummaryArr?.length > 0));
 
@@ -1147,6 +1152,16 @@ class ComRegister {
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			await withRetry(
 				() => this.pushMessage(liveGuardBuyArr, h("message", content)),
+				1,
+			);
+		}
+
+		// 推送SC
+		if (type === PushType.Superchat && record.superchatArr?.length > 0) {
+			this.logger.info("推送SC：", record.superchatArr);
+			const superchatArr = structuredClone(record.superchatArr);
+			await withRetry(
+				() => this.pushMessage(superchatArr, h("message", content)),
 				1,
 			);
 		}
@@ -1802,7 +1817,7 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		let liveRoomInfo: LiveRoomInfo;
+		const liveRoomInfo: LiveRoomInfo = {};
 		let masterInfo: MasterInfo;
 		let watchedNum: string;
 		// 获取推送信息对象
@@ -2032,6 +2047,13 @@ class ComRegister {
 			onIncomeSuperChat: ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
+				// 推送
+				const content = h("message", [
+					h.text(
+						`【${masterInfo.username}的直播间】${body.user.uname}的SC：${body.content}（${body.price}元）`,
+					),
+				]);
+				this.broadcastToTargets(sub.uid, content, PushType.Superchat);
 			},
 
 			onWatchedChange: ({ body }) => {
@@ -3037,6 +3059,7 @@ namespace ComRegister {
 			live: boolean;
 			liveAtAll: boolean;
 			liveGuardBuy: boolean;
+			superchat: boolean;
 			wordcloud: boolean;
 			liveSummary: boolean;
 			platform: string;
@@ -3081,6 +3104,7 @@ namespace ComRegister {
 				live: Schema.boolean().default(true).description("直播"),
 				liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 				liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
+				superchat: Schema.boolean().default(false).description("SC"),
 				wordcloud: Schema.boolean().default(true).description("弹幕词云"),
 				liveSummary: Schema.boolean().default(true).description("直播总结"),
 				platform: Schema.string().required().description("平台名"),

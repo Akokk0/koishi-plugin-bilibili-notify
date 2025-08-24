@@ -13,6 +13,7 @@ export type Channel = {
 	live: boolean;
 	liveAtAll: boolean;
 	liveGuardBuy: boolean;
+	superchat: boolean;
 	wordcloud: boolean;
 	liveSummary: boolean;
 };
@@ -320,6 +321,7 @@ export enum PushType {
 	StartBroadcasting = 3,
 	LiveGuardBuy = 4,
 	WordCloudAndLiveSummary = 5,
+	Superchat = 6
 }
 
 export const PushTypeMsg = {
@@ -329,6 +331,7 @@ export const PushTypeMsg = {
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
 	[PushType.WordCloudAndLiveSummary]: "弹幕词云和直播总结推送",
+	[PushType.Superchat]: "SC推送"
 };
 
 export type Result = {
@@ -368,6 +371,7 @@ export type PushArrMap = Map<
 		liveAtAllArr?: Array<string>;
 		liveGuardBuyArr?: Array<string>;
 		wordcloudArr?: Array<string>;
+		superchatArr?: Array<string>;
 		liveSummaryArr?: Array<string>;
 	}
 >;
@@ -526,11 +530,11 @@ export type LiveRoomInfoData = {
 };
 
 export type LiveRoomInfo = {
-	live_status: number;
-	live_time: string;
-	short_id: number;
-	room_id: number;
-	uid: number;
-	online_max: number;
-	online: number;
+	live_status?: number;
+	live_time?: string;
+	short_id?: number;
+	room_id?: number;
+	uid?: number;
+	online_max?: number;
+	online?: number;
 };

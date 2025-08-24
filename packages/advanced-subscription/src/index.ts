@@ -37,6 +37,7 @@ export const Config: Schema<Config> = Schema.object({
 							liveGuardBuy: Schema.boolean()
 								.default(false)
 								.description("上舰通知"),
+							superchat: Schema.boolean().default(false).description("SC通知"),
 							wordcloud: Schema.boolean()
 								.default(true)
 								.description("弹幕词云通知"),
