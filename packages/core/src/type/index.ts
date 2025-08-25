@@ -525,6 +525,12 @@ export type LiveRoomInfo = {
 			status: number;
 			master_list: [];
 		};
-		online_max?: number;
 	};
 };
+
+export type LiveData = {
+	watchedNum?: string;
+	likedNum?: string;
+	fansNum?: string;
+	fansChanged?: string;
+}

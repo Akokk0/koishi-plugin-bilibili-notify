@@ -18,7 +18,7 @@ import type { MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
-import { withLock, withRetry } from "./utils";
+import { replaceButKeep, withLock, withRetry } from "./utils";
 // Types
 import {
 	type AllDynamicInfo,
@@ -45,6 +45,7 @@ import {
 	type Target,
 	type LiveAPIManager,
 	type LiveRoomInfo,
+	type LiveData,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -1757,7 +1758,7 @@ class ComRegister {
 
 	async sendLiveNotifyCard(
 		liveType: LiveType,
-		followerDisplay: string,
+		liveData: LiveData,
 		liveInfo: {
 			liveRoomInfo: LiveRoomInfo["data"];
 			masterInfo: MasterInfo;
@@ -1773,7 +1774,7 @@ class ComRegister {
 				liveInfo.liveRoomInfo,
 				liveInfo.masterInfo.username,
 				liveInfo.masterInfo.userface,
-				followerDisplay,
+				liveData,
 				liveType,
 				liveInfo.cardStyle.enable ? liveInfo.cardStyle : undefined,
 			);
@@ -1834,7 +1835,10 @@ class ComRegister {
 		// 定义数据
 		let liveRoomInfo: LiveRoomInfo["data"];
 		let masterInfo: MasterInfo;
-		let watchedNum: string;
+		const liveData: {
+			watchedNum: string;
+			likedNum: string;
+		} = { watchedNum: "0", likedNum: "0" };
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
@@ -1944,7 +1948,7 @@ class ComRegister {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取watched
-			const watched = watchedNum || "暂未获取到";
+			const watched = liveData.watchedNum || "暂未获取到";
 			// 设置直播中消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -1963,7 +1967,7 @@ class ComRegister {
 			// 发送直播通知卡片
 			await this.sendLiveNotifyCard(
 				LiveType.LiveBroadcast,
-				watched,
+				{ watchedNum: watched },
 				{
 					liveRoomInfo,
 					masterInfo,
@@ -2008,16 +2012,17 @@ class ComRegister {
 				// 返回flag
 				return flag;
 			}
-			// 更新
-			liveRoomInfo = { ...liveRoomInfo, ...data };
 			// 如果是开播或第一次订阅
 			if (
 				liveType === LiveType.StartBroadcasting ||
 				liveType === LiveType.FirstLiveBroadcast
 			) {
-				// 最大人气设置为0
-				liveRoomInfo.online_max = 0;
+				liveRoomInfo = data;
+				// 返回
+				return;
 			}
+			// 不更新开播时间
+			liveRoomInfo = replaceButKeep(liveRoomInfo, data, ["live_time"]);
 		};
 
 		/* 
@@ -2059,17 +2064,11 @@ class ComRegister {
 			},
 
 			onWatchedChange: ({ body }) => {
-				watchedNum = body.text_small;
+				liveData.watchedNum = body.text_small;
 			},
 
-			onAttentionChange: ({ body }) => {
-				// 判断热度变化
-				if (
-					liveRoomInfo?.online_max &&
-					liveRoomInfo.online_max < body.attention
-				) {
-					liveRoomInfo.online_max = body.attention;
-				}
+			onLikedChange: ({ body }) => {
+				liveData.likedNum = body.count.toString();
 			},
 
 			onGuardBuy: ({ body }) => {
@@ -2123,7 +2122,7 @@ class ComRegister {
 						liveTime,
 					);
 
-				const follower =
+				const followerNum =
 					masterInfo.liveOpenFollowerNum >= 10_000
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
@@ -2131,7 +2130,7 @@ class ComRegister {
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
-					.replace("-follower", follower)
+					.replace("-follower", followerNum)
 					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
@@ -2144,7 +2143,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
-					follower,
+					{ fansNum: followerNum },
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveStartMsg,
@@ -2226,7 +2225,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
-					followerChange,
+					{ fansChanged: followerChange },
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveEndMsg,
@@ -2265,7 +2264,7 @@ class ComRegister {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取当前累计观看人数
-			const watched = watchedNum || "暂未获取到";
+			const watched = liveData.watchedNum || "暂未获取到";
 			// 定义直播中通知消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -2285,7 +2284,7 @@ class ComRegister {
 			if (this.config.restartPush) {
 				this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					watched,
+					{ watchedNum: watched },
 					{
 						liveRoomInfo,
 						masterInfo,
@@ -2423,7 +2422,7 @@ class ComRegister {
 				// 发送直播通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					"API",
+					{ watchedNum: "API" },
 					{
 						liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 						masterInfo: LiveAPIStatus.masterInfo,
@@ -2511,7 +2510,7 @@ class ComRegister {
 							// 推送通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.StopBroadcast,
-								followerChange,
+								{ fansChanged: followerChange },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
@@ -2550,7 +2549,7 @@ class ComRegister {
 							// 设置开播时间初始化状态
 							LiveAPIStatus.liveStartTimeInit = true;
 							// 获取当前粉丝数
-							const follower =
+							const followerNum =
 								LiveAPIStatus.masterInfo.liveOpenFollowerNum >= 10_000
 									? `${(LiveAPIStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 									: LiveAPIStatus.masterInfo.liveOpenFollowerNum.toString();
@@ -2563,7 +2562,7 @@ class ComRegister {
 										"bilibili-notify-generate-img"
 									].getTimeDifference(LiveAPIStatus.liveStartTime),
 								)
-								.replace("-follower", follower)
+								.replace("-follower", followerNum)
 								.replaceAll("\\n", "\n")
 								.replace(
 									"-link",
@@ -2572,7 +2571,7 @@ class ComRegister {
 							// 推送开播通知
 							await this.sendLiveNotifyCard(
 								LiveType.StartBroadcasting,
-								follower,
+								{ fansNum: followerNum },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
@@ -2633,7 +2632,7 @@ class ComRegister {
 							// 发送直播通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.LiveBroadcast,
-								"API",
+								{ watchedNum: "API" },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
