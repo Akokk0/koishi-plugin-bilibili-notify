@@ -221,7 +221,7 @@ class GenerateImg extends Service {
                                 </div>
                                 ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
                                 <p class="card-link">
-                                    <span>${liveStatus === 3 ? `本场直播最高人气：${this.numberToStr(data.online_max)}` : `人气：${this.numberToStr(data.online)}`}</span>
+                                    <span>${liveStatus === 3 ? `本场直播点赞数：${this.numberToStr(+liveData.likedNum)}` : `人气：${this.numberToStr(data.online)}`}</span>
                                     <span>分区名称：${data.area_name}</span>
                                 </p>
                                 <p class="card-link">
