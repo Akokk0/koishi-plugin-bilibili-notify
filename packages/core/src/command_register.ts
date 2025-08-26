@@ -2111,7 +2111,7 @@ class ComRegister {
 				}
 
 				// fans number log
-				this.logger.info(`开播粉丝数：${masterInfo.liveOpenFollowerNum}`);
+				this.logger.info(`房间号：${masterInfo.roomId}，开播粉丝数：${masterInfo.liveOpenFollowerNum}`);
 
 				liveTime =
 					liveRoomInfo?.live_time ||
