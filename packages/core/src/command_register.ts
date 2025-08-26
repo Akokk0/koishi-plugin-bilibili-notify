@@ -1835,10 +1835,7 @@ class ComRegister {
 		// 定义数据
 		let liveRoomInfo: LiveRoomInfo["data"];
 		let masterInfo: MasterInfo;
-		const liveData: {
-			watchedNum: string;
-			likedNum: string;
-		} = { watchedNum: "0", likedNum: "0" };
+		const liveData: LiveData = { likedNum: "0" };
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
@@ -1949,6 +1946,8 @@ class ComRegister {
 			liveTime = liveRoomInfo.live_time;
 			// 获取watched
 			const watched = liveData.watchedNum || "暂未获取到";
+			//设置到liveData
+			liveData.watchedNum = watched;
 			// 设置直播中消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -1967,7 +1966,7 @@ class ComRegister {
 			// 发送直播通知卡片
 			await this.sendLiveNotifyCard(
 				LiveType.LiveBroadcast,
-				{ watchedNum: watched },
+				liveData,
 				{
 					liveRoomInfo,
 					masterInfo,
@@ -2068,7 +2067,9 @@ class ComRegister {
 			},
 
 			onLikedChange: ({ body }) => {
+				console.log(body.count);
 				liveData.likedNum = body.count.toString();
+				console.log(liveData.likedNum);
 			},
 
 			onGuardBuy: ({ body }) => {
@@ -2111,7 +2112,9 @@ class ComRegister {
 				}
 
 				// fans number log
-				this.logger.info(`房间号：${masterInfo.roomId}，开播粉丝数：${masterInfo.liveOpenFollowerNum}`);
+				this.logger.info(
+					`房间号：${masterInfo.roomId}，开播粉丝数：${masterInfo.liveOpenFollowerNum}`,
+				);
 
 				liveTime =
 					liveRoomInfo?.live_time ||
@@ -2126,6 +2129,9 @@ class ComRegister {
 					masterInfo.liveOpenFollowerNum >= 10_000
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
+
+				// 将粉丝数设置到liveData
+				liveData.fansNum = followerNum;
 
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
@@ -2143,7 +2149,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
-					{ fansNum: followerNum },
+					liveData,
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveStartMsg,
@@ -2217,6 +2223,9 @@ class ComRegister {
 						: liveFollowerChangeNum.toString();
 				})();
 
+				// 将粉丝数变化设置到liveData
+				liveData.fansChanged = followerChange;
+
 				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
@@ -2225,7 +2234,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
-					{ fansChanged: followerChange },
+					liveData,
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveEndMsg,
@@ -2265,6 +2274,8 @@ class ComRegister {
 			liveTime = liveRoomInfo.live_time;
 			// 获取当前累计观看人数
 			const watched = liveData.watchedNum || "暂未获取到";
+			// 设置到liveData
+			liveData.watchedNum = watched;
 			// 定义直播中通知消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -2284,7 +2295,7 @@ class ComRegister {
 			if (this.config.restartPush) {
 				this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					{ watchedNum: watched },
+					liveData,
 					{
 						liveRoomInfo,
 						masterInfo,
