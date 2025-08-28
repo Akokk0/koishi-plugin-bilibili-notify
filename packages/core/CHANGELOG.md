@@ -276,3 +276,4 @@
 > - ver 3.3.11-alpha.2 修复：直播下播推送部分数据错误；
 > - ver 3.3.11-alpha.3 修复：直播下播报错 `liveDetect generateLiveImg() 推送卡片生成失败，原因：Cannot read properties of undefined (reading 'toString')`； 优化：开播log输出；
 > - ver 3.3.11-alpha.4 修复：直播下播时点赞数显示 `NaN` 的错误；
+> - ver 3.3.11 修复：防止重复的直播连接创建；
