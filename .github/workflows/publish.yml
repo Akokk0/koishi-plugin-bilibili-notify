@@ -75,6 +75,6 @@ jobs:
         working-directory: packages/${{ matrix.package }}
         run: |
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          npm publish --access public
+          npm publish --provenance --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

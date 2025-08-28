@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify-advanced-subscription",
   "description": "advanced subscription for bilibili-notify",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [

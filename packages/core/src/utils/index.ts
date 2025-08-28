@@ -111,3 +111,15 @@ export async function withRetry<T>(
 		}
 	}
 }
+
+export function replaceButKeep<T extends object, K extends keyof T>(
+	oldObj: T,
+	newObj: T,
+	keepKeys: K[],
+): T {
+	const result = { ...newObj } as T;
+	for (const key of keepKeys) {
+		result[key] = oldObj[key];
+	}
+	return result;
+}

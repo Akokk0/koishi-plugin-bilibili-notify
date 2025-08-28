@@ -6,7 +6,7 @@ import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
-import type { Dynamic, RichTextNode } from "./type";
+import type { Dynamic, LiveData, RichTextNode } from "./type";
 
 declare module "koishi" {
 	interface Context {
@@ -41,6 +41,10 @@ class GenerateImg extends Service {
 		this.giConfig = config;
 	}
 
+	numberToStr(num: number) {
+		return num > 10000 ? `${(num / 10000).toFixed(1)}万` : num.toString();
+	}
+
 	async imgHandler(html: string) {
 		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
 		const page = await this.ctx.puppeteer.page();
@@ -67,7 +71,7 @@ class GenerateImg extends Service {
 		data: any,
 		username: string,
 		userface: string,
-		followerDisplay: string,
+		liveData: LiveData,
 		liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/,
 		{
 			cardColorStart = this.giConfig.cardColorStart,
@@ -217,7 +221,7 @@ class GenerateImg extends Service {
                                 </div>
                                 ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
                                 <p class="card-link">
-                                    <span>人气：${data.online > 10000 ? `${(data.online / 10000).toFixed(1)}万` : data.online}</span>
+                                    <span>${liveStatus === 3 ? `本场直播点赞数：${this.numberToStr(+liveData.likedNum)}` : `人气：${this.numberToStr(data.online)}`}</span>
                                     <span>分区名称：${data.area_name}</span>
                                 </p>
                                 <p class="card-link">
@@ -228,11 +232,11 @@ class GenerateImg extends Service {
                                         <span>
                                         ${
 																					liveStatus === 1
-																						? `当前粉丝数：${followerDisplay}`
+																						? `当前粉丝数：${liveData.fansNum || "暂未获取到"}`
 																						: liveStatus === 2
-																							? `${followerDisplay !== "API" ? `累计观看人数：${followerDisplay}` : ""}`
+																							? `${liveData.watchedNum !== "API" ? `累计观看人数：${liveData.watchedNum}` : ""}`
 																							: liveStatus === 3
-																								? `粉丝数变化：${followerDisplay}`
+																								? `粉丝数变化：${liveData.fansChanged}`
 																								: ""
 																				}
                                         </span>`

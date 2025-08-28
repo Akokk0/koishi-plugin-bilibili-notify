@@ -18,7 +18,7 @@ import type { MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
-import { withLock, withRetry } from "./utils";
+import { replaceButKeep, withLock, withRetry } from "./utils";
 // Types
 import {
 	type AllDynamicInfo,
@@ -44,7 +44,8 @@ import {
 	type Subscriptions,
 	type Target,
 	type LiveAPIManager,
-	type LiveRoomInfoData,
+	type LiveRoomInfo,
+	type LiveData,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -646,25 +647,44 @@ class ComRegister {
 				if (timer) timer();
 			}
 		});
-		// 监听bilibili-notify事件
-		this.ctx.on("bilibili-notify/advanced-sub", async (subs: Subscriptions) => {
-			if (Object.keys(subs).length === 0) {
-				// logger
-				this.logger.info("初始化完毕，未添加任何订阅！");
-				// 返回
-				return;
-			}
-			// 判断是否超过一次接收
-			if (this.reciveSubTimes >= 1)
-				await this.ctx["bilibili-notify"].restartPlugin();
-			// 初始化后续部分
-			else await this.initAsyncPart(subs);
-			// +1
-			this.reciveSubTimes++;
-		});
+		// 如果开启高级订阅才监听bilibili-notify事件
+		if (this.config.advancedSub) {
+			this.ctx.on(
+				"bilibili-notify/advanced-sub",
+				async (subs: Subscriptions) => {
+					if (Object.keys(subs).length === 0) {
+						// logger
+						this.logger.info("初始化完毕，未添加任何订阅！");
+						// 返回
+						return;
+					}
+					// 判断是否超过一次接收
+					if (this.reciveSubTimes >= 1)
+						await this.ctx["bilibili-notify"].restartPlugin();
+					// 初始化后续部分
+					else {
+						// 处理uname
+						this.processUname(subs);
+						// 加载后续部分
+						await this.initAsyncPart(subs);
+					}
+					// +1
+					this.reciveSubTimes++;
+				},
+			);
+		}
+	}
+
+	processUname(subs: Subscriptions) {
+		// 处理uname
+		for (const uname of Object.keys(subs)) {
+			subs[uname].uname = uname;
+		}
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
+		// 先清理一次直播监听
+		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
 		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 判断订阅分组是否存在
@@ -762,6 +782,7 @@ class ComRegister {
 				live: s.live,
 				liveAtAll: s.liveAtAll,
 				liveGuardBuy: s.liveGuardBuy,
+				superchat: s.superchat,
 				wordcloud: s.wordcloud,
 				liveSummary: s.liveSummary,
 			}));
@@ -945,6 +966,7 @@ class ComRegister {
 			const liveArr: Array<string> = [];
 			const liveAtAllArr: Array<string> = [];
 			const liveGuardBuyArr: Array<string> = [];
+			const superchatArr: Array<string> = [];
 			const wordcloudArr: Array<string> = [];
 			const liveSummaryArr: Array<string> = [];
 			// 遍历target
@@ -960,6 +982,7 @@ class ComRegister {
 						["live", liveArr],
 						["liveAtAll", liveAtAllArr],
 						["liveGuardBuy", liveGuardBuyArr],
+						["superchat", superchatArr],
 						["wordcloud", wordcloudArr],
 						["liveSummary", liveSummaryArr],
 					];
@@ -977,6 +1000,7 @@ class ComRegister {
 				liveAtAllArr,
 				liveSummaryArr,
 				liveGuardBuyArr,
+				superchatArr,
 				wordcloudArr,
 			});
 		}
@@ -1091,6 +1115,7 @@ class ComRegister {
 			((type === PushType.Live || type === PushType.StartBroadcasting) &&
 				record.liveArr?.length > 0) ||
 			(type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) ||
+			(type === PushType.Superchat && record.superchatArr?.length > 0) ||
 			(type === PushType.WordCloudAndLiveSummary &&
 				(record.wordcloudArr?.length > 0 || record.liveSummaryArr?.length > 0));
 
@@ -1146,6 +1171,16 @@ class ComRegister {
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			await withRetry(
 				() => this.pushMessage(liveGuardBuyArr, h("message", content)),
+				1,
+			);
+		}
+
+		// 推送SC
+		if (type === PushType.Superchat && record.superchatArr?.length > 0) {
+			this.logger.info("推送SC：", record.superchatArr);
+			const superchatArr = structuredClone(record.superchatArr);
+			await withRetry(
+				() => this.pushMessage(superchatArr, h("message", content)),
 				1,
 			);
 		}
@@ -1655,7 +1690,7 @@ class ComRegister {
 		return withLock(handler);
 	}
 
-	async useMasterInfo(
+	async getMasterInfo(
 		uid: string,
 		masterInfo: MasterInfo,
 		liveType: LiveType,
@@ -1703,7 +1738,7 @@ class ComRegister {
 		};
 	}
 
-	async useLiveRoomInfo(roomId: string): Promise<LiveRoomInfoData["data"]> {
+	async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfo["data"]> {
 		// 发送请求获取直播间信息
 		const data = await withRetry(
 			async () => await this.ctx["bilibili-notify-api"].getLiveRoomInfo(roomId),
@@ -1725,10 +1760,9 @@ class ComRegister {
 
 	async sendLiveNotifyCard(
 		liveType: LiveType,
-		followerDisplay: string,
+		liveData: LiveData,
 		liveInfo: {
-			// biome-ignore lint/suspicious/noExplicitAny: <any>
-			liveRoomInfo: any;
+			liveRoomInfo: LiveRoomInfo["data"];
 			masterInfo: MasterInfo;
 			cardStyle: Subscription["customCardStyle"];
 		},
@@ -1742,7 +1776,7 @@ class ComRegister {
 				liveInfo.liveRoomInfo,
 				liveInfo.masterInfo.username,
 				liveInfo.masterInfo.userface,
-				followerDisplay,
+				liveData,
 				liveType,
 				liveInfo.cardStyle.enable ? liveInfo.cardStyle : undefined,
 			);
@@ -1801,9 +1835,9 @@ class ComRegister {
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
-		let liveRoomInfo: LiveRoomInfoData["data"];
+		let liveRoomInfo: LiveRoomInfo["data"];
 		let masterInfo: MasterInfo;
-		let watchedNum: string;
+		const liveData: LiveData = { likedNum: "0" };
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
@@ -1888,7 +1922,10 @@ class ComRegister {
 		// 定义定时推送函数
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
-			if (!(await useMasterAndLiveRoomInfo(LiveType.LiveBroadcast))) {
+			if (
+				!(await useLiveRoomInfo(LiveType.LiveBroadcast)) &&
+				!(await useMasterInfo(LiveType.LiveBroadcast))
+			) {
 				// 未获取成功，直接返回
 				await this.sendPrivateMsg("获取直播间信息失败，推送直播卡片失败！");
 				// 停止服务
@@ -1910,7 +1947,9 @@ class ComRegister {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取watched
-			const watched = watchedNum || "暂未获取到";
+			const watched = liveData.watchedNum || "暂未获取到";
+			//设置到liveData
+			liveData.watchedNum = watched;
 			// 设置直播中消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -1929,7 +1968,7 @@ class ComRegister {
 			// 发送直播通知卡片
 			await this.sendLiveNotifyCard(
 				LiveType.LiveBroadcast,
-				watched,
+				liveData,
 				{
 					liveRoomInfo,
 					masterInfo,
@@ -1940,26 +1979,11 @@ class ComRegister {
 			);
 		};
 
-		// 定义直播间信息获取函数
-		const useMasterAndLiveRoomInfo = async (liveType: LiveType) => {
+		const useMasterInfo = async (liveType: LiveType) => {
 			// 定义函数是否执行成功flag
 			let flag = true;
-			// 获取直播间信息
-			liveRoomInfo = await this.useLiveRoomInfo(sub.roomid).catch(() => {
-				// 设置flag为false
-				flag = false;
-				// 返回空
-				return null;
-			});
-			// 判断是否成功获取信息
-			if (!flag || !liveRoomInfo || !liveRoomInfo.uid) {
-				// 上一步未成功
-				flag = false;
-				// 返回flag
-				return flag;
-			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			masterInfo = await this.useMasterInfo(
+			masterInfo = await this.getMasterInfo(
 				liveRoomInfo.uid.toString(),
 				masterInfo,
 				liveType,
@@ -1971,6 +1995,35 @@ class ComRegister {
 			});
 			// 返回信息
 			return flag;
+		};
+
+		// 定义直播间信息获取函数
+		const useLiveRoomInfo = async (liveType: LiveType) => {
+			// 定义函数是否执行成功flag
+			let flag = true;
+			// 获取直播间信息
+			const data = await this.getLiveRoomInfo(sub.roomid).catch(() => {
+				// 设置flag为false
+				flag = false;
+			});
+			// 判断是否成功获取信息
+			if (!flag || !data || !data.uid) {
+				// 上一步未成功
+				flag = false;
+				// 返回flag
+				return flag;
+			}
+			// 如果是开播或第一次订阅
+			if (
+				liveType === LiveType.StartBroadcasting ||
+				liveType === LiveType.FirstLiveBroadcast
+			) {
+				liveRoomInfo = data;
+				// 返回
+				return;
+			}
+			// 不更新开播时间
+			liveRoomInfo = replaceButKeep(liveRoomInfo, data, ["live_time"]);
 		};
 
 		/* 
@@ -2002,10 +2055,23 @@ class ComRegister {
 			onIncomeSuperChat: ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
 				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
+				// 推送
+				const content = h("message", [
+					h.text(
+						`【${masterInfo.username}的直播间】${body.user.uname}的SC：${body.content}（${body.price}元）`,
+					),
+				]);
+				this.broadcastToTargets(sub.uid, content, PushType.Superchat);
 			},
 
 			onWatchedChange: ({ body }) => {
-				watchedNum = body.text_small;
+				liveData.watchedNum = body.text_small;
+			},
+
+			onLikedChange: ({ body }) => {
+				console.log(body.count);
+				liveData.likedNum = body.count.toString();
+				console.log(liveData.likedNum);
 			},
 
 			onGuardBuy: ({ body }) => {
@@ -2036,13 +2102,21 @@ class ComRegister {
 
 				liveStatus = true;
 
-				if (!(await useMasterAndLiveRoomInfo(LiveType.StartBroadcasting))) {
+				if (
+					!(await useLiveRoomInfo(LiveType.StartBroadcasting)) &&
+					!(await useMasterInfo(LiveType.StartBroadcasting))
+				) {
 					liveStatus = false;
 					await this.sendPrivateMsg(
 						"获取直播间信息失败，推送直播开播卡片失败！",
 					);
 					return await this.sendPrivateMsgAndStopService();
 				}
+
+				// fans number log
+				this.logger.info(
+					`房间号：${masterInfo.roomId}，开播粉丝数：${masterInfo.liveOpenFollowerNum}`,
+				);
 
 				liveTime =
 					liveRoomInfo?.live_time ||
@@ -2053,15 +2127,18 @@ class ComRegister {
 						liveTime,
 					);
 
-				const follower =
+				const followerNum =
 					masterInfo.liveOpenFollowerNum >= 10_000
 						? `${(masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 						: masterInfo.liveOpenFollowerNum.toString();
 
+				// 将粉丝数设置到liveData
+				liveData.fansNum = followerNum;
+
 				const liveStartMsg = liveMsgObj.customLiveStart
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
-					.replace("-follower", follower)
+					.replace("-follower", followerNum)
 					.replaceAll("\\n", "\n")
 					.replace(
 						"-link",
@@ -2074,7 +2151,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StartBroadcasting,
-					follower,
+					liveData,
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveStartMsg,
@@ -2096,13 +2173,6 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(`[${sub.roomid}] 下播事件冷却期内被忽略`);
-					// 冷却期内也尝试保证 liveTime 有值
-					if (!liveTime) {
-						await useMasterAndLiveRoomInfo(LiveType.StopBroadcast);
-						liveTime =
-							liveRoomInfo?.live_time ||
-							DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss");
-					}
 					return;
 				}
 
@@ -2114,7 +2184,24 @@ class ComRegister {
 					return;
 				}
 
+				// 获取信息
+				if (
+					!(await useLiveRoomInfo(LiveType.StopBroadcast)) &&
+					!(await useMasterInfo(LiveType.StopBroadcast))
+				) {
+					liveStatus = false;
+					await this.sendPrivateMsg(
+						"获取直播间信息失败，推送直播开播卡片失败！",
+					);
+					return await this.sendPrivateMsgAndStopService();
+				}
+
 				liveStatus = false;
+
+				// fans number log
+				this.logger.info(
+					`开播时粉丝数：${masterInfo.liveOpenFollowerNum}，下播时粉丝数：${masterInfo.liveEndFollowerNum}，粉丝数变化：${masterInfo.liveFollowerChange}`,
+				);
 
 				// 保证 liveTime 必然有值
 				liveTime =
@@ -2138,6 +2225,9 @@ class ComRegister {
 						: liveFollowerChangeNum.toString();
 				})();
 
+				// 将粉丝数变化设置到liveData
+				liveData.fansChanged = followerChange;
+
 				const liveEndMsg = liveMsgObj.customLiveEnd
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
@@ -2146,7 +2236,7 @@ class ComRegister {
 
 				await this.sendLiveNotifyCard(
 					LiveType.StopBroadcast,
-					followerChange,
+					liveData,
 					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
 					sub.uid,
 					liveEndMsg,
@@ -2169,18 +2259,25 @@ class ComRegister {
 			handler,
 		);
 		// 第一次启动获取信息并判信息是否获取成功
-		if (!(await useMasterAndLiveRoomInfo(LiveType.FirstLiveBroadcast))) {
+		if (
+			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) &&
+			!(await useMasterInfo(LiveType.FirstLiveBroadcast))
+		) {
 			// 未获取成功，直接返回
 			return this.sendPrivateMsg(
 				"获取直播间信息失败，启动直播间弹幕检测失败！",
 			);
 		}
+		// fans number log
+		this.logger.info(`当前粉丝数：${masterInfo.liveOpenFollowerNum}`);
 		// 判断直播状态
 		if (liveRoomInfo.live_status === 1) {
 			// 设置开播时间
 			liveTime = liveRoomInfo.live_time;
 			// 获取当前累计观看人数
-			const watched = watchedNum || "暂未获取到";
+			const watched = liveData.watchedNum || "暂未获取到";
+			// 设置到liveData
+			liveData.watchedNum = watched;
 			// 定义直播中通知消息
 			const liveMsg = liveMsgObj.customLive
 				.replace("-name", masterInfo.username)
@@ -2200,7 +2297,7 @@ class ComRegister {
 			if (this.config.restartPush) {
 				this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					watched,
+					liveData,
 					{
 						liveRoomInfo,
 						masterInfo,
@@ -2234,7 +2331,7 @@ class ComRegister {
 			// 定义函数是否执行成功flag
 			let flag = true;
 			// 获取直播间信息
-			LiveAPIStatus.liveRoomInfo = await this.useLiveRoomInfo(
+			LiveAPIStatus.liveRoomInfo = await this.getLiveRoomInfo(
 				LiveAPIStatus.roomId,
 			).catch(() => {
 				// 设置flag为false
@@ -2250,7 +2347,7 @@ class ComRegister {
 				return flag;
 			}
 			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			LiveAPIStatus.masterInfo = await this.useMasterInfo(
+			LiveAPIStatus.masterInfo = await this.getMasterInfo(
 				LiveAPIStatus.liveRoomInfo.uid,
 				LiveAPIStatus.masterInfo,
 				liveType,
@@ -2338,7 +2435,7 @@ class ComRegister {
 				// 发送直播通知卡片
 				await this.sendLiveNotifyCard(
 					LiveType.LiveBroadcast,
-					"API",
+					{ watchedNum: "API" },
 					{
 						liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 						masterInfo: LiveAPIStatus.masterInfo,
@@ -2426,7 +2523,7 @@ class ComRegister {
 							// 推送通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.StopBroadcast,
-								followerChange,
+								{ fansChanged: followerChange },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
@@ -2465,7 +2562,7 @@ class ComRegister {
 							// 设置开播时间初始化状态
 							LiveAPIStatus.liveStartTimeInit = true;
 							// 获取当前粉丝数
-							const follower =
+							const followerNum =
 								LiveAPIStatus.masterInfo.liveOpenFollowerNum >= 10_000
 									? `${(LiveAPIStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
 									: LiveAPIStatus.masterInfo.liveOpenFollowerNum.toString();
@@ -2478,7 +2575,7 @@ class ComRegister {
 										"bilibili-notify-generate-img"
 									].getTimeDifference(LiveAPIStatus.liveStartTime),
 								)
-								.replace("-follower", follower)
+								.replace("-follower", followerNum)
 								.replaceAll("\\n", "\n")
 								.replace(
 									"-link",
@@ -2487,7 +2584,7 @@ class ComRegister {
 							// 推送开播通知
 							await this.sendLiveNotifyCard(
 								LiveType.StartBroadcasting,
-								follower,
+								{ fansNum: followerNum },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
@@ -2548,7 +2645,7 @@ class ComRegister {
 							// 发送直播通知卡片
 							await this.sendLiveNotifyCard(
 								LiveType.LiveBroadcast,
-								"API",
+								{ watchedNum: "API" },
 								{
 									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
 									masterInfo: LiveAPIStatus.masterInfo,
@@ -2986,6 +3083,7 @@ namespace ComRegister {
 			live: boolean;
 			liveAtAll: boolean;
 			liveGuardBuy: boolean;
+			superchat: boolean;
 			wordcloud: boolean;
 			liveSummary: boolean;
 			platform: string;
@@ -3030,6 +3128,7 @@ namespace ComRegister {
 				live: Schema.boolean().default(true).description("直播"),
 				liveAtAll: Schema.boolean().default(true).description("直播At全体"),
 				liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
+				superchat: Schema.boolean().default(false).description("SC"),
 				wordcloud: Schema.boolean().default(true).description("弹幕词云"),
 				liveSummary: Schema.boolean().default(true).description("直播总结"),
 				platform: Schema.string().required().description("平台名"),
