@@ -683,6 +683,8 @@ class ComRegister {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
+		// 先清理一次直播监听
+		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
 		this.logger.info("获取到订阅信息，开始加载订阅...");
 		// 判断订阅分组是否存在

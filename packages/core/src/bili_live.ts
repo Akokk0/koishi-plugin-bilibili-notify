@@ -26,12 +26,10 @@ class BLive extends Service {
 	// 注册插件dispose逻辑
 	protected stop(): Awaitable<void> {
 		// 清除所有监听器
-		for (const key of Object.keys(this.listenerRecord)) {
-			this.closeListener(key);
-		}
+		this.clearListeners();
 	}
 
-	async startLiveRoomListener(roomId: string, handler: MsgHandler) {
+	public async startLiveRoomListener(roomId: string, handler: MsgHandler) {
 		// 判断是否已存在连接
 		if (this.listenerRecord[roomId]) {
 			this.logger.warn(`[${roomId}]直播间连接已存在，无法重复创建！`);
@@ -58,7 +56,7 @@ class BLive extends Service {
 		this.logger.info(`[${roomId}]直播间连接已建立！`);
 	}
 
-	closeListener(roomId: string) {
+	public closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
 		if (!this.listenerRecord || !this.listenerRecord[roomId]?.closed) {
 			// 输出logger
@@ -77,6 +75,16 @@ class BLive extends Service {
 		}
 		// 未关闭成功
 		this.logger.warn(`${roomId}直播间连接未成功关闭`);
+	}
+
+	public clearListeners() {
+		// 关闭所有监听器
+		for (const key of Object.keys(this.listenerRecord)) {
+			// 关闭监听器
+			this.closeListener(key);
+			// 清空记录
+			delete this.listenerRecord[key];
+		}
 	}
 }
 
