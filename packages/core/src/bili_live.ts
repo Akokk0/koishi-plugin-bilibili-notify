@@ -32,6 +32,11 @@ class BLive extends Service {
 	}
 
 	async startLiveRoomListener(roomId: string, handler: MsgHandler) {
+		// 判断是否已存在连接
+		if (this.listenerRecord[roomId]) {
+			this.logger.warn(`[${roomId}]直播间连接已存在，无法重复创建！`);
+			return;
+		}
 		// 获取cookieStr
 		const cookiesStr =
 			await this.ctx["bilibili-notify-api"].getCookiesForHeader();
