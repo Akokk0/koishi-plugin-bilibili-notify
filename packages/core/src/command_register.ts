@@ -1851,7 +1851,7 @@ class ComRegister {
 			const words = Object.entries(danmakuWeightRecord);
 			const danmaker = Object.entries(danmakuMakerRecord);
 			// 获取img
-			const img = (async () => {
+			const img = await (async () => {
 				// 判断是否不足50词
 				if (words.length < 50) {
 					// logger
