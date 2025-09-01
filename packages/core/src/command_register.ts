@@ -1202,29 +1202,29 @@ class ComRegister {
 
 			if (wordcloudAndLiveSummaryArr.length > 0) {
 				this.logger.info("推送词云和直播总结：", wordcloudAndLiveSummaryArr);
-				await withRetry(
-					() =>
-						this.pushMessage(
-							wordcloudAndLiveSummaryArr,
-							h("message", [content[0], content[1]]),
-						),
-					1,
-				);
+
+				const msgs = content.filter(Boolean);
+				if (msgs.length > 0) {
+					await withRetry(
+						() =>
+							this.pushMessage(wordcloudAndLiveSummaryArr, h("message", msgs)),
+						1,
+					);
+				}
 			}
 
-			if (wordcloudOnlyArr.length > 0) {
+			if (content[0] && wordcloudOnlyArr.length > 0) {
 				this.logger.info("推送词云：", wordcloudOnlyArr);
 				await withRetry(
-					() => this.pushMessage(wordcloudOnlyArr, h("message", [content[0]])),
+					() => this.pushMessage(wordcloudOnlyArr, h("message", content[0])),
 					1,
 				);
 			}
 
-			if (liveSummaryOnlyArr.length > 0) {
+			if (content[1] && liveSummaryOnlyArr.length > 0) {
 				this.logger.info("推送直播总结：", liveSummaryOnlyArr);
 				await withRetry(
-					() =>
-						this.pushMessage(liveSummaryOnlyArr, h("message", [content[1]])),
+					() => this.pushMessage(liveSummaryOnlyArr, h("message", content[1])),
 					1,
 				);
 			}
@@ -1850,60 +1850,66 @@ class ComRegister {
 			// 获取数据
 			const words = Object.entries(danmakuWeightRecord);
 			const danmaker = Object.entries(danmakuMakerRecord);
-			// 判断是否不足50词
-			if (words.length < 50) {
+			// 获取img
+			const img = await (async () => {
+				// 判断是否不足50词
+				if (words.length < 50) {
+					// logger
+					this.logger.info("热词不足50个，本次弹幕词云放弃");
+					// 返回
+					return;
+				}
+				// 拿到前90个热词
+				const top90Words = words.sort((a, b) => b[1] - a[1]).slice(0, 90);
+				this.logger.info("弹幕词云前90词及权重：");
+				this.logger.info(top90Words);
+				this.logger.info("正在准备生成弹幕词云");
+				// 生成弹幕词云图片
+				const buffer = await this.ctx[
+					"bilibili-notify-generate-img"
+				].generateWordCloudImg(top90Words, masterInfo.username);
+				// 构建图片消息
+				return h.image(buffer, "image/jpeg");
+			})();
+			// 获取summary
+			const summary = (() => {
+				// 判断是否不足五人发言
+				if (danmaker.length < 5) {
+					// logger
+					this.logger.info("发言人数不足5位，本次弹幕词云放弃");
+					// 返回
+					return;
+				}
 				// logger
-				this.logger.info("热词不足50个，本次弹幕词云放弃");
-				// 返回
-				return;
-			}
-			// 判断是否不足五人发言
-			if (danmaker.length < 5) {
-				// logger
-				this.logger.info("发言人数不足5位，本次弹幕词云放弃");
-				// 返回
-				return;
-			}
-			// 拿到前90个热词
-			const top90Words = words.sort((a, b) => b[1] - a[1]).slice(0, 90);
-			this.logger.info("弹幕词云前90词及权重：");
-			this.logger.info(top90Words);
-			this.logger.info("正在准备生成弹幕词云");
-			// 生成弹幕词云图片
-			const buffer = await this.ctx[
-				"bilibili-notify-generate-img"
-			].generateWordCloudImg(top90Words, masterInfo.username);
-			// 构建图片消息
-			const img = h.image(buffer, "image/jpeg");
-			// logger
-			this.logger.info("开始构建弹幕发送排行榜消息");
-			// 弹幕发送者数量
-			const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
-			// 弹幕条数
-			const danmakuCount = Object.values(danmakuMakerRecord).reduce(
-				(sum, val) => sum + val,
-				0,
-			);
-			// 构建弹幕发送者排行
-			const top5DanmakuMaker = Object.entries(danmakuMakerRecord)
-				.sort((a, b) => b[1] - a[1])
-				.slice(0, 5);
-			// 构建消息
-			const summary = customLiveSummary
-				.replace("-dmc", `${danmakuMakerCount}`)
-				.replace("-mdn", `${masterInfo.medalName}`)
-				.replace("-dca", `${danmakuCount}`)
-				.replace("-un1", `${top5DanmakuMaker[0][0]}`)
-				.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
-				.replace("-un2", `${top5DanmakuMaker[1][0]}`)
-				.replace("-dc2", `${top5DanmakuMaker[1][1]}`)
-				.replace("-un3", `${top5DanmakuMaker[2][0]}`)
-				.replace("-dc3", `${top5DanmakuMaker[2][1]}`)
-				.replace("-un4", `${top5DanmakuMaker[3][0]}`)
-				.replace("-dc4", `${top5DanmakuMaker[3][1]}`)
-				.replace("-un5", `${top5DanmakuMaker[4][0]}`)
-				.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
-				.replaceAll("\\n", "\n");
+				this.logger.info("开始构建弹幕发送排行榜消息");
+				// 弹幕发送者数量
+				const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
+				// 弹幕条数
+				const danmakuCount = Object.values(danmakuMakerRecord).reduce(
+					(sum, val) => sum + val,
+					0,
+				);
+				// 构建弹幕发送者排行
+				const top5DanmakuMaker = Object.entries(danmakuMakerRecord)
+					.sort((a, b) => b[1] - a[1])
+					.slice(0, 5);
+				// 构建消息
+				return customLiveSummary
+					.replace("-dmc", `${danmakuMakerCount}`)
+					.replace("-mdn", `${masterInfo.medalName}`)
+					.replace("-dca", `${danmakuCount}`)
+					.replace("-un1", `${top5DanmakuMaker[0][0]}`)
+					.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
+					.replace("-un2", `${top5DanmakuMaker[1][0]}`)
+					.replace("-dc2", `${top5DanmakuMaker[1][1]}`)
+					.replace("-un3", `${top5DanmakuMaker[2][0]}`)
+					.replace("-dc3", `${top5DanmakuMaker[2][1]}`)
+					.replace("-un4", `${top5DanmakuMaker[3][0]}`)
+					.replace("-dc4", `${top5DanmakuMaker[3][1]}`)
+					.replace("-un5", `${top5DanmakuMaker[4][0]}`)
+					.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
+					.replaceAll("\\n", "\n");
+			})();
 			// 发送消息
 			await this.broadcastToTargets(
 				sub.uid,
