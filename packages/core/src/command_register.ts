@@ -1202,29 +1202,29 @@ class ComRegister {
 
 			if (wordcloudAndLiveSummaryArr.length > 0) {
 				this.logger.info("推送词云和直播总结：", wordcloudAndLiveSummaryArr);
-				await withRetry(
-					() =>
-						this.pushMessage(
-							wordcloudAndLiveSummaryArr,
-							h("message", [content[0], content[1]]),
-						),
-					1,
-				);
+
+				const msgs = content.filter(Boolean);
+				if (msgs.length > 0) {
+					await withRetry(
+						() =>
+							this.pushMessage(wordcloudAndLiveSummaryArr, h("message", msgs)),
+						1,
+					);
+				}
 			}
 
-			if (wordcloudOnlyArr.length > 0) {
+			if (content[0] && wordcloudOnlyArr.length > 0) {
 				this.logger.info("推送词云：", wordcloudOnlyArr);
 				await withRetry(
-					() => this.pushMessage(wordcloudOnlyArr, h("message", [content[0]])),
+					() => this.pushMessage(wordcloudOnlyArr, h("message", content[0])),
 					1,
 				);
 			}
 
-			if (liveSummaryOnlyArr.length > 0) {
+			if (content[1] && liveSummaryOnlyArr.length > 0) {
 				this.logger.info("推送直播总结：", liveSummaryOnlyArr);
 				await withRetry(
-					() =>
-						this.pushMessage(liveSummaryOnlyArr, h("message", [content[1]])),
+					() => this.pushMessage(liveSummaryOnlyArr, h("message", content[1])),
 					1,
 				);
 			}
