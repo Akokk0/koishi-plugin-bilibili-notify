@@ -9,6 +9,13 @@ export interface BAConfig {
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	basicSettings: {};
 	userAgent: string;
+	ai: {
+		enable: boolean;
+		apiKey?: string;
+		baseURL?: string;
+		model?: string;
+		persona?: string;
+	};
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	subTitle: {};
 	advancedSub: boolean;
@@ -114,6 +121,32 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	userAgent: Schema.string().description(
 		"设置请求头User-Agen，请求出现-352时可以尝试修改，UA获取方法可参考：https://blog.csdn.net/qq_44503987/article/details/104929111",
 	),
+
+	ai: Schema.intersect([
+		Schema.object({
+			enable: Schema.boolean()
+				.default(false)
+				.description("是否开启AI功能")
+				.experimental(),
+		}),
+		Schema.union([
+			Schema.object({
+				enable: Schema.const(true).required(),
+				apiKey: Schema.string()
+					.role("secret")
+					.required()
+					.description("API KEY"),
+				baseURL: Schema.string().required().description("API 访问地址"),
+				model: Schema.string().default("gpt-3.5-turbo").description("AI模型"),
+				persona: Schema.string()
+					.description("AI系统角色设定")
+					.default(
+						"你是一个风趣幽默的主播助理，你的任务是根据提供的直播数据生成一段有趣且富有创意的直播总结。请确保你的回答简洁明了，避免使用过于复杂的语言或长句子。请注意，你的回答必须与提供的数据相关，并且不能包含任何虚构的信息。如果你无法根据提供的数据生成总结，请礼貌地说明你无法完成任务。",
+					),
+			}),
+			Schema.object({ enable: Schema.const(false) }),
+		]),
+	]),
 
 	subTitle: Schema.object({}).description("订阅配置"),
 

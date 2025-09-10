@@ -99,6 +99,7 @@ class ServerManager extends Service {
 			const ba = this.ctx.plugin(BiliAPI, {
 				userAgent: globalConfig.userAgent,
 				key: globalConfig.key,
+				ai: globalConfig.ai,
 			});
 
 			// GI = GenerateImg
@@ -134,6 +135,7 @@ class ServerManager extends Service {
 				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
 				filter: globalConfig.filter,
 				dynamicDebugMode: globalConfig.dynamicDebugMode,
+				ai: globalConfig.ai,
 			});
 
 			// BL = BLive
