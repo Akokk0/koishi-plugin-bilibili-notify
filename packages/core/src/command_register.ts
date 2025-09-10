@@ -3028,7 +3028,7 @@ class ComRegister {
 			if (subInfo.code === 22015) {
 				// 账号异常
 				this.logger.warn(
-					`账号异常，无法进行订阅操作，请手动订阅 UID:${sub.uid} 备注:${sub.uname}`,
+					`账号异常，无法进行订阅操作，请手动订阅 UID:${sub.uid} 备注:${sub.uname}，并将订阅移动到 "订阅" 分组中！`,
 				);
 			}
 			// 将该订阅添加到sm中
