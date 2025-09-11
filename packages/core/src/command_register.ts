@@ -1923,7 +1923,7 @@ class ComRegister {
 				return h.image(buffer, "image/jpeg");
 			})();
 			// 获取summary
-			const summary = (async () => {
+			const summary = await (async () => {
 				// 判断是否不足五人发言
 				if (danmaker.length < 5) {
 					// logger
