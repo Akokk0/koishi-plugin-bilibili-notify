@@ -1440,12 +1440,51 @@ class ComRegister {
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
 							}
 						}
+						let aigc = "";
+						// 判断是否需要发送AI播报
+						if (this.config.ai.enable) {
+							// logger
+							this.logger.info("正在生成AI动态推送内容...");
+							// 收集信息
+							if (item.type === "DYNAMIC_TYPE_AV") {
+								// 视频动态
+								const title = item.modules.module_dynamic.major.archive.title;
+								const desc = item.modules.module_dynamic.major.archive.desc;
+								// 发送AI播报
+								const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+									`请你根据以下视频标题和简介，帮我写一份简短的动态播报，标题：${title}，简介：${desc}`,
+								);
+								// 获取AI播报内容
+								aigc = res.choices[0].message.content;
+							}
+							if (
+								item.type === "DYNAMIC_TYPE_DRAW" ||
+								item.type === "DYNAMIC_TYPE_WORD"
+							) {
+								// 图文动态
+								const title = item.modules.module_dynamic.major.opus.title;
+								const desc =
+									item.modules.module_dynamic.major.opus.summary.text;
+								// 发送AI播报
+								const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+									`请你根据以下图文动态的标题和内容，帮我写一份简短的动态播报，标题：${title}，内容：${desc}`,
+								);
+								// 获取AI播报内容
+								aigc = res.choices[0].message.content;
+							}
+							// logger
+							this.logger.info("AI动态推送内容生成完毕！");
+						}
 						// logger
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
+							h("message", [
+								h.image(buffer, "image/jpeg"),
+								h.text(aigc),
+								h.text(dUrl),
+							]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
