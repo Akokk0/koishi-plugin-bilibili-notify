@@ -309,12 +309,12 @@ class ComRegister {
 					uname: string;
 					onLive: boolean;
 				}> = [];
-				// 获取当前订阅的UP主
-				for (const [uid, sub] of this.subManager) {
-					// 定义开播标志位
-					let onLive = false;
-					// 判断items是否存在
-					if (live_users.items) {
+				// 判断是否存在live_users
+				if (live_users?.items) {
+					// 获取当前订阅的UP主
+					for (const [uid, sub] of this.subManager) {
+						// 定义开播标志位
+						let onLive = false;
 						// 遍历liveUsers
 						for (const user of live_users.items) {
 							// 判断是否是订阅直播的UP
@@ -325,13 +325,13 @@ class ComRegister {
 								break;
 							}
 						}
+						// 判断是否未开播
+						subLiveUsers.push({
+							uid: Number.parseInt(uid),
+							uname: sub.uname,
+							onLive,
+						});
 					}
-					// 判断是否未开播
-					subLiveUsers.push({
-						uid: Number.parseInt(uid),
-						uname: sub.uname,
-						onLive,
-					});
 				}
 				// 定义table字符串
 				let table = "";
