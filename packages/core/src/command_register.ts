@@ -2000,7 +2000,8 @@ class ComRegister {
 					};
 					// 获取AI生成的直播总结
 					const res = await this.ctx["bilibili-notify-api"].chatWithAI(
-						`请你生成直播总结，用这样的风格，多使用emoji并且替换示例中的emoji，同时要对每个人进行个性化点评，一下是风格参考：
+						`请你生成直播总结，用这样的风格，多使用emoji并且替换示例中的emoji，同时要对每个人进行个性化点评，以下是风格参考：
+						
 						🔍【弹幕情报站】本场直播数据如下：
 						🧍‍♂️ 总共 XX 位 (这里用medalName) 上线
 						💬 共计 XXX 条弹幕飞驰而过
