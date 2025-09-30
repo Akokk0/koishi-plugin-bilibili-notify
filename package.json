@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "yarn@4.9.2",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development koishi start -r esbuild-register -r yml-register"
+  },
   "workspaces": [
     "packages/*"
   ],
@@ -10,12 +13,42 @@
   "devDependencies": {
     "@biomejs/biome": "2.0.6",
     "@koishijs/client": "^5.30.9",
+    "@koishijs/plugin-actions": "^0.0.2",
+    "@koishijs/plugin-admin": "^2.0.0-beta.4",
+    "@koishijs/plugin-analytics": "^2.0.6",
+    "@koishijs/plugin-auth": "^4.1.6",
+    "@koishijs/plugin-bind": "^1.5.1",
+    "@koishijs/plugin-commands": "^3.5.4",
+    "@koishijs/plugin-config": "^2.8.6",
+    "@koishijs/plugin-console": "^5.30.4",
+    "@koishijs/plugin-database-sqlite": "^4.6.0",
+    "@koishijs/plugin-explorer": "^1.5.5",
+    "@koishijs/plugin-help": "^2.4.5",
     "@koishijs/plugin-hmr": "^1.2.9",
+    "@koishijs/plugin-http": "^0.6.3",
+    "@koishijs/plugin-insight": "^3.5.2",
+    "@koishijs/plugin-inspect": "^1.1.7",
+    "@koishijs/plugin-locales": "^2.5.3",
+    "@koishijs/plugin-logger": "^2.6.9",
+    "@koishijs/plugin-notifier": "^1.2.1",
+    "@koishijs/plugin-proxy-agent": "^0.3.3",
+    "@koishijs/plugin-sandbox": "^3.4.2",
+    "@koishijs/plugin-server": "^3.2.4",
+    "@koishijs/plugin-status": "^7.4.10",
     "@koishijs/scripts": "^4.6.1",
     "@types/node": "^22.16.2",
     "@types/react": "^19.1.9",
     "cross-env": "^10.0.0",
+    "esbuild": "^0.23.1",
+    "esbuild-register": "npm:@shigma/esbuild-register@^1.1.1",
+    "koishi": "^4.18.7",
+    "koishi-plugin-dataview": "^2.6.1",
+    "puppeteer": "^24.22.3",
     "tsx": "^4.20.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "yml-register": "^1.2.5"
+  },
+  "dependencies": {
+    "koishi-plugin-puppeteer": "^3.9.0"
   }
 }
