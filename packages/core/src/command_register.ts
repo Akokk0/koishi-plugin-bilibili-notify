@@ -2024,8 +2024,8 @@ class ComRegister {
 
 				// 构建消息
 				return customLiveSummary
-					.replace("-dmc", `${danmakuSenderRecord}`)
-					.replace("-mdn", `${masterInfo.medalName}`)
+					.replace("-dmc", `${danmakuSenderCount}`)
+					.replace("-mdn", masterInfo.medalName)
 					.replace("-dca", `${danmakuCount}`)
 					.replace("-un1", `${danmakuSenderRecord[0][0]}`)
 					.replace("-dc1", `${danmakuSenderRecord[0][1]}`)
