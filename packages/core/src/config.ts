@@ -126,8 +126,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		Schema.object({
 			enable: Schema.boolean()
 				.default(false)
-				.description("是否开启AI功能")
-				.experimental(),
+				.description("是否开启AI功能"),
 		}),
 		Schema.union([
 			Schema.object({
@@ -222,8 +221,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	wordcloudStopWords: Schema.string()
 		.description(
 			"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
-		)
-		.experimental(),
+		),
 
 	liveSummary: Schema.array(String)
 		.default([
@@ -328,7 +326,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		}).description("屏蔽设置"),
 		Schema.union([
 			Schema.object({
-				enable: Schema.const(true).required().experimental(),
+				enable: Schema.const(true).required(),
 				notify: Schema.boolean()
 					.default(false)
 					.description("动态被屏蔽是否发送提示"),
