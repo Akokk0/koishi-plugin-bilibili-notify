@@ -1980,7 +1980,9 @@ class ComRegister {
 					0,
 				);
 				// 构建弹幕发送者排行
-				const top5DanmakuSender = Object.entries(danmakuSenderRecord)
+				const top5DanmakuSender: Array<[string, number]> = Object.entries(
+					danmakuSenderRecord,
+				)
 					.sort((a, b) => b[1] - a[1])
 					.slice(0, 5);
 				// 判断是否开启AI
