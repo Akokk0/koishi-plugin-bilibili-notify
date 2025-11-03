@@ -309,12 +309,12 @@ class ComRegister {
 					uname: string;
 					onLive: boolean;
 				}> = [];
-				// 获取当前订阅的UP主
-				for (const [uid, sub] of this.subManager) {
-					// 定义开播标志位
-					let onLive = false;
-					// 判断items是否存在
-					if (live_users.items) {
+				// 判断是否存在live_users
+				if (live_users?.items) {
+					// 获取当前订阅的UP主
+					for (const [uid, sub] of this.subManager) {
+						// 定义开播标志位
+						let onLive = false;
 						// 遍历liveUsers
 						for (const user of live_users.items) {
 							// 判断是否是订阅直播的UP
@@ -325,13 +325,13 @@ class ComRegister {
 								break;
 							}
 						}
+						// 判断是否未开播
+						subLiveUsers.push({
+							uid: Number.parseInt(uid),
+							uname: sub.uname,
+							onLive,
+						});
 					}
-					// 判断是否未开播
-					subLiveUsers.push({
-						uid: Number.parseInt(uid),
-						uname: sub.uname,
-						onLive,
-					});
 				}
 				// 定义table字符串
 				let table = "";
@@ -576,6 +576,57 @@ class ComRegister {
 			if (validCode === -352 && validData.v_voucher) return "验证不成功！";
 			// 验证成功
 			await session.send("验证成功！请重启插件");
+		});
+
+		biliCom.subcommand(".ai").action(async () => {
+			this.logger.info("开始生成AI直播总结");
+
+			const liveSummaryData = {
+				medalName: "特工",
+				danmakuSenderCount: "56",
+				danmakuCount: "778",
+				top5DanmakuSender: [
+					["张三", 71],
+					["李四", 67],
+					["王五", 57],
+					["赵六", 40],
+					["田七", 31],
+				],
+				top10Word: [
+					["摆烂", 91],
+					["可以", 82],
+					["dog", 40],
+					["不是", 37],
+					["就是", 27],
+					["吃瓜", 16],
+					["cj", 8],
+					["没有", 8],
+					["有点", 8],
+					["喜欢", 7],
+					["空调", 7],
+				],
+				liveStartTime: "2025-07-21 12:56:05",
+				liveEndTime: "2025-07-21 15:40:30",
+			};
+
+			const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+				`请你生成直播总结，用这样的风格，多使用emoji并且替换示例中的emoji，同时要对每个人进行个性化点评，一下是风格参考：
+				🔍【弹幕情报站】本场直播数据如下：
+				🧍‍♂️ 总共 XX 位 (这里用medalName) 上线
+				💬 共计 XXX 条弹幕飞驰而过
+				📊 热词云图已生成，快来看看你有没有上榜！
+				👑 本场顶级输出选手：
+				🥇 XXX - 弹幕输出 XX 条，(这里进行吐槽)  
+				🥈 XXX - 弹幕 XX 条，(这里进行吐槽)    
+				🥉 XXX - 弹幕 XX 条，(这里进行吐槽)  
+				🎖️ 特别嘉奖：XXX（这里进行吐槽） & XXX（这里进行吐槽）。  
+				别以为发这么点弹幕就能糊弄过去，本兔可是盯着你们的！下次再偷懒小心被我踹飞！🐰🥕
+
+				以下是直播数据：${JSON.stringify(liveSummaryData)}`,
+			);
+
+			this.logger.info("AI 生成完毕，结果为：");
+			this.logger.info(res.choices[0].message.content);
 		});
 	}
 
@@ -1389,12 +1440,51 @@ class ComRegister {
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
 							}
 						}
+						let aigc = "";
+						// 判断是否需要发送AI播报
+						if (this.config.ai.enable) {
+							// logger
+							this.logger.info("正在生成AI动态推送内容...");
+							// 收集信息
+							if (item.type === "DYNAMIC_TYPE_AV") {
+								// 视频动态
+								const title = item.modules.module_dynamic.major.archive.title;
+								const desc = item.modules.module_dynamic.major.archive.desc;
+								// 发送AI播报
+								const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+									`请你根据以下视频标题和简介，帮我写一份简短的动态播报，标题：${title}，简介：${desc}`,
+								);
+								// 获取AI播报内容
+								aigc = res.choices[0].message.content;
+							}
+							if (
+								item.type === "DYNAMIC_TYPE_DRAW" ||
+								item.type === "DYNAMIC_TYPE_WORD"
+							) {
+								// 图文动态
+								const title = item.modules.module_dynamic.major.opus.title;
+								const desc =
+									item.modules.module_dynamic.major.opus.summary.text;
+								// 发送AI播报
+								const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+									`请你根据以下图文动态的标题和内容，帮我写一份简短的动态播报，标题：${title}，内容：${desc}`,
+								);
+								// 获取AI播报内容
+								aigc = res.choices[0].message.content;
+							}
+							// logger
+							this.logger.info("AI动态推送内容生成完毕！");
+						}
 						// logger
 						this.logger.info("推送动态中...");
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
-							h("message", [h.image(buffer, "image/jpeg"), h.text(dUrl)]),
+							h("message", [
+								h.image(buffer, "image/jpeg"),
+								h.text(aigc),
+								h.text(dUrl),
+							]),
 							PushType.Dynamic,
 						);
 						// 判断是否需要发送动态中的图片
@@ -1831,7 +1921,7 @@ class ComRegister {
 		// 定义弹幕存放数组
 		const danmakuWeightRecord: Record<string, number> = {};
 		// 定义发送者及发言条数
-		const danmakuMakerRecord: Record<string, number> = {};
+		const danmakuSenderRecord: Record<string, number> = {};
 		// 定义开播状态
 		let liveStatus = false;
 		// 定义数据
@@ -1849,7 +1939,7 @@ class ComRegister {
 			this.logger.info("正在获取前90热词");
 			// 获取数据
 			const words = Object.entries(danmakuWeightRecord);
-			const danmaker = Object.entries(danmakuMakerRecord);
+			const danmaker = Object.entries(danmakuSenderRecord);
 			// 获取img
 			const img = await (async () => {
 				// 判断是否不足50词
@@ -1872,7 +1962,7 @@ class ComRegister {
 				return h.image(buffer, "image/jpeg");
 			})();
 			// 获取summary
-			const summary = (() => {
+			const summary = await (async () => {
 				// 判断是否不足五人发言
 				if (danmaker.length < 5) {
 					// logger
@@ -1883,31 +1973,72 @@ class ComRegister {
 				// logger
 				this.logger.info("开始构建弹幕发送排行榜消息");
 				// 弹幕发送者数量
-				const danmakuMakerCount = Object.keys(danmakuMakerRecord).length;
+				const danmakuSenderCount = Object.keys(danmakuSenderRecord).length;
 				// 弹幕条数
-				const danmakuCount = Object.values(danmakuMakerRecord).reduce(
+				const danmakuCount = Object.values(danmakuSenderRecord).reduce(
 					(sum, val) => sum + val,
 					0,
 				);
 				// 构建弹幕发送者排行
-				const top5DanmakuMaker = Object.entries(danmakuMakerRecord)
+				const top5DanmakuSender: Array<[string, number]> = Object.entries(
+					danmakuSenderRecord,
+				)
 					.sort((a, b) => b[1] - a[1])
 					.slice(0, 5);
+				// 判断是否开启AI
+				if (this.config.ai.enable) {
+					this.logger.info("AI直播总结功能已开启，正在生成AI直播总结");
+					// 拿到前10个热词
+					const top10Words = words.sort((a, b) => b[1] - a[1]).slice(0, 10);
+					// 直播总结数据
+					const liveSummaryData = {
+						medalName: masterInfo.medalName,
+						danmakuSenderCount,
+						danmakuCount,
+						top5DanmakuSender,
+						top10Words,
+						liveStartTime: liveTime,
+						liveEndTime: DateTime.now().toFormat("yyyy-MM-dd HH:mm:ss"),
+					};
+					// 获取AI生成的直播总结
+					const res = await this.ctx["bilibili-notify-api"].chatWithAI(
+						`请你生成直播总结，用这样的风格，多使用emoji并且替换示例中的emoji，同时要对每个人进行个性化点评，以下是风格参考：
+						
+						🔍【弹幕情报站】本场直播数据如下：
+						🧍‍♂️ 总共 XX 位 (这里用medalName) 上线
+						💬 共计 XXX 条弹幕飞驰而过
+						📊 热词云图已生成，快来看看你有没有上榜！
+						👑 本场顶级输出选手：
+						🥇 XXX - 弹幕输出 XX 条，(这里进行吐槽)  
+						🥈 XXX - 弹幕 XX 条，(这里进行吐槽)    
+						🥉 XXX - 弹幕 XX 条，(这里进行吐槽)  
+						🎖️ 特别嘉奖：XXX（这里进行吐槽） & XXX（这里进行吐槽）。  
+						别以为发这么点弹幕就能糊弄过去，本兔可是盯着你们的！下次再偷懒小心被我踹飞！🐰🥕
+
+						以下是直播数据：${JSON.stringify(liveSummaryData)}`,
+					);
+					// logger
+					this.logger.info("AI生成的直播总结：");
+					this.logger.info(res.choices[0].message.content);
+					// 返回结果
+					return res.choices[0].message.content;
+				}
+
 				// 构建消息
 				return customLiveSummary
-					.replace("-dmc", `${danmakuMakerCount}`)
-					.replace("-mdn", `${masterInfo.medalName}`)
+					.replace("-dmc", `${danmakuSenderCount}`)
+					.replace("-mdn", masterInfo.medalName)
 					.replace("-dca", `${danmakuCount}`)
-					.replace("-un1", `${top5DanmakuMaker[0][0]}`)
-					.replace("-dc1", `${top5DanmakuMaker[0][1]}`)
-					.replace("-un2", `${top5DanmakuMaker[1][0]}`)
-					.replace("-dc2", `${top5DanmakuMaker[1][1]}`)
-					.replace("-un3", `${top5DanmakuMaker[2][0]}`)
-					.replace("-dc3", `${top5DanmakuMaker[2][1]}`)
-					.replace("-un4", `${top5DanmakuMaker[3][0]}`)
-					.replace("-dc4", `${top5DanmakuMaker[3][1]}`)
-					.replace("-un5", `${top5DanmakuMaker[4][0]}`)
-					.replace("-dc5", `${top5DanmakuMaker[4][1]}`)
+					.replace("-un1", top5DanmakuSender[0][0])
+					.replace("-dc1", `${top5DanmakuSender[0][1]}`)
+					.replace("-un2", top5DanmakuSender[1][0])
+					.replace("-dc2", `${top5DanmakuSender[1][1]}`)
+					.replace("-un3", top5DanmakuSender[2][0])
+					.replace("-dc3", `${top5DanmakuSender[2][1]}`)
+					.replace("-un4", top5DanmakuSender[3][0])
+					.replace("-dc4", `${top5DanmakuSender[3][1]}`)
+					.replace("-un5", top5DanmakuSender[4][0])
+					.replace("-dc5", `${top5DanmakuSender[4][1]}`)
 					.replaceAll("\\n", "\n");
 			})();
 			// 发送消息
@@ -1920,8 +2051,8 @@ class ComRegister {
 			Object.keys(danmakuWeightRecord).forEach(
 				(key) => delete danmakuWeightRecord[key],
 			);
-			Object.keys(danmakuMakerRecord).forEach(
-				(key) => delete danmakuMakerRecord[key],
+			Object.keys(danmakuSenderRecord).forEach(
+				(key) => delete danmakuSenderRecord[key],
 			);
 		};
 
@@ -2055,12 +2186,12 @@ class ComRegister {
 
 			onIncomeDanmu: ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
+				this.addUserToDanmakuMaker(body.user.uname, danmakuSenderRecord);
 			},
 
 			onIncomeSuperChat: ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
-				this.addUserToDanmakuMaker(body.user.uname, danmakuMakerRecord);
+				this.addUserToDanmakuMaker(body.user.uname, danmakuSenderRecord);
 				// 推送
 				const content = h("message", [
 					h.text(
@@ -2939,7 +3070,7 @@ class ComRegister {
 			if (subInfo.code === 22015) {
 				// 账号异常
 				this.logger.warn(
-					`账号异常，无法进行订阅操作，请手动订阅 UID:${sub.uid} 备注:${sub.uname}`,
+					`账号异常，无法进行订阅操作，请手动订阅 UID:${sub.uid} 备注:${sub.uname}，并将订阅移动到 "订阅" 分组中！`,
 				);
 			}
 			// 将该订阅添加到sm中
@@ -3121,6 +3252,13 @@ namespace ComRegister {
 			keywords: Array<string>;
 		};
 		dynamicDebugMode: boolean;
+		ai: {
+			enable: boolean;
+			apiKey: string;
+			baseURL: string;
+			model: string;
+			persona: string;
+		};
 	}
 
 	export const Config: Schema<Config> = Schema.object({
@@ -3171,6 +3309,13 @@ namespace ComRegister {
 			keywords: Schema.array(String),
 		}),
 		dynamicDebugMode: Schema.boolean().required(),
+		ai: Schema.object({
+			enable: Schema.boolean().default(false),
+			apiKey: Schema.string().default(""),
+			baseURL: Schema.string().default("https://api.siliconflow.cn/v1"),
+			model: Schema.string().default("gpt-3.5-turbo"),
+			persona: Schema.string(),
+		}),
 	});
 }
 

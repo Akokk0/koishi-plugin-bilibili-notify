@@ -18,6 +18,7 @@ import type {
 	ValidateCaptchaData,
 } from "./type";
 import { CronJob } from "cron";
+import OpenAI from "openai";
 
 declare module "koishi" {
 	interface Context {
@@ -79,6 +80,7 @@ class BiliAPI extends Service {
 
 	jar: CookieJar;
 	client: AxiosInstance;
+	aiClient: OpenAI;
 	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	cacheable: any;
@@ -118,6 +120,8 @@ class BiliAPI extends Service {
 		this.jar = new CookieJar();
 		// 创建新的http客户端(axios)
 		await this.createNewClient();
+		// 创建新的AI客户端
+		await this.createNewAIClient();
 		// 从数据库加载cookies
 		await this.loadCookiesFromDatabase();
 		// 开启定时任务更新biliTicket(每天凌晨0点进行更新)
@@ -685,6 +689,22 @@ class BiliAPI extends Service {
 		});
 	}
 
+	async chatWithAI(content: string) {
+		return await this.aiClient.chat.completions.create({
+			model: this.apiConfig.ai.model,
+			messages: [
+				{
+					role: "system",
+					content: this.apiConfig.ai.persona,
+				},
+				{
+					role: "user",
+					content,
+				}
+			],
+		});
+	}
+
 	disposeNotifier() {
 		if (this.loginNotifier) this.loginNotifier.dispose();
 	}
@@ -753,7 +773,8 @@ class BiliAPI extends Service {
 					Origin: "https://www.bilibili.com",
 					Referer: "https://www.bilibili.com/",
 					priority: "u=1, i",
-					"sec-ch-ua": '"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
+					"sec-ch-ua":
+						'"Not;A=Brand";v="99", "Google Chrome";v="139", "Chromium";v="139"',
 					"sec-ch-ua-mobile": "?0",
 					"sec-ch-ua-platform": '"Linux"',
 					"sec-fetch-dest": "empty",
@@ -762,6 +783,17 @@ class BiliAPI extends Service {
 				},
 			}),
 		);
+	}
+
+	async createNewAIClient() {
+		if (this.apiConfig.ai.enable) {
+			this.aiClient = new OpenAI({
+				baseURL: this.apiConfig.ai.baseURL,
+				apiKey: this.apiConfig.ai.apiKey,
+			});
+
+			this.logger.info("AI客户端创建成功");
+		}
 	}
 
 	addCookie(cookieStr: string) {
@@ -1166,6 +1198,13 @@ namespace BiliAPI {
 	export interface Config {
 		userAgent: string;
 		key: string;
+		ai: {
+			enable: boolean;
+			apiKey: string;
+			baseURL: string;
+			model: string;
+			persona: string;
+		};
 	}
 
 	export const Config: Schema<Config> = Schema.object({
@@ -1173,6 +1212,13 @@ namespace BiliAPI {
 		key: Schema.string()
 			.pattern(/^[0-9a-f]{32}$/)
 			.required(),
+		ai: Schema.object({
+			enable: Schema.boolean().default(false),
+			apiKey: Schema.string().default(""),
+			baseURL: Schema.string().default("https://api.siliconflow.cn/v1"),
+			model: Schema.string().default("gpt-3.5-turbo"),
+			persona: Schema.string(),
+		}),
 	});
 }
 
