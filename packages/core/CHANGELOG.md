@@ -286,3 +286,4 @@
 > - ver 3.3.13-alpha.3 修复：未开启AI总结情况下，直播总结报错；
 > - ver 3.3.13 修复：移除AI总结、停用词、动态屏蔽等设置的试验性标签；
 > - ver 3.3.14 新增：推送上舰消息时会同时推送对应图片；
+> - ver 3.3.15 修复：报错 `Error [ERR_REQUIRE_ESM]: require() of ES Module /koishi/node_modules/parse5/dist/index.js from /koishi/node_modules/jsdom/lib/jsdom/browser/parser/html.js not supported.`
