@@ -13,9 +13,6 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
-// Node.js核心依赖
-import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
 // 外部依赖
 import { GuardLevel, type MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
@@ -1935,21 +1932,13 @@ class ComRegister {
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 舰长图片
 		const guardLevelImg = {
-			[GuardLevel.Jianzhang]: pathToFileURL(
-				resolve(__dirname, "img/captain.png"),
-			).href,
-			[GuardLevel.Tidu]: pathToFileURL(resolve(__dirname, "img/supervisor.png"))
-				.href,
-			[GuardLevel.Zongdu]: pathToFileURL(resolve(__dirname, "img/governor.png"))
-				.href,
+			[GuardLevel.Jianzhang]:
+				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+			[GuardLevel.Tidu]:
+				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+			[GuardLevel.Zongdu]:
+				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
 		};
-		/* 
-			const guardLevelImg = {
-				[GuardLevel.Jianzhang]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
-				[GuardLevel.Tidu]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
-				[GuardLevel.Zongdu]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
-			};
-		*/
 		// 定义函数
 		const sendDanmakuWordCloudAndLiveSummary = async (
 			customLiveSummary: string,
