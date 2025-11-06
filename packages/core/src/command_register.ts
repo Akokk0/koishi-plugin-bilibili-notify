@@ -1937,14 +1937,19 @@ class ComRegister {
 		const guardLevelImg = {
 			[GuardLevel.Jianzhang]: pathToFileURL(
 				resolve(__dirname, "img/captain.png"),
-			),
-			[GuardLevel.Tidu]: pathToFileURL(
-				resolve(__dirname, "img/supervisor.png"),
-			),
-			[GuardLevel.Zongdu]: pathToFileURL(
-				resolve(__dirname, "img/governor.png"),
-			),
+			).href,
+			[GuardLevel.Tidu]: pathToFileURL(resolve(__dirname, "img/supervisor.png"))
+				.href,
+			[GuardLevel.Zongdu]: pathToFileURL(resolve(__dirname, "img/governor.png"))
+				.href,
 		};
+		/* 
+			const guardLevelImg = {
+				[GuardLevel.Jianzhang]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+				[GuardLevel.Tidu]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+				[GuardLevel.Zongdu]: "https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
+			};
+		*/
 		// 定义函数
 		const sendDanmakuWordCloudAndLiveSummary = async (
 			customLiveSummary: string,
@@ -2228,13 +2233,13 @@ class ComRegister {
 
 			onGuardBuy: ({ body }) => {
 				// 判断舰长等级
-				const guardImg = guardLevelImg[body.guard_level as GuardLevel];
+				const guardImg: string = guardLevelImg[body.guard_level];
 				// 构建消息
 				const content = h("message", [
 					h.text(
 						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
 					),
-					h.image(guardImg.href),
+					h.image(guardImg),
 				]);
 				// 推送
 				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
