@@ -7,7 +7,6 @@ import https from "node:https";
 import { DateTime } from "luxon";
 import axios, { type AxiosInstance } from "axios";
 import { CookieJar, Cookie } from "tough-cookie";
-import { JSDOM } from "jsdom";
 import type { Notifier } from "@koishijs/plugin-notifier";
 
 import type {
@@ -1051,6 +1050,8 @@ class BiliAPI extends Service {
 		const { data: refreshCsrfHtml } = await this.client.get(
 			`https://www.bilibili.com/correspond/1/${correspondPath}`,
 		);
+		// import JSDOM
+		const { JSDOM } = await import("jsdom");
 		// 创建一个虚拟的DOM元素
 		const { document } = new JSDOM(refreshCsrfHtml).window;
 		// 提取标签name为1-name的内容
