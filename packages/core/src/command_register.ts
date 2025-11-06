@@ -13,8 +13,11 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-help";
 import type { LoginBili } from "./database";
+// Node.js核心依赖
+import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 // 外部依赖
-import type { MsgHandler } from "blive-message-listener";
+import { GuardLevel, type MsgHandler } from "blive-message-listener";
 import QRCode from "qrcode";
 import { CronJob } from "cron";
 // Utils
@@ -1930,6 +1933,18 @@ class ComRegister {
 		const liveData: LiveData = { likedNum: "0" };
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
+		// 舰长图片
+		const guardLevelImg = {
+			[GuardLevel.Jianzhang]: pathToFileURL(
+				resolve(__dirname, "img/captain.png"),
+			),
+			[GuardLevel.Tidu]: pathToFileURL(
+				resolve(__dirname, "img/supervisor.png"),
+			),
+			[GuardLevel.Zongdu]: pathToFileURL(
+				resolve(__dirname, "img/governor.png"),
+			),
+		};
 		// 定义函数
 		const sendDanmakuWordCloudAndLiveSummary = async (
 			customLiveSummary: string,
@@ -2212,11 +2227,16 @@ class ComRegister {
 			},
 
 			onGuardBuy: ({ body }) => {
+				// 判断舰长等级
+				const guardImg = guardLevelImg[body.guard_level as GuardLevel];
+				// 构建消息
 				const content = h("message", [
 					h.text(
 						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
 					),
+					h.image(guardImg.href),
 				]);
+				// 推送
 				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
 			},
 
