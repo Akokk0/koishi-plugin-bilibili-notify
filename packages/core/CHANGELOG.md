@@ -288,3 +288,4 @@
 > - ver 3.3.14 新增：推送上舰消息时会同时推送对应图片；
 > - ver 3.3.15 修复：报错 `Error [ERR_REQUIRE_ESM]: require() of ES Module /koishi/node_modules/parse5/dist/index.js from /koishi/node_modules/jsdom/lib/jsdom/browser/parser/html.js not supported.`
 > - ver 3.4.0-alpha.0 修复：上舰消息报错；
+> - ver 3.4.0-alpha.1 修复：上舰消息报错；
