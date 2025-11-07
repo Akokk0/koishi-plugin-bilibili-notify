@@ -89,10 +89,6 @@ class GenerateImg extends Service {
 			data.live_time,
 			liveStatus,
 		);
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 卡片内容
 		const html = /* html */ `
             <!DOCTYPE html>
@@ -100,16 +96,11 @@ class GenerateImg extends Service {
             <head>
                 <title>直播通知</title>
                 <style>
-                    @font-face {
-                        font-family: "Custom Font";
-                        src: url(${fontURL});
-                    }
-
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -765,24 +756,15 @@ class GenerateImg extends Service {
 
 		// 获取动态主要内容
 		const [main] = await getDynamicMajor(data, false);
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 判断是否开启大字体模式
 		let style: string;
 		if (this.giConfig.enableLargeFont) {
 			style = /* css */ `
-            @font-face {
-                font-family: "Custom Font";
-                src: url(${fontURL});
-            }
-    
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -1142,16 +1124,11 @@ class GenerateImg extends Service {
             `;
 		} else {
 			style = /* css */ `
-            @font-face {
-                font-family: "Custom Font";
-                src: url(${fontURL});
-            }
-    
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -1612,10 +1589,6 @@ class GenerateImg extends Service {
 		words: Array<[string, number]>,
 		masterName: string,
 	) {
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 加载静态资源
 		const wordcloudJS = pathToFileURL(
 			resolve(__dirname, "static/wordcloud2.min.js"),
@@ -1630,16 +1603,11 @@ class GenerateImg extends Service {
             <meta charset="UTF-8">
             <title>高清词云展示</title>
             <style>
-                @font-face {
-                    font-family: "Custom Font";
-                    src: url(${fontURL});
-                }
-        
                 * {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {
