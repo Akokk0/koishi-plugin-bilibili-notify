@@ -628,6 +628,35 @@ class ComRegister {
 			this.logger.info("AI 生成完毕，结果为：");
 			this.logger.info(res.choices[0].message.content);
 		});
+
+		/* biliCom.subcommand(".img").action(async ({ session }) => {
+			// 舰长图片
+			const guardImg = ComRegister.GUARD_LEVEL_IMG[GuardLevel.Zongdu];
+			const buffer = await this.ctx[
+				"bilibili-notify-generate-img"
+			].generateBoardingImg(
+				guardImg,
+				{
+					guard_level: GuardLevel.Zongdu,
+					user: {
+						uid: 114514,
+						face: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSESgEED4WoyK9O5FFgrV8cHZPM4w4JgleZQ&s",
+						uname: "恶魔兔",
+						badge: {
+							name: "小叭兔",
+							level: 11,
+							color: "#FF69B4",
+						},
+					},
+				},
+				{
+					masterName: "籽岷",
+					masterAvatarUrl:
+						"https://img.touxiangkong.com/uploads/allimg/20203301251/2020/3/BjEbyu.jpg",
+				},
+			);
+			await session.send(h.image(buffer, "image/jpeg"));
+		}); */
 	}
 
 	async init(config: ComRegister.Config) {
@@ -1913,6 +1942,16 @@ class ComRegister {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
 	}
 
+	// 舰长图片
+	static GUARD_LEVEL_IMG = {
+		[GuardLevel.Jianzhang]:
+			"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+		[GuardLevel.Tidu]:
+			"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+		[GuardLevel.Zongdu]:
+			"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
+	};
+
 	async liveDetectWithListener(sub: Subscription) {
 		// 定义开播时间
 		let liveTime: string;
@@ -1930,15 +1969,6 @@ class ComRegister {
 		const liveData: LiveData = { likedNum: "0" };
 		// 获取推送信息对象
 		const liveMsgObj = this.liveMsgManager.get(sub.uid);
-		// 舰长图片
-		const guardLevelImg = {
-			[GuardLevel.Jianzhang]:
-				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
-			[GuardLevel.Tidu]:
-				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
-			[GuardLevel.Zongdu]:
-				"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
-		};
 		// 定义函数
 		const sendDanmakuWordCloudAndLiveSummary = async (
 			customLiveSummary: string,
@@ -2222,17 +2252,14 @@ class ComRegister {
 
 			onGuardBuy: async ({ body }) => {
 				// 判断舰长等级
-				const guardImg: string = guardLevelImg[body.guard_level];
+				const guardImg: string = ComRegister.GUARD_LEVEL_IMG[body.guard_level];
 				// 生成图片
 				const buffer = await this.ctx[
 					"bilibili-notify-generate-img"
-				].generateBoardingImg(
-					guardImg,
-					body.user.face,
-					masterInfo.userface,
-					body.user.uname,
-					masterInfo.username,
-				);
+				].generateBoardingImg(guardImg, body, {
+					masterName: masterInfo.username,
+					masterAvatarUrl: masterInfo.userface,
+				});
 				// 构建消息
 				const img = h.image(buffer, "image/jpeg");
 				// 推送

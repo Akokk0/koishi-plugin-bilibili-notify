@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
 import type { Dynamic, LiveData, RichTextNode } from "./type";
+import { type GuardBuyMsg, GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
@@ -248,13 +249,31 @@ class GenerateImg extends Service {
 		});
 	}
 
+	static BG_COLOR: Record<GuardLevel, [string, string]> = {
+		[GuardLevel.None]: ["#4ebcec", "#F9CCDF"],
+		[GuardLevel.Jianzhang]: ["#4ebcec", "#b494e5"],
+		[GuardLevel.Tidu]: ["#d8a0e6", "#b494e5"],
+		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
+	};
+
 	async generateBoardingImg(
 		captainImgUrl: string,
-		userAvatarUrl: string,
-		masterAvatarUrl: string,
-		userName: string,
-		masterName: string,
+		{
+			guard_level,
+			user: {
+				face,
+				uname,
+				badge: { name, level, color },
+			},
+		}: GuardBuyMsg,
+		{
+			masterAvatarUrl,
+			masterName,
+		}: { masterAvatarUrl: string; masterName: string },
 	) {
+		// 判断舰长类型获取背景颜色
+		const bgColor = GenerateImg.BG_COLOR[guard_level];
+		// 定义html
 		const html = /* html */ `
             <!DOCTYPE html>
             <html>
@@ -270,7 +289,7 @@ class GenerateImg extends Service {
                     }
 
                     html {
-                        width: 400px;
+                        width: 430px;
                         height: auto;
                     }
 
@@ -278,40 +297,41 @@ class GenerateImg extends Service {
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        width: 450px;
-                        height: 200px;
-                        background: linear-gradient(to right bottom, #F38AB5, #F9CCDF);
+                        width: 430px;
+                        height: 220px;
+                        background: linear-gradient(to right bottom, ${bgColor[0]}, ${bgColor[1]});
                     }
 
                     .baseplate {
                         display: flex;
                         justify-content: space-between;
+                        align-items: center;
                         border-radius: 10px;
-                        width: 430px;
-                        height: 180px;
+                        width: 410px;
+                        height: 200px;
                         box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                        background-color: #FFF5EE;
+                        background-color: rgba(255, 255, 255, 0.65);
+                        backdrop-filter: blur(10px);
                     }
 
                     .info {
                         flex: 1;
+                        height: 100%;
                         display: flex;
                         flex-direction: column;
-                        align-items: flex-start;
                         justify-content: space-between;
-                        height: 160px;
-                        margin: 10px 0 10px 10px;
+                        padding: 10px 0 10px 10px;
                     }
 
                     .user {
                         display: flex;
                         align-items: center;
-                        gap: 5px;
+                        gap: 10px;
                     }
 
                     .avatar {
-                        height: 70px;
-                        width: 70px;
+                        height: 90px;
+                        width: 90px;
                         border-radius: 50%;
                     }
 
@@ -319,6 +339,34 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: 100%;
                         border-radius: 50%;
+                    }
+
+                    .badge {
+                        display: flex;
+                        align-items: center;
+                        height: 25px;
+                        background-color: ${color};
+                        border-radius: 25px;
+                        color: white;
+                        font-size: 12px;
+                        padding: 5px 0;
+                        border: solid 1px white;
+                        overflow: hidden;
+                    }
+
+                    .badge-avatar {
+                        width: 25px;
+                        height: 25px;
+                        border-radius: 50%;
+                        background: url("${masterAvatarUrl}") no-repeat center;
+                        background-size: cover;
+                        margin-right: 5px;
+                    }
+
+                    .badge span {
+                        font-weight: bold;
+                        font-size: 14px;
+                        margin-right: 5px;
                     }
 
                     .desc {
@@ -330,9 +378,8 @@ class GenerateImg extends Service {
                     }
 
                     .captain {
-                        width: 180px;
-                        height: 180px;
-                        margin-left: 10px;
+                        width: 175px;
+                        height: 175px;
                         background: url("${captainImgUrl}") no-repeat center;
                         background-size: cover;
                     }
@@ -345,15 +392,15 @@ class GenerateImg extends Service {
                         <div class="info">
                             <div class="user">
                                 <div class="avatar">
-                                    <img src="${userAvatarUrl}" alt="用户头像">
+                                    <img src="${face}" alt="用户头像">
                                 </div>
-                                <div>&nbsp;&nbsp;&nbsp;🛳️🚩&nbsp;&nbsp;&nbsp;</div>
-                                <div class="avatar">
-                                    <img src="${masterAvatarUrl}" alt="主播头像">
+                                <div class="badge">
+                                    <div class="badge-avatar"></div>${name} &nbsp; <span>${level}</span>
                                 </div>
                             </div>
                             <div class="desc">
-                                "${userName}"加入了"${masterName}"的大航海舰队！
+                                <p>"${guard_level === GuardLevel.Jianzhang ? `${uname}号` : uname}"${guard_level === GuardLevel.Jianzhang ? "加入" : guard_level === GuardLevel.Tidu ? "就任" : "上任"}</p>
+                                "${masterName}"的大航海舰队${guard_level === GuardLevel.Tidu ? "提督" : ""}${guard_level === GuardLevel.Zongdu ? "总督" : ""}！
                             </div>
                         </div>
                         <div class="captain"></div>
