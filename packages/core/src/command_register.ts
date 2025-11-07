@@ -2220,18 +2220,23 @@ class ComRegister {
 				console.log(liveData.likedNum);
 			},
 
-			onGuardBuy: ({ body }) => {
+			onGuardBuy: async ({ body }) => {
 				// 判断舰长等级
 				const guardImg: string = guardLevelImg[body.guard_level];
+				// 生成图片
+				const buffer = await this.ctx[
+					"bilibili-notify-generate-img"
+				].generateBoardingImg(
+					guardImg,
+					body.user.face,
+					masterInfo.userface,
+					body.user.uname,
+					masterInfo.username,
+				);
 				// 构建消息
-				const content = h("message", [
-					h.text(
-						`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
-					),
-					h.image(guardImg),
-				]);
+				const img = h.image(buffer, "image/jpeg");
 				// 推送
-				this.broadcastToTargets(sub.uid, content, PushType.LiveGuardBuy);
+				this.broadcastToTargets(sub.uid, img, PushType.LiveGuardBuy);
 			},
 
 			onLiveStart: async () => {

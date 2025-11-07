@@ -257,6 +257,129 @@ class GenerateImg extends Service {
 		});
 	}
 
+	async generateBoardingImg(
+		captainImgUrl: string,
+		userAvatarUrl: string,
+		masterAvatarUrl: string,
+		userName: string,
+		masterName: string,
+	) {
+		const html = /* html */ `
+            <!DOCTYPE html>
+            <html>
+
+            <head>
+                <title>上舰通知</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
+
+                    html {
+                        width: 400px;
+                        height: auto;
+                    }
+
+                    .bg {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 450px;
+                        height: 200px;
+                        background: linear-gradient(to right bottom, #F38AB5, #F9CCDF);
+                    }
+
+                    .baseplate {
+                        display: flex;
+                        justify-content: space-between;
+                        border-radius: 10px;
+                        width: 430px;
+                        height: 180px;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        background-color: #FFF5EE;
+                    }
+
+                    .info {
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        height: 160px;
+                        margin: 10px 0 10px 10px;
+                    }
+
+                    .user {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                    }
+
+                    .avatar {
+                        height: 70px;
+                        width: 70px;
+                        border-radius: 50%;
+                    }
+
+                    .avatar img {
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                    }
+
+                    .desc {
+                        margin-bottom: 10px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        font-style: italic;
+                        color: #333;
+                    }
+
+                    .captain {
+                        width: 180px;
+                        height: 180px;
+                        margin-left: 10px;
+                        background: url("${captainImgUrl}") no-repeat center;
+                        background-size: cover;
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="bg">
+                    <div class="baseplate">
+                        <div class="info">
+                            <div class="user">
+                                <div class="avatar">
+                                    <img src="${userAvatarUrl}" alt="用户头像">
+                                </div>
+                                <div>&nbsp;&nbsp;&nbsp;🛳️🚩&nbsp;&nbsp;&nbsp;</div>
+                                <div class="avatar">
+                                    <img src="${masterAvatarUrl}" alt="主播头像">
+                                </div>
+                            </div>
+                            <div class="desc">
+                                "${userName}"加入了"${masterName}"的大航海舰队！
+                            </div>
+                        </div>
+                        <div class="captain"></div>
+                    </div>
+                </div>
+            </body>
+
+            </html>
+        `;
+
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
+
 	richTextParser(rt: RichTextNode, title?: string) {
 		const richText = rt.reduce((accumulator, currentValue) => {
 			if (currentValue.emoji) {
