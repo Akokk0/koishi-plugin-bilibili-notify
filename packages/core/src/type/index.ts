@@ -534,3 +534,39 @@ export type LiveData = {
 	fansNum?: string;
 	fansChanged?: string;
 }
+
+export type UserInfoInLiveData = {
+	uid: number;
+	uname: string;
+	face: string;
+	verify_type: number;
+	desc: string;
+	uname_color: string;
+	room_id: number;
+	pendant: string;
+	pendant_from: number;
+	follow_num: number;
+	attention_num: number;
+	relation_status: number;
+	privilege_type: number;
+	fans_medal: {
+		medal_id: number;
+		medal_name: string;
+		level: number;
+		medal_color: number;
+		target_id: number;
+		medal_icon_id: number;
+		medal_icon_url: string;
+		anchor_id: number;
+		uid: number;
+		medal_color_start: number;
+		medal_color_end: number;
+		medal_color_border: number;
+		is_lighted: number;
+		guard_level: number;
+	}
+	guard: {
+		accompany: number;
+		accompany_slake: number;
+	}
+}

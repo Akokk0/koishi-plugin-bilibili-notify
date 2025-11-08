@@ -46,6 +46,7 @@ import {
 	type LiveAPIManager,
 	type LiveRoomInfo,
 	type LiveData,
+	type UserInfoInLiveData,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -629,25 +630,18 @@ class ComRegister {
 			this.logger.info(res.choices[0].message.content);
 		});
 
-		/* biliCom.subcommand(".img").action(async ({ session }) => {
+		biliCom.subcommand(".img").action(async ({ session }) => {
 			// 舰长图片
-			const guardImg = ComRegister.GUARD_LEVEL_IMG[GuardLevel.Zongdu];
+			const guardImg = ComRegister.GUARD_LEVEL_IMG[GuardLevel.Jianzhang];
 			const buffer = await this.ctx[
 				"bilibili-notify-generate-img"
 			].generateBoardingImg(
 				guardImg,
 				{
-					guard_level: GuardLevel.Zongdu,
-					user: {
-						uid: 114514,
-						face: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSESgEED4WoyK9O5FFgrV8cHZPM4w4JgleZQ&s",
-						uname: "恶魔兔",
-						badge: {
-							name: "小叭兔",
-							level: 11,
-							color: "#FF69B4",
-						},
-					},
+					guardLevel: GuardLevel.Jianzhang,
+					face: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSESgEED4WoyK9O5FFgrV8cHZPM4w4JgleZQ&s",
+					uname: "恶魔兔",
+					accompany: 56,
 				},
 				{
 					masterName: "籽岷",
@@ -656,7 +650,7 @@ class ComRegister {
 				},
 			);
 			await session.send(h.image(buffer, "image/jpeg"));
-		}); */
+		});
 	}
 
 	async init(config: ComRegister.Config) {
@@ -2251,13 +2245,47 @@ class ComRegister {
 			onGuardBuy: async ({ body }) => {
 				// 判断舰长等级
 				const guardImg: string = ComRegister.GUARD_LEVEL_IMG[body.guard_level];
+				// 获取用户信息
+				const data = await this.ctx["bilibili-notify-api"].getUserInfoInLive(
+					body.user.uid.toString(),
+					sub.uid,
+				);
+				// 判断是否获取成功
+				if (data.code !== 0) {
+					// 获取失败，通过文字发送通知
+					const content = h("message", [
+						h.text(
+							`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+						),
+						h.image(guardImg),
+					]);
+					// 推送
+					return this.broadcastToTargets(
+						sub.uid,
+						content,
+						PushType.LiveGuardBuy,
+					);
+				}
+				console.log(data);
+				// 解析用户信息
+				const userInfo: UserInfoInLiveData = data.data;
+				console.log(userInfo);
 				// 生成图片
 				const buffer = await this.ctx[
 					"bilibili-notify-generate-img"
-				].generateBoardingImg(guardImg, body, {
-					masterName: masterInfo.username,
-					masterAvatarUrl: masterInfo.userface,
-				});
+				].generateBoardingImg(
+					guardImg,
+					{
+						guardLevel: body.guard_level,
+						uname: userInfo.uname,
+						face: userInfo.face,
+						accompany: userInfo.guard.accompany,
+					},
+					{
+						masterName: masterInfo.username,
+						masterAvatarUrl: masterInfo.userface,
+					},
+				);
 				// 构建消息
 				const img = h.image(buffer, "image/jpeg");
 				// 推送

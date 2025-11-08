@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
 import type { Dynamic, LiveData, RichTextNode } from "./type";
-import { type GuardBuyMsg, GuardLevel } from "blive-message-listener";
+import { GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
@@ -259,20 +259,38 @@ class GenerateImg extends Service {
 	async generateBoardingImg(
 		captainImgUrl: string,
 		{
-			guard_level,
-			user: {
-				face,
-				uname,
-				badge: { name, level, color },
-			},
-		}: GuardBuyMsg,
+			guardLevel,
+			uname,
+			face,
+            accompany
+		}: {
+			guardLevel: GuardLevel;
+			uname: string;
+			face: string;
+            accompany: number;
+		},
 		{
 			masterAvatarUrl,
 			masterName,
 		}: { masterAvatarUrl: string; masterName: string },
 	) {
 		// 判断舰长类型获取背景颜色
-		const bgColor = GenerateImg.BG_COLOR[guard_level];
+		const bgColor = GenerateImg.BG_COLOR[guardLevel];
+        // 判断Desc类型
+        const desc = {
+            [GuardLevel.Jianzhang]: () => {
+                if (accompany && accompany > 0) {
+                    return `"${uname}号"继续在<br/>"${masterName}"大航海舰队服役！`
+                }
+                return `"${uname}号"加入<br/>"${masterName}"大航海舰队！`
+            },
+            [GuardLevel.Tidu]: () => {
+                return `"${uname}"就任<br/>"${masterName}"大航海舰队提督！`
+            },
+            [GuardLevel.Zongdu]: () => {
+                return `"${uname}"上任<br/>"${masterName}"大航海舰队总督！`
+            }
+        }
 		// 定义html
 		const html = /* html */ `
             <!DOCTYPE html>
@@ -340,32 +358,50 @@ class GenerateImg extends Service {
                         border-radius: 50%;
                     }
 
-                    .badge {
+                    .user-info {
                         display: flex;
-                        margin-top: 15px;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 5px;
+                        margin-top: 10px;
+                    }
+
+                    .name-badge {
+                        display: flex;
                         align-items: center;
-                        height: 25px;
-                        background-color: ${color};
+                        height: 30px;
+                        background-color: ${bgColor[0]};
                         border-radius: 25px;
                         color: white;
-                        font-size: 12px;
-                        padding: 5px 0;
+                        padding: 0 10px;
+                        border: solid 2px white;
+                        overflow: hidden;
+                        font-weight: bold;
+                        font-size: 14px;
+                    }
+
+                    .accompany {
+                        display: flex;
+                        gap: 5px;
+                        align-items: center;
+                        height: 25px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 25px;
                         border: solid 1px white;
                         overflow: hidden;
                     }
 
-                    .badge-avatar {
+                    .master-avatar {
                         width: 25px;
                         height: 25px;
                         border-radius: 50%;
                         background: url("${masterAvatarUrl}") no-repeat center;
                         background-size: cover;
-                        margin-right: 5px;
                     }
 
-                    .badge span {
-                        font-weight: bold;
-                        font-size: 14px;
+                    .accompany span {
+                        color: white;
+                        font-size: 11px;
                         margin-right: 5px;
                     }
 
@@ -394,13 +430,17 @@ class GenerateImg extends Service {
                                 <div class="avatar">
                                     <img src="${face}" alt="用户头像">
                                 </div>
-                                <div class="badge">
-                                    <div class="badge-avatar"></div>${name} &nbsp; <span>${level}</span>
+                                <div class="user-info">
+                                    <div class="name-badge">
+                                        ${uname}
+                                    </div>
+                                    <div class="accompany">
+                                        <div class="master-avatar"></div><span>已陪伴主播 ${accompany} 天</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="desc">
-                                <p>"${guard_level === GuardLevel.Jianzhang ? `${uname}号` : uname}"${guard_level === GuardLevel.Jianzhang ? "加入" : guard_level === GuardLevel.Tidu ? "就任" : "上任"}</p>
-                                "${masterName}"的大航海舰队${guard_level === GuardLevel.Tidu ? "提督" : ""}${guard_level === GuardLevel.Zongdu ? "总督" : ""}！
+                                ${desc[guardLevel]()}
                             </div>
                         </div>
                         <div class="captain"></div>
