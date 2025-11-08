@@ -2245,9 +2245,7 @@ class ComRegister {
 			},
 
 			onLikedChange: ({ body }) => {
-				console.log(body.count);
 				liveData.likedNum = body.count.toString();
-				console.log(liveData.likedNum);
 			},
 
 			onGuardBuy: async ({ body }) => {
