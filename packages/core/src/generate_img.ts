@@ -325,7 +325,6 @@ class GenerateImg extends Service {
 
                     .user {
                         display: flex;
-                        align-items: center;
                         gap: 10px;
                     }
 
@@ -343,6 +342,7 @@ class GenerateImg extends Service {
 
                     .badge {
                         display: flex;
+                        margin-top: 15px;
                         align-items: center;
                         height: 25px;
                         background-color: ${color};
