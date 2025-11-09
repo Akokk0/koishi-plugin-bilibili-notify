@@ -356,6 +356,7 @@ class GenerateImg extends Service {
                         width: 100%;
                         height: 100%;
                         border-radius: 50%;
+                        border: 3px solid white;
                     }
 
                     .user-info {
@@ -376,8 +377,15 @@ class GenerateImg extends Service {
                         padding: 0 10px;
                         border: solid 2px white;
                         overflow: hidden;
+                    }
+
+                    .name-badge span {
+                        max-width: 100px;
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
                         font-weight: bold;
-                        font-size: 14px;
+                        font-size: 12px;
                     }
 
                     .accompany {
@@ -387,7 +395,7 @@ class GenerateImg extends Service {
                         height: 25px;
                         background-color: ${bgColor[0]};
                         border-radius: 25px;
-                        border: solid 1px white;
+                        border: solid 2px white;
                         overflow: hidden;
                     }
 
@@ -401,7 +409,8 @@ class GenerateImg extends Service {
 
                     .accompany span {
                         color: white;
-                        font-size: 11px;
+                        font-size: 10px;
+                        font-weight: bold;
                         margin-right: 5px;
                     }
 
@@ -432,10 +441,10 @@ class GenerateImg extends Service {
                                 </div>
                                 <div class="user-info">
                                     <div class="name-badge">
-                                        ${uname}
+                                        <span>${uname}</span>
                                     </div>
                                     <div class="accompany">
-                                        <div class="master-avatar"></div><span>已陪伴主播 ${accompany} 天</span>
+                                        <div class="master-avatar"></div><span>已服役 ${accompany} 天</span>
                                     </div>
                                 </div>
                             </div>
