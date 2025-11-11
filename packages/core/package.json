@@ -34,7 +34,7 @@
     "blive-message-listener": "^0.5.2",
     "cacheable-lookup": "^7.0.0",
     "cron": "^4.3.3",
-    "jsdom": "^27.1.0",
+    "jsdom": "^26.1.0",
     "luxon": "^3.8.0-alpha.1",
     "md5": "^2.3.0",
     "openai": "^6.8.1",
