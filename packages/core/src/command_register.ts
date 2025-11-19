@@ -641,7 +641,7 @@ class ComRegister {
 					guardLevel: GuardLevel.Jianzhang,
 					face: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSESgEED4WoyK9O5FFgrV8cHZPM4w4JgleZQ&s",
 					uname: "恶魔兔",
-					accompany: 56,
+					isAdmin: 1,
 				},
 				{
 					masterName: "籽岷",
@@ -2266,10 +2266,8 @@ class ComRegister {
 						PushType.LiveGuardBuy,
 					);
 				}
-				console.log(data);
 				// 解析用户信息
 				const userInfo: UserInfoInLiveData = data.data;
-				console.log(userInfo);
 				// 生成图片
 				const buffer = await this.ctx[
 					"bilibili-notify-generate-img"
@@ -2279,7 +2277,7 @@ class ComRegister {
 						guardLevel: body.guard_level,
 						uname: userInfo.uname,
 						face: userInfo.face,
-						accompany: userInfo.guard.accompany,
+						isAdmin: userInfo.is_admin,
 					},
 					{
 						masterName: masterInfo.username,

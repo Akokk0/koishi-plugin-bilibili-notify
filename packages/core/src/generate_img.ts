@@ -262,12 +262,12 @@ class GenerateImg extends Service {
 			guardLevel,
 			uname,
 			face,
-            accompany
+            isAdmin,
 		}: {
 			guardLevel: GuardLevel;
 			uname: string;
 			face: string;
-            accompany: number;
+            isAdmin: number;
 		},
 		{
 			masterAvatarUrl,
@@ -276,21 +276,18 @@ class GenerateImg extends Service {
 	) {
 		// 判断舰长类型获取背景颜色
 		const bgColor = GenerateImg.BG_COLOR[guardLevel];
-        // 判断Desc类型
-        const desc = {
-            [GuardLevel.Jianzhang]: () => {
-                if (accompany && accompany > 0) {
-                    return `"${uname}号"继续在<br/>"${masterName}"大航海舰队服役！`
-                }
-                return `"${uname}号"加入<br/>"${masterName}"大航海舰队！`
-            },
-            [GuardLevel.Tidu]: () => {
-                return `"${uname}"就任<br/>"${masterName}"大航海舰队提督！`
-            },
-            [GuardLevel.Zongdu]: () => {
-                return `"${uname}"上任<br/>"${masterName}"大航海舰队总督！`
-            }
-        }
+		// 判断Desc类型
+		const desc = {
+			[GuardLevel.Jianzhang]: () => {
+				return `"${uname}号"加入<br/>"${masterName}"大航海舰队！`;
+			},
+			[GuardLevel.Tidu]: () => {
+				return `"${uname}"就任<br/>"${masterName}"大航海舰队提督！`;
+			},
+			[GuardLevel.Zongdu]: () => {
+				return `"${uname}"上任<br/>"${masterName}"大航海舰队总督！`;
+			},
+		};
 		// 定义html
 		const html = /* html */ `
             <!DOCTYPE html>
@@ -445,7 +442,7 @@ class GenerateImg extends Service {
                                         <span>${uname}</span>
                                     </div>
                                     <div class="accompany">
-                                        <div class="master-avatar"></div><span>已服役 ${accompany} 天</span>
+                                        <div class="master-avatar"></div><span>${masterName} ${isAdmin ? "房管认证" : ""}</span>
                                     </div>
                                 </div>
                             </div>

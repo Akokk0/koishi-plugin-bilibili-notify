@@ -549,6 +549,7 @@ export type UserInfoInLiveData = {
 	attention_num: number;
 	relation_status: number;
 	privilege_type: number;
+	is_admin: number;
 	fans_medal: {
 		medal_id: number;
 		medal_name: string;
