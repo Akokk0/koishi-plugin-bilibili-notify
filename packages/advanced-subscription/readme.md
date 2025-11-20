@@ -25,4 +25,5 @@ advanced subscription for bilibili-notify
 > - ver 0.0.13 新增：选项 `sub` 里新增 `roomid` ，在目前版本可以极大降低风控概率；
 > - ver 0.0.14 优化：删除不必要配置项 `bot`；
 > - ver 0.0.15 新增：`SC` 推送；
-> - ver 0.0.16 新增：上舰图片消息自定义
+> - ver 0.0.16 新增：上舰图片消息自定义；
+> - ver 0.0.17 修复：入口文件错误；
