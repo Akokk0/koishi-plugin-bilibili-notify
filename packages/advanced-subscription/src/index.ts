@@ -140,7 +140,8 @@ export const Config: Schema<Config> = Schema.object({
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)
-						.description("是否开启自定义上舰图片功能"),
+						.description("是否开启自定义上舰图片功能")
+						.experimental(),
 				}),
 				Schema.union([
 					Schema.object({
