@@ -47,7 +47,6 @@ export interface BAConfig {
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
-	liveDetectType: "WS" | "API";
 	wordcloudStopWords: string;
 	liveSummary: Array<string>;
 	customGuardBuyImg: {
@@ -215,22 +214,6 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	live: Schema.object({}).description("直播推送设置"),
 
-	liveDetectType: Schema.union([
-		Schema.const("WS").description(
-			"使用WebSocket连接到B站消息服务器进行直播检测，推荐使用",
-		),
-		Schema.const("API")
-			.description(
-				"通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面",
-			)
-			.experimental(),
-	])
-		.role("radio")
-		.default("WS")
-		.description(
-			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
-		),
-
 	wordcloudStopWords: Schema.string().description(
 		"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
 	),
@@ -262,11 +245,21 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		Schema.union([
 			Schema.object({
 				enable: Schema.const(true).required(),
-				captainImgUrl: Schema.string().required().description("舰长图片链接"),
+				captainImgUrl: Schema.string()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+					)
+					.description("舰长图片链接"),
 				supervisorImgUrl: Schema.string()
-					.required()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+					)
 					.description("提督图片链接"),
-				governorImgUrl: Schema.string().required().description("总督图片链接"),
+				governorImgUrl: Schema.string()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
+					)
+					.description("总督图片链接"),
 			}),
 			Schema.object({}) as Schema<Partial<BAConfig>>,
 		]),

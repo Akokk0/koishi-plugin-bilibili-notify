@@ -123,7 +123,6 @@ class ServerManager extends Service {
 				master: globalConfig.master,
 				wordcloudStopWords: globalConfig.wordcloudStopWords,
 				liveSummary: globalConfig.liveSummary,
-				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,

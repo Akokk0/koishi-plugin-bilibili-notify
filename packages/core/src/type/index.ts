@@ -290,18 +290,6 @@ export type Live = {
 	};
 };
 
-export type LiveMsg = {
-	customLiveStart: string;
-	customLive: string;
-	customLiveEnd: string;
-	liveSummary: string;
-	customGuardBuyImg: {
-		captainImgUrl?: string;
-		supervisorImgUrl?: string;
-		governorImgUrl?: string;
-	};
-};
-
 export type LiveAPIStatus = {
 	live: boolean;
 	roomId: string;
@@ -464,8 +452,6 @@ export type Subscriptions = Record<string, Subscription>;
 export type DynamicTimelineManager = Map<string, number>;
 
 export type LiveAPIManager = Map<string, LiveAPIStatus>;
-
-export type LiveMsgManager = Map<string, LiveMsg>;
 
 export type LiveWSManager = Map<string, () => void>;
 
