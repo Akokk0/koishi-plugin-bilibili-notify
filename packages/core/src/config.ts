@@ -1,11 +1,14 @@
 import { Schema } from "koishi";
 
 export interface BAConfig {
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	require: {};
 	key: string;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	master: {};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	basicSettings: {};
 	userAgent: string;
@@ -16,6 +19,7 @@ export interface BAConfig {
 		model?: string;
 		persona?: string;
 	};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	subTitle: {};
 	advancedSub: boolean;
@@ -33,17 +37,25 @@ export interface BAConfig {
 		platform: string;
 		target: string;
 	}>;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	dynamic: {};
 	dynamicUrl: boolean;
 	dynamicCron: string;
 	dynamicVideoUrlToBV: boolean;
 	pushImgsInDynamic: boolean;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
 	liveDetectType: "WS" | "API";
 	wordcloudStopWords: string;
 	liveSummary: Array<string>;
+	customGuardBuyImg: {
+		enable: boolean;
+		captainImgUrl?: string;
+		supervisorImgUrl?: string;
+		governorImgUrl?: string;
+	};
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -51,6 +63,7 @@ export interface BAConfig {
 	customLiveEnd: string;
 	followerDisplay: boolean;
 	hideDesc: boolean;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	style: {};
 	removeBorder: boolean;
@@ -60,8 +73,10 @@ export interface BAConfig {
 	cardBasePlateBorder: string;
 	enableLargeFont: boolean;
 	font: string;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	filter: {};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	debug: {};
 	dynamicDebugMode: boolean;
@@ -124,9 +139,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	ai: Schema.intersect([
 		Schema.object({
-			enable: Schema.boolean()
-				.default(false)
-				.description("是否开启AI功能"),
+			enable: Schema.boolean().default(false).description("是否开启AI功能"),
 		}),
 		Schema.union([
 			Schema.object({
@@ -218,10 +231,9 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
 		),
 
-	wordcloudStopWords: Schema.string()
-		.description(
-			"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
-		),
+	wordcloudStopWords: Schema.string().description(
+		"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
+	),
 
 	liveSummary: Schema.array(String)
 		.default([
@@ -240,6 +252,25 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		.description(
 			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量，数组每一行代表换行",
 		),
+
+	customGuardBuyImg: Schema.intersect([
+		Schema.object({
+			enable: Schema.boolean()
+				.default(false)
+				.description("是否开启自定义上舰图片功能"),
+		}),
+		Schema.union([
+			Schema.object({
+				enable: Schema.const(true).required(),
+				captainImgUrl: Schema.string().required().description("舰长图片链接"),
+				supervisorImgUrl: Schema.string()
+					.required()
+					.description("提督图片链接"),
+				governorImgUrl: Schema.string().required().description("总督图片链接"),
+			}),
+			Schema.object({}) as Schema<Partial<BAConfig>>,
+		]),
+	]),
 
 	restartPush: Schema.boolean()
 		.default(true)

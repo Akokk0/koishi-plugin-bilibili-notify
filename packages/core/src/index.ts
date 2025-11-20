@@ -130,6 +130,7 @@ class ServerManager extends Service {
 				customLiveStart: globalConfig.customLiveStart,
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
+				customGuardBuyImg: globalConfig.customGuardBuyImg,
 				dynamicUrl: globalConfig.dynamicUrl,
 				dynamicCron: globalConfig.dynamicCron,
 				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,

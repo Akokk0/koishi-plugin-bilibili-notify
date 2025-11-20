@@ -42,6 +42,13 @@ export type CustomLiveMsg = {
 	customLiveEnd?: string;
 };
 
+export type CustomGuardBuyImg = {
+	enable: boolean;
+	captainImgUrl?: string;
+	supervisorImgUrl?: string;
+	governorImgUrl?: string;
+};
+
 export type CustomLiveSummary = {
 	enable: boolean;
 	liveSummary?: string;
@@ -288,6 +295,11 @@ export type LiveMsg = {
 	customLive: string;
 	customLiveEnd: string;
 	liveSummary: string;
+	customGuardBuyImg: {
+		captainImgUrl?: string;
+		supervisorImgUrl?: string;
+		governorImgUrl?: string;
+	};
 };
 
 export type LiveAPIStatus = {
@@ -321,7 +333,7 @@ export enum PushType {
 	StartBroadcasting = 3,
 	LiveGuardBuy = 4,
 	WordCloudAndLiveSummary = 5,
-	Superchat = 6
+	Superchat = 6,
 }
 
 export const PushTypeMsg = {
@@ -331,7 +343,7 @@ export const PushTypeMsg = {
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
 	[PushType.WordCloudAndLiveSummary]: "弹幕词云和直播总结推送",
-	[PushType.Superchat]: "SC推送"
+	[PushType.Superchat]: "SC推送",
 };
 
 export type Result = {
@@ -444,6 +456,7 @@ export type Subscription = {
 	customCardStyle: CustomCardStyle;
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
+	customGuardBuyImg: CustomGuardBuyImg;
 };
 
 export type Subscriptions = Record<string, Subscription>;
@@ -533,7 +546,7 @@ export type LiveData = {
 	likedNum?: string;
 	fansNum?: string;
 	fansChanged?: string;
-}
+};
 
 export type UserInfoInLiveData = {
 	uid: number;
@@ -565,9 +578,9 @@ export type UserInfoInLiveData = {
 		medal_color_border: number;
 		is_lighted: number;
 		guard_level: number;
-	}
+	};
 	guard: {
 		accompany: number;
 		accompany_slake: number;
-	}
-}
+	};
+};

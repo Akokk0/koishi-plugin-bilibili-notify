@@ -875,6 +875,7 @@ class ComRegister {
 				customCardStyle: { enable: false },
 				customLiveMsg: { enable: false },
 				customLiveSummary: { enable: false },
+				customGuardBuyImg: { enable: false },
 			};
 		});
 		// 返回subs
@@ -1014,6 +1015,7 @@ class ComRegister {
 				customLive: this.config.customLive || "",
 				customLiveEnd: this.config.customLiveEnd || "",
 				liveSummary: this.config.liveSummary.join("\n") || "",
+				customGuardBuyImg: this.config.customGuardBuyImg,
 			};
 			// 判断是否个性化推送消息
 			if (sub.customLiveMsg.enable) {
@@ -1023,6 +1025,11 @@ class ComRegister {
 					sub.customLiveMsg.customLive || this.config.customLive;
 				liveMsg.customLiveEnd =
 					sub.customLiveMsg.customLiveEnd || this.config.customLiveEnd;
+			}
+			// 判断是否个性化舰长图片推送
+			if (sub.customGuardBuyImg.enable) {
+				liveMsg.customGuardBuyImg =
+					sub.customGuardBuyImg || this.config.customGuardBuyImg;
 			}
 			if (sub.customLiveSummary.enable) {
 				liveMsg.liveSummary =
@@ -2243,51 +2250,69 @@ class ComRegister {
 			},
 
 			onGuardBuy: async ({ body }) => {
-				// 判断舰长等级
-				const guardImg: string = ComRegister.GUARD_LEVEL_IMG[body.guard_level];
-				// 获取用户信息
-				const data = await this.ctx["bilibili-notify-api"].getUserInfoInLive(
-					body.user.uid.toString(),
-					sub.uid,
-				);
-				// 判断是否获取成功
-				if (data.code !== 0) {
-					// 获取失败，通过文字发送通知
-					const content = h("message", [
-						h.text(
-							`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
-						),
-						h.image(guardImg),
-					]);
-					// 推送
-					return this.broadcastToTargets(
-						sub.uid,
-						content,
-						PushType.LiveGuardBuy,
-					);
-				}
-				// 解析用户信息
-				const userInfo: UserInfoInLiveData = data.data;
-				// 生成图片
-				const buffer = await this.ctx[
-					"bilibili-notify-generate-img"
-				].generateBoardingImg(
-					guardImg,
-					{
-						guardLevel: body.guard_level,
-						uname: userInfo.uname,
-						face: userInfo.face,
-						isAdmin: userInfo.is_admin,
-					},
-					{
-						masterName: masterInfo.username,
-						masterAvatarUrl: masterInfo.userface,
-					},
-				);
-				// 构建消息
-				const img = h.image(buffer, "image/jpeg");
+				const msg = await (async () => {
+					if (sub.customGuardBuyImg.enable) {
+						// 舰长图片
+						const guardImg = {
+							[GuardLevel.Jianzhang]: sub.customGuardBuyImg.captainImgUrl,
+							[GuardLevel.Tidu]: sub.customGuardBuyImg.supervisorImgUrl,
+							[GuardLevel.Zongdu]: sub.customGuardBuyImg.governorImgUrl,
+						};
+						// 构建消息
+						return h("message", [
+							h.image(guardImg[body.guard_level]),
+							h.text(
+								`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+							),
+						]);
+					} else {
+						// 判断舰长等级
+						const guardImg: string =
+							ComRegister.GUARD_LEVEL_IMG[body.guard_level];
+						// 获取用户信息
+						const data = await this.ctx[
+							"bilibili-notify-api"
+						].getUserInfoInLive(body.user.uid.toString(), sub.uid);
+						// 判断是否获取成功
+						if (data.code !== 0) {
+							// 获取失败，通过文字发送通知
+							const content = h("message", [
+								h.image(guardImg),
+								h.text(
+									`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+								),
+							]);
+							// 推送
+							return this.broadcastToTargets(
+								sub.uid,
+								content,
+								PushType.LiveGuardBuy,
+							);
+						}
+						// 解析用户信息
+						const userInfo: UserInfoInLiveData = data.data;
+						// 生成图片
+						const buffer = await this.ctx[
+							"bilibili-notify-generate-img"
+						].generateBoardingImg(
+							guardImg,
+							{
+								guardLevel: body.guard_level,
+								uname: userInfo.uname,
+								face: userInfo.face,
+								isAdmin: userInfo.is_admin,
+							},
+							{
+								masterName: masterInfo.username,
+								masterAvatarUrl: masterInfo.userface,
+							},
+						);
+						// 构建消息
+						return h.image(buffer, "image/jpeg");
+					}
+				})();
 				// 推送
-				this.broadcastToTargets(sub.uid, img, PushType.LiveGuardBuy);
+				this.broadcastToTargets(sub.uid, msg, PushType.LiveGuardBuy);
 			},
 
 			onLiveStart: async () => {
@@ -3329,6 +3354,12 @@ namespace ComRegister {
 			model: string;
 			persona: string;
 		};
+		customGuardBuyImg: {
+			enable: boolean;
+			captainImgUrl?: string;
+			supervisorImgUrl?: string;
+			governorImgUrl?: string;
+		};
 	}
 
 	export const Config: Schema<Config> = Schema.object({
@@ -3385,6 +3416,14 @@ namespace ComRegister {
 			baseURL: Schema.string().default("https://api.siliconflow.cn/v1"),
 			model: Schema.string().default("gpt-3.5-turbo"),
 			persona: Schema.string(),
+		}),
+		customGuardBuyImg: Schema.object({
+			enable: Schema.boolean()
+				.default(false)
+				.description("是否启用自定义舰长购买图片"),
+			captainImgUrl: Schema.string().description("舰长图片链接"),
+			supervisorImgUrl: Schema.string().description("提督图片链接"),
+			governorImgUrl: Schema.string().description("总督图片链接"),
 		}),
 	});
 }

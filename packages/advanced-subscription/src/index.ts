@@ -136,6 +136,28 @@ export const Config: Schema<Config> = Schema.object({
 					Schema.object({}),
 				]),
 			]),
+			customGuardBuyImg: Schema.intersect([
+				Schema.object({
+					enable: Schema.boolean()
+						.default(false)
+						.description("是否开启自定义上舰图片功能"),
+				}),
+				Schema.union([
+					Schema.object({
+						enable: Schema.const(true).required(),
+						captainImgUrl: Schema.string()
+							.required()
+							.description("舰长图片链接"),
+						supervisorImgUrl: Schema.string()
+							.required()
+							.description("提督图片链接"),
+						governorImgUrl: Schema.string()
+							.required()
+							.description("总督图片链接"),
+					}),
+					Schema.object({}) as Schema<Partial<Config>>,
+				]),
+			]),
 		}).collapse(),
 	),
 });
