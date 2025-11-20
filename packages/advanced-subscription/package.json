@@ -2,7 +2,7 @@
   "name": "koishi-plugin-bilibili-notify-advanced-subscription",
   "description": "advanced subscription for bilibili-notify",
   "version": "0.0.16",
-  "main": "lib/index.js",
+  "main": "./lib/index.cjs",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
@@ -42,6 +42,15 @@
   },
   "devDependencies": {
     "koishi-plugin-bilibili-notify": "workspace:^",
-    "tsdown": "^0.16.0"
+    "tsdown": "^0.16.6"
+  },
+  "module": "./lib/index.mjs",
+  "types": "./lib/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.mjs",
+      "require": "./lib/index.cjs"
+    },
+    "./package.json": "./package.json"
   }
 }
