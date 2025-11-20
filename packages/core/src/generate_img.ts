@@ -406,6 +406,10 @@ class GenerateImg extends Service {
                     }
 
                     .accompany span {
+                        max-width: 85px;
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
                         color: white;
                         font-size: 10px;
                         font-weight: bold;
@@ -442,7 +446,7 @@ class GenerateImg extends Service {
                                         <span>${uname}</span>
                                     </div>
                                     <div class="accompany">
-                                        <div class="master-avatar"></div><span>${masterName} ${isAdmin ? "房管认证" : ""}</span>
+                                        <div class="master-avatar"></div><span>${isAdmin ? "房管" : masterName}</span>
                                     </div>
                                 </div>
                             </div>
