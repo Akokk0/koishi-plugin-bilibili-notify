@@ -27,3 +27,4 @@ advanced subscription for bilibili-notify
 > - ver 0.0.15 新增：`SC` 推送；
 > - ver 0.0.16 新增：上舰图片消息自定义；
 > - ver 0.0.17 修复：入口文件错误；
+> - ver 0.0.19 新增：下播订阅开关、自定义上舰消息；
