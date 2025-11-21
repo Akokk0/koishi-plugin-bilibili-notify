@@ -42,8 +42,9 @@ export type CustomLiveMsg = {
 	customLiveEnd?: string;
 };
 
-export type CustomGuardBuyImg = {
+export type CustomGuardBuy = {
 	enable: boolean;
+	guardBuyMsg?: string;
 	captainImgUrl?: string;
 	supervisorImgUrl?: string;
 	governorImgUrl?: string;
@@ -440,11 +441,12 @@ export type Subscription = {
 	roomid: string;
 	dynamic: boolean;
 	live: boolean;
+	liveEnd: boolean;
 	target: Target;
 	customCardStyle: CustomCardStyle;
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
-	customGuardBuyImg: CustomGuardBuyImg;
+	customGuardBuy: CustomGuardBuy;
 };
 
 export type Subscriptions = Record<string, Subscription>;

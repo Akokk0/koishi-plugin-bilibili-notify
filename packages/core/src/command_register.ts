@@ -862,11 +862,12 @@ class ComRegister {
 				roomid,
 				dynamic: s.dynamic,
 				live: s.live,
+				liveEnd: true,
 				target,
 				customCardStyle: { enable: false },
 				customLiveMsg: { enable: false },
 				customLiveSummary: { enable: false },
-				customGuardBuyImg: { enable: false },
+				customGuardBuy: { enable: false },
 			};
 		});
 		// 返回subs
@@ -1018,28 +1019,34 @@ class ComRegister {
 				sub.customLiveMsg.customLive = this.config.customLive;
 			}
 			// 判断是否个性化舰长图片推送
-			if (sub.customGuardBuyImg.enable) {
-				if (!sub.customGuardBuyImg.captainImgUrl.trim()) {
-					sub.customGuardBuyImg.captainImgUrl =
-						this.config.customGuardBuyImg.captainImgUrl;
+			if (sub.customGuardBuy.enable) {
+				if (!sub.customGuardBuy.guardBuyMsg.trim()) {
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
 				}
-				if (!sub.customGuardBuyImg.supervisorImgUrl.trim()) {
-					sub.customGuardBuyImg.supervisorImgUrl =
-						this.config.customGuardBuyImg.supervisorImgUrl;
+				if (!sub.customGuardBuy.captainImgUrl.trim()) {
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
 				}
-				if (!sub.customGuardBuyImg.governorImgUrl.trim()) {
-					sub.customGuardBuyImg.governorImgUrl =
-						this.config.customGuardBuyImg.governorImgUrl;
+				if (!sub.customGuardBuy.supervisorImgUrl.trim()) {
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+				}
+				if (!sub.customGuardBuy.governorImgUrl.trim()) {
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
 				}
 			} else {
-				if (this.config.customGuardBuyImg.enable) {
-					sub.customGuardBuyImg.enable = true;
-					sub.customGuardBuyImg.captainImgUrl =
-						this.config.customGuardBuyImg.captainImgUrl;
-					sub.customGuardBuyImg.supervisorImgUrl =
-						this.config.customGuardBuyImg.supervisorImgUrl;
-					sub.customGuardBuyImg.governorImgUrl =
-						this.config.customGuardBuyImg.governorImgUrl;
+				if (this.config.customGuardBuy.enable) {
+					sub.customGuardBuy.enable = true;
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
 				}
 			}
 			// 判断是否个性化直播总结
@@ -2263,19 +2270,22 @@ class ComRegister {
 
 			onGuardBuy: async ({ body }) => {
 				const msg = await (async () => {
-					if (sub.customGuardBuyImg.enable) {
+					if (sub.customGuardBuy.enable) {
 						// 舰长图片
 						const guardImg = {
-							[GuardLevel.Jianzhang]: sub.customGuardBuyImg.captainImgUrl,
-							[GuardLevel.Tidu]: sub.customGuardBuyImg.supervisorImgUrl,
-							[GuardLevel.Zongdu]: sub.customGuardBuyImg.governorImgUrl,
+							[GuardLevel.Jianzhang]: sub.customGuardBuy.captainImgUrl,
+							[GuardLevel.Tidu]: sub.customGuardBuy.supervisorImgUrl,
+							[GuardLevel.Zongdu]: sub.customGuardBuy.governorImgUrl,
 						};
 						// 构建消息
+						const msg = sub.customGuardBuy.guardBuyMsg
+							.replace("-uname", body.user.uname)
+							.replace("-mname", masterInfo.username)
+							.replace("-guard", body.gift_name);
+						// 发送消息
 						return h("message", [
 							h.image(guardImg[body.guard_level]),
-							h.text(
-								`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
-							),
+							h.text(msg),
 						]);
 					} else {
 						// 判断舰长等级
@@ -2478,13 +2488,21 @@ class ComRegister {
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
 
-				await this.sendLiveNotifyCard(
-					LiveType.StopBroadcast,
-					liveData,
-					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
-					sub.uid,
-					liveEndMsg,
-				);
+				// 判断是否推送下播
+				if (sub.liveEnd) {
+					// 推送下播卡片
+					await this.sendLiveNotifyCard(
+						LiveType.StopBroadcast,
+						liveData,
+						{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
+						sub.uid,
+						liveEndMsg,
+					);
+					// 推送弹幕词云和直播总结
+					await sendDanmakuWordCloudAndLiveSummary(
+						sub.customLiveSummary.liveSummary,
+					);
+				}
 
 				// 定时器安全关闭
 				if (pushAtTimeTimer) {
@@ -2492,10 +2510,6 @@ class ComRegister {
 					pushAtTimeTimer = null;
 					this.liveWSManager.delete(sub.roomid);
 				}
-
-				await sendDanmakuWordCloudAndLiveSummary(
-					sub.customLiveSummary.liveSummary,
-				);
 			},
 		};
 
@@ -2996,11 +3010,12 @@ namespace ComRegister {
 			model: string;
 			persona: string;
 		};
-		customGuardBuyImg: {
+		customGuardBuy: {
 			enable: boolean;
 			captainImgUrl?: string;
 			supervisorImgUrl?: string;
 			governorImgUrl?: string;
+			guardBuyMsg?: string;
 		};
 	}
 
@@ -3058,13 +3073,14 @@ namespace ComRegister {
 			model: Schema.string().default("gpt-3.5-turbo"),
 			persona: Schema.string(),
 		}),
-		customGuardBuyImg: Schema.object({
+		customGuardBuy: Schema.object({
 			enable: Schema.boolean()
 				.default(false)
 				.description("是否启用自定义舰长购买图片"),
 			captainImgUrl: Schema.string().description("舰长图片链接"),
 			supervisorImgUrl: Schema.string().description("提督图片链接"),
 			governorImgUrl: Schema.string().description("总督图片链接"),
+			guardBuyMsg: Schema.string().description("舰长购买消息"),
 		}),
 	});
 }

@@ -18,6 +18,7 @@ export const Config: Schema<Config> = Schema.object({
 			),
 			dynamic: Schema.boolean().default(false).description("是否订阅用户动态"),
 			live: Schema.boolean().default(false).description("是否订阅用户直播"),
+			liveEnd: Schema.boolean().default(true).description("是否订阅用户下播"),
 			target: Schema.array(
 				Schema.object({
 					platform: Schema.string()
@@ -136,24 +137,35 @@ export const Config: Schema<Config> = Schema.object({
 					Schema.object({}),
 				]),
 			]),
-			customGuardBuyImg: Schema.intersect([
+			customGuardBuy: Schema.intersect([
 				Schema.object({
 					enable: Schema.boolean()
 						.default(false)
-						.description("是否开启自定义上舰图片功能")
+						.description("是否开启自定义上舰消息功能")
 						.experimental(),
 				}),
 				Schema.union([
 					Schema.object({
 						enable: Schema.const(true).required(),
+						guardBuyMsg: Schema.string()
+							.default("【-mname的直播间】-uname加入了大航海（-guard）")
+							.description(
+								"自定义上舰消息，-uname代表用户昵称，-muname代表主播昵称，-guard代表舰长类型",
+							),
 						captainImgUrl: Schema.string()
-							.required()
+							.default(
+								"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+							)
 							.description("舰长图片链接"),
 						supervisorImgUrl: Schema.string()
-							.required()
+							.default(
+								"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+							)
 							.description("提督图片链接"),
 						governorImgUrl: Schema.string()
-							.required()
+							.default(
+								"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
+							)
 							.description("总督图片链接"),
 					}),
 					Schema.object({}) as Schema<Partial<Config>>,

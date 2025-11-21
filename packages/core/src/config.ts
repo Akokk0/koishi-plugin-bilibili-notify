@@ -49,8 +49,9 @@ export interface BAConfig {
 	live: {};
 	wordcloudStopWords: string;
 	liveSummary: Array<string>;
-	customGuardBuyImg: {
+	customGuardBuy: {
 		enable: boolean;
+		guardBuyMsg?: string;
 		captainImgUrl?: string;
 		supervisorImgUrl?: string;
 		governorImgUrl?: string;
@@ -236,16 +237,21 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量，数组每一行代表换行",
 		),
 
-	customGuardBuyImg: Schema.intersect([
+	customGuardBuy: Schema.intersect([
 		Schema.object({
 			enable: Schema.boolean()
 				.default(false)
-				.description("是否开启自定义上舰图片功能")
+				.description("是否开启自定义上舰消息功能")
 				.experimental(),
 		}),
 		Schema.union([
 			Schema.object({
 				enable: Schema.const(true).required(),
+				guardBuyMsg: Schema.string()
+					.default("【-mname的直播间】-uname加入了大航海（-guard）")
+					.description(
+						"自定义上舰消息，-uname代表用户昵称，-muname代表主播昵称，-guard代表舰长类型",
+					),
 				captainImgUrl: Schema.string()
 					.default(
 						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
