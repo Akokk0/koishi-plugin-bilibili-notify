@@ -98,7 +98,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			enable: Schema.boolean()
 				.default(false)
 				.description(
-					"是否开启主人账号功能，如果您的机器人没有私聊权限请不要开启此功能。开启后如果机器人运行错误会向您进行报告",
+					"是否开启主人账号功能，开启后如果机器人运行错误会向您进行报告。如果您的机器人没有私聊权限请不要开启此功能",
 				),
 		}).description("主人账号"),
 		Schema.union([
@@ -170,12 +170,12 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	subs: Schema.array(
 		Schema.object({
-			name: Schema.string().required().description("备注"),
+			name: Schema.string().required().description("UP昵称"),
 			uid: Schema.string().required().description("UID和roomid"),
 			dynamic: Schema.boolean().default(true).description("动态"),
-			dynamicAtAll: Schema.boolean().default(false).description("动态At全体"),
+			dynamicAtAll: Schema.boolean().default(false).description("动态@全体"),
 			live: Schema.boolean().default(true).description("直播"),
-			liveAtAll: Schema.boolean().default(true).description("直播At全体"),
+			liveAtAll: Schema.boolean().default(true).description("直播@全体"),
 			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
 			superchat: Schema.boolean().default(false).description("SC消息"),
 			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
@@ -186,7 +186,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	)
 		.role("table")
 		.description(
-			"输入订阅信息，自定义订阅内容； UID和roomid，如果经常在初始化插件遇到风控问题，请补充直播间房间号，使用英文逗号分隔例如,1234567,114514 群号/频道号格式：频道号,频道号 使用英文逗号分隔，例如 1234567,2345678",
+			"请在这里填写订阅信息；UP昵称是必填项，影响通知时显示的UP主昵称；UID和roomid，请填写订阅用户的UID，如果经常在初始化插件遇到风控问题，请补充直播间房间号，使用英文逗号分隔例如：1234567,114514；平台名，请填写adapter-xxxx中的xxxx，例如你的机器人使用的是adapter-onebot就填写onebot；群号/频道号，直接填写即可，如果有多个群聊或频道请使用英文逗号分隔，例如：1234567,2345678",
 		),
 
 	dynamic: Schema.object({}).description("动态推送设置"),
