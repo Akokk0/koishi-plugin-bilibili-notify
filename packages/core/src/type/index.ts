@@ -42,6 +42,14 @@ export type CustomLiveMsg = {
 	customLiveEnd?: string;
 };
 
+export type CustomGuardBuy = {
+	enable: boolean;
+	guardBuyMsg?: string;
+	captainImgUrl?: string;
+	supervisorImgUrl?: string;
+	governorImgUrl?: string;
+};
+
 export type CustomLiveSummary = {
 	enable: boolean;
 	liveSummary?: string;
@@ -283,13 +291,6 @@ export type Live = {
 	};
 };
 
-export type LiveMsg = {
-	customLiveStart: string;
-	customLive: string;
-	customLiveEnd: string;
-	liveSummary: string;
-};
-
 export type LiveAPIStatus = {
 	live: boolean;
 	roomId: string;
@@ -321,7 +322,7 @@ export enum PushType {
 	StartBroadcasting = 3,
 	LiveGuardBuy = 4,
 	WordCloudAndLiveSummary = 5,
-	Superchat = 6
+	Superchat = 6,
 }
 
 export const PushTypeMsg = {
@@ -331,7 +332,7 @@ export const PushTypeMsg = {
 	[PushType.StartBroadcasting]: "开播推送",
 	[PushType.LiveGuardBuy]: "上舰推送",
 	[PushType.WordCloudAndLiveSummary]: "弹幕词云和直播总结推送",
-	[PushType.Superchat]: "SC推送"
+	[PushType.Superchat]: "SC推送",
 };
 
 export type Result = {
@@ -440,10 +441,12 @@ export type Subscription = {
 	roomid: string;
 	dynamic: boolean;
 	live: boolean;
+	liveEnd: boolean;
 	target: Target;
 	customCardStyle: CustomCardStyle;
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
+	customGuardBuy: CustomGuardBuy;
 };
 
 export type Subscriptions = Record<string, Subscription>;
@@ -451,8 +454,6 @@ export type Subscriptions = Record<string, Subscription>;
 export type DynamicTimelineManager = Map<string, number>;
 
 export type LiveAPIManager = Map<string, LiveAPIStatus>;
-
-export type LiveMsgManager = Map<string, LiveMsg>;
 
 export type LiveWSManager = Map<string, () => void>;
 
@@ -533,4 +534,41 @@ export type LiveData = {
 	likedNum?: string;
 	fansNum?: string;
 	fansChanged?: string;
-}
+};
+
+export type UserInfoInLiveData = {
+	uid: number;
+	uname: string;
+	face: string;
+	verify_type: number;
+	desc: string;
+	uname_color: string;
+	room_id: number;
+	pendant: string;
+	pendant_from: number;
+	follow_num: number;
+	attention_num: number;
+	relation_status: number;
+	privilege_type: number;
+	is_admin: number;
+	fans_medal: {
+		medal_id: number;
+		medal_name: string;
+		level: number;
+		medal_color: number;
+		target_id: number;
+		medal_icon_id: number;
+		medal_icon_url: string;
+		anchor_id: number;
+		uid: number;
+		medal_color_start: number;
+		medal_color_end: number;
+		medal_color_border: number;
+		is_lighted: number;
+		guard_level: number;
+	};
+	guard: {
+		accompany: number;
+		accompany_slake: number;
+	};
+};

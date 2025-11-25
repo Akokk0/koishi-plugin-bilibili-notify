@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
 import type { Dynamic, LiveData, RichTextNode } from "./type";
+import { GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
@@ -89,10 +90,6 @@ class GenerateImg extends Service {
 			data.live_time,
 			liveStatus,
 		);
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 卡片内容
 		const html = /* html */ `
             <!DOCTYPE html>
@@ -100,16 +97,11 @@ class GenerateImg extends Service {
             <head>
                 <title>直播通知</title>
                 <style>
-                    @font-face {
-                        font-family: "Custom Font";
-                        src: url(${fontURL});
-                    }
-
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -250,6 +242,226 @@ class GenerateImg extends Service {
             </body>
             </html>
         `;
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
+
+	static BG_COLOR: Record<GuardLevel, [string, string]> = {
+		[GuardLevel.None]: ["#4ebcec", "#F9CCDF"],
+		[GuardLevel.Jianzhang]: ["#4ebcec", "#b494e5"],
+		[GuardLevel.Tidu]: ["#d8a0e6", "#b494e5"],
+		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
+	};
+
+	async generateBoardingImg(
+		captainImgUrl: string,
+		{
+			guardLevel,
+			uname,
+			face,
+            isAdmin,
+		}: {
+			guardLevel: GuardLevel;
+			uname: string;
+			face: string;
+            isAdmin: number;
+		},
+		{
+			masterAvatarUrl,
+			masterName,
+		}: { masterAvatarUrl: string; masterName: string },
+	) {
+		// 判断舰长类型获取背景颜色
+		const bgColor = GenerateImg.BG_COLOR[guardLevel];
+		// 判断Desc类型
+		const desc = {
+			[GuardLevel.Jianzhang]: () => {
+				return `"${uname}号"加入<br/>"${masterName}"大航海舰队！`;
+			},
+			[GuardLevel.Tidu]: () => {
+				return `"${uname}"就任<br/>"${masterName}"大航海舰队提督！`;
+			},
+			[GuardLevel.Zongdu]: () => {
+				return `"${uname}"上任<br/>"${masterName}"大航海舰队总督！`;
+			},
+		};
+		// 定义html
+		const html = /* html */ `
+            <!DOCTYPE html>
+            <html>
+
+            <head>
+                <title>上舰通知</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
+
+                    html {
+                        width: 430px;
+                        height: auto;
+                    }
+
+                    .bg {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 430px;
+                        height: 220px;
+                        background: linear-gradient(to right bottom, ${bgColor[0]}, ${bgColor[1]});
+                    }
+
+                    .baseplate {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-radius: 10px;
+                        width: 410px;
+                        height: 200px;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        background-color: rgba(255, 255, 255, 0.65);
+                        backdrop-filter: blur(10px);
+                    }
+
+                    .info {
+                        flex: 1;
+                        height: 100%;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        padding: 10px 0 10px 10px;
+                    }
+
+                    .user {
+                        display: flex;
+                        gap: 10px;
+                    }
+
+                    .avatar {
+                        height: 90px;
+                        width: 90px;
+                        border-radius: 50%;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                    }
+
+                    .avatar img {
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                    }
+
+                    .user-info {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 7px;
+                        margin-top: 10px;
+                    }
+
+                    .name-badge {
+                        display: flex;
+                        align-items: center;
+                        height: 30px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 25px;
+                        color: white;
+                        padding: 0 10px;
+                        border: solid 2px white;
+                        overflow: hidden;
+                    }
+
+                    .name-badge span {
+                        max-width: 100px;
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+
+                    .accompany {
+                        display: flex;
+                        gap: 5px;
+                        align-items: center;
+                        height: 25px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 25px;
+                        border: solid 2px white;
+                        overflow: hidden;
+                    }
+
+                    .master-avatar {
+                        width: 25px;
+                        height: 25px;
+                        border-radius: 50%;
+                        background: url("${masterAvatarUrl}") no-repeat center;
+                        background-size: cover;
+                    }
+
+                    .accompany span {
+                        max-width: 85px;
+                        white-space: nowrap;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
+                        color: white;
+                        font-size: 10px;
+                        font-weight: bold;
+                        margin-right: 5px;
+                    }
+
+                    .desc {
+                        margin-bottom: 10px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        font-style: italic;
+                        color: #333;
+                    }
+
+                    .captain {
+                        width: 175px;
+                        height: 175px;
+                        background: url("${captainImgUrl}") no-repeat center;
+                        background-size: cover;
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="bg">
+                    <div class="baseplate">
+                        <div class="info">
+                            <div class="user">
+                                <div class="avatar">
+                                    <img src="${face}" alt="用户头像">
+                                </div>
+                                <div class="user-info">
+                                    <div class="name-badge">
+                                        <span>${uname}</span>
+                                    </div>
+                                    <div class="accompany">
+                                        <div class="master-avatar"></div><span>${isAdmin ? "房管" : masterName}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="desc">
+                                ${desc[guardLevel]()}
+                            </div>
+                        </div>
+                        <div class="captain"></div>
+                    </div>
+                </div>
+            </body>
+
+            </html>
+        `;
+
 		// 多次尝试生成图片
 		return await withRetry(() => this.imgHandler(html)).catch((e) => {
 			// 已尝试三次
@@ -642,24 +854,15 @@ class GenerateImg extends Service {
 
 		// 获取动态主要内容
 		const [main] = await getDynamicMajor(data, false);
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 判断是否开启大字体模式
 		let style: string;
 		if (this.giConfig.enableLargeFont) {
 			style = /* css */ `
-            @font-face {
-                font-family: "Custom Font";
-                src: url(${fontURL});
-            }
-    
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -1019,16 +1222,11 @@ class GenerateImg extends Service {
             `;
 		} else {
 			style = /* css */ `
-            @font-face {
-                font-family: "Custom Font";
-                src: url(${fontURL});
-            }
-    
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -1489,10 +1687,6 @@ class GenerateImg extends Service {
 		words: Array<[string, number]>,
 		masterName: string,
 	) {
-		// 加载字体
-		const fontURL = pathToFileURL(
-			resolve(__dirname, "font/HYZhengYuan-75W.ttf"),
-		);
 		// 加载静态资源
 		const wordcloudJS = pathToFileURL(
 			resolve(__dirname, "static/wordcloud2.min.js"),
@@ -1507,16 +1701,11 @@ class GenerateImg extends Service {
             <meta charset="UTF-8">
             <title>高清词云展示</title>
             <style>
-                @font-face {
-                    font-family: "Custom Font";
-                    src: url(${fontURL});
-                }
-        
                 * {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: \"${this.giConfig.font}\", "Custom Font", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {

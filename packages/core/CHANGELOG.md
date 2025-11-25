@@ -285,3 +285,18 @@
 > - ver 3.3.13-alpha.2 修复：指令 `bili ll` 在订阅的用户都没有直播的情况下会报错；
 > - ver 3.3.13-alpha.3 修复：未开启AI总结情况下，直播总结报错；
 > - ver 3.3.13 修复：移除AI总结、停用词、动态屏蔽等设置的试验性标签；
+> - ver 3.3.14 新增：推送上舰消息时会同时推送对应图片；
+> - ver 3.3.15 修复：报错 `Error [ERR_REQUIRE_ESM]: require() of ES Module /koishi/node_modules/parse5/dist/index.js from /koishi/node_modules/jsdom/lib/jsdom/browser/parser/html.js not supported.`
+> - ver 3.4.0-alpha.0 修复：上舰消息报错；
+> - ver 3.4.0-alpha.1 修复：上舰消息报错；
+> - ver 3.4.0-alpha.2 新增：上舰消息升级为图片通知；
+> - ver 3.4.0-alpha.3 优化：上舰消息卡片样式；
+> - ver 3.4.0-alpha.4 优化：上舰消息卡片样式；
+> - ver 3.4.0-alpha.5 优化：上舰消息卡片样式；
+> - ver 3.4.0 优化：上舰消息卡片样式；
+> - ver 3.4.1 修复：`JSDOM` 错误；
+> - ver 3.4.2 修复：上舰消息 `已服役` 天数不正确，更改为 `主播名字 + 房管认证`；
+> - ver 3.4.3 修复：优化上舰消息样式；
+> - ver 3.5.0-alpha.0 新增：上舰图片消息自定义；
+> - ver 3.5.0-alpha.1 新增：自定义上舰消息；
+> - ver 3.5.0 优化：改进配置说明；

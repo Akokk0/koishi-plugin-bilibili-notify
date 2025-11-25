@@ -6,8 +6,8 @@ import http from "node:http";
 import https from "node:https";
 import { DateTime } from "luxon";
 import axios, { type AxiosInstance } from "axios";
-import { CookieJar, Cookie } from "tough-cookie";
 import { JSDOM } from "jsdom";
+import { CookieJar, Cookie } from "tough-cookie";
 import type { Notifier } from "@koishijs/plugin-notifier";
 
 import type {
@@ -60,6 +60,11 @@ const GET_SERVER_UTC_TIME = "https://interface.bilibili.com/serverdate.js";
 // 最近更新UP
 const GET_LATEST_UPDATED_UPS =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/portal";
+// 在线金瓜子排行榜
+const GET_ONLINE_GOLD_RANK =
+	"https://api.live.bilibili.com//xlive/general-interface/v1/rank/getOnlineGoldRank";
+const GET_USER_INFO_IN_LIVE =
+	"https://api.live.bilibili.com/xlive/app-ucenter/v2/card/user";
 
 // 操作
 const MODIFY_RELATION = "https://api.bilibili.com/x/relation/modify";
@@ -689,6 +694,45 @@ class BiliAPI extends Service {
 		});
 	}
 
+	async getOnlineGoldRank(
+		roomId: string,
+		ruid: string,
+		page = 1,
+		pageSize = 20,
+	) {
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_ONLINE_GOLD_RANK}?room_id=${roomId}&ruid=${ruid}&page=${page}&page_size=${pageSize}`,
+			);
+			return data;
+		};
+		return await this.pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getOnlineGoldRank() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
+	async getUserInfoInLive(uid: string, ruid: string) {
+		const run = async () => {
+			const { data } = await this.client.get(
+				`${GET_USER_INFO_IN_LIVE}?uid=${uid}&ruid=${ruid}`,
+			);
+			return data;
+		};
+		return await this.pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
 	async chatWithAI(content: string) {
 		return await this.aiClient.chat.completions.create({
 			model: this.apiConfig.ai.model,
@@ -700,7 +744,7 @@ class BiliAPI extends Service {
 				{
 					role: "user",
 					content,
-				}
+				},
 			],
 		});
 	}

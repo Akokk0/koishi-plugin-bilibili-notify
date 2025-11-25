@@ -9,13 +9,13 @@
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "2.0.6",
-    "@koishijs/client": "^5.30.9",
+    "@koishijs/client": "^5.30.10",
     "@koishijs/plugin-hmr": "^1.2.9",
     "@koishijs/scripts": "^4.6.1",
-    "@types/node": "^22.16.2",
-    "@types/react": "^19.1.9",
-    "cross-env": "^10.0.0",
-    "tsx": "^4.20.3",
-    "typescript": "^5.9.2"
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.2",
+    "cross-env": "^10.1.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

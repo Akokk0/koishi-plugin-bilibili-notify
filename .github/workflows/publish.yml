@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "monorepo"
+      - "monorepo-dev"
     paths:
       - "packages/**/package.json"
 

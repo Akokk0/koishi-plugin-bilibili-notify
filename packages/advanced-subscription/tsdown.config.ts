@@ -7,5 +7,6 @@ export default defineConfig({
 	dts: true,
 	clean: true,
 	outDir: "lib",
+	exports: true,
 	external: [/^node:/, /^[^./]/],
 });
