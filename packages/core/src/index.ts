@@ -16,10 +16,23 @@ export const inject = ["puppeteer", "database", "notifier"];
 
 export const name = "bilibili-notify";
 
-export const usage = `
-	Bilibili-Notify
-	如遇到使用问题或bug，请加群咨询 801338523
-`;
+export const usage = /* html */`
+<h1>Bilibili-Notify</h1>
+<p>使用问题请加群咨询 801338523</p>
+
+---
+
+使用说明：
+- 请仔细阅读subs的配置说明，并在订阅配置中填写正确的 UID 和订阅类型
+- 订阅类型包括：动态、直播等
+
+注意事项：
+- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
+- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
+- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
+
+---
+`
 
 let globalConfig: BAConfig;
 
@@ -123,13 +136,13 @@ class ServerManager extends Service {
 				master: globalConfig.master,
 				wordcloudStopWords: globalConfig.wordcloudStopWords,
 				liveSummary: globalConfig.liveSummary,
-				liveDetectType: globalConfig.liveDetectType,
 				restartPush: globalConfig.restartPush,
 				pushTime: globalConfig.pushTime,
 				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
 				customLiveStart: globalConfig.customLiveStart,
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
+				customGuardBuyImg: globalConfig.customGuardBuy,
 				dynamicUrl: globalConfig.dynamicUrl,
 				dynamicCron: globalConfig.dynamicCron,
 				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,

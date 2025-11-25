@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-bilibili-notify",
   "description": "Koishi bilibili notify plugin",
-  "version": "3.4.3",
+  "version": "3.5.0",
   "main": "./lib/index.cjs",
   "typings": "lib/index.d.ts",
   "files": [
@@ -49,7 +49,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/tough-cookie": "^4.0.5",
     "koishi-plugin-puppeteer": "^3.9.0",
-    "tsdown": "^0.16.0"
+    "tsdown": "^0.16.6"
   },
   "peerDependencies": {
     "koishi": "^4.18.9"

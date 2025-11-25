@@ -26,10 +26,6 @@ import {
 	type CreateGroup,
 	type DynamicTimelineManager,
 	type GroupList,
-	type Live,
-	type LiveMsg,
-	type LiveMsgManager,
-	type LiveAPIStatus,
 	type LiveWSManager,
 	LiveType,
 	type LiveUsers,
@@ -92,8 +88,6 @@ class ComRegister {
 	liveAPIManager: LiveAPIManager;
 	// 直播状态管理器(WS)
 	liveWSManager: LiveWSManager;
-	// 直播推送消息管理器
-	liveMsgManager: LiveMsgManager;
 	// PushArrMap
 	pushArrMap: PushArrMap;
 	// 检查登录数据库是否有数据
@@ -786,8 +780,6 @@ class ComRegister {
 		this.initManagerAfterLoadSub();
 		// 检查是否需要动态监测
 		this.checkIfDynamicDetectIsNeeded();
-		// 检查是否需要直播监测(仅API模式)
-		this.checkIfLiveDetectIsNeeded();
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// 初始化完毕
@@ -840,7 +832,6 @@ class ComRegister {
 		this.dynamicTimelineManager = new Map();
 		this.liveAPIManager = new Map();
 		this.liveWSManager = new Map();
-		this.liveMsgManager = new Map();
 		this.pushArrMap = new Map();
 	}
 
@@ -871,10 +862,12 @@ class ComRegister {
 				roomid,
 				dynamic: s.dynamic,
 				live: s.live,
+				liveEnd: true,
 				target,
 				customCardStyle: { enable: false },
 				customLiveMsg: { enable: false },
 				customLiveSummary: { enable: false },
+				customGuardBuy: { enable: false },
 			};
 		});
 		// 返回subs
@@ -1008,29 +1001,64 @@ class ComRegister {
 	preInitConfig(subs: Subscriptions) {
 		// 遍历subs
 		for (const sub of Object.values(subs)) {
-			// 构建直播推送消息对象
-			const liveMsg: LiveMsg = {
-				customLiveStart: this.config.customLiveStart || "",
-				customLive: this.config.customLive || "",
-				customLiveEnd: this.config.customLiveEnd || "",
-				liveSummary: this.config.liveSummary.join("\n") || "",
-			};
 			// 判断是否个性化推送消息
 			if (sub.customLiveMsg.enable) {
-				liveMsg.customLiveStart =
-					sub.customLiveMsg.customLiveStart || this.config.customLiveStart;
-				liveMsg.customLive =
-					sub.customLiveMsg.customLive || this.config.customLive;
-				liveMsg.customLiveEnd =
-					sub.customLiveMsg.customLiveEnd || this.config.customLiveEnd;
+				if (!sub.customLiveMsg.customLiveStart.trim()) {
+					sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
+				}
+				if (!sub.customLiveMsg.customLiveEnd.trim()) {
+					sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
+				}
+				if (!sub.customLiveMsg.customLive.trim()) {
+					sub.customLiveMsg.customLive = this.config.customLive;
+				}
+			} else {
+				sub.customLiveMsg.enable = false;
+				sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
+				sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
+				sub.customLiveMsg.customLive = this.config.customLive;
 			}
+			// 判断是否个性化舰长图片推送
+			if (sub.customGuardBuy.enable) {
+				if (!sub.customGuardBuy.guardBuyMsg.trim()) {
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
+				}
+				if (!sub.customGuardBuy.captainImgUrl.trim()) {
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
+				}
+				if (!sub.customGuardBuy.supervisorImgUrl.trim()) {
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+				}
+				if (!sub.customGuardBuy.governorImgUrl.trim()) {
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
+				}
+			} else {
+				if (this.config.customGuardBuy.enable) {
+					sub.customGuardBuy.enable = true;
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
+				}
+			}
+			// 判断是否个性化直播总结
 			if (sub.customLiveSummary.enable) {
-				liveMsg.liveSummary =
-					sub.customLiveSummary.liveSummary ||
-					this.config.liveSummary.join("\n");
+				if (!sub.customLiveSummary.liveSummary.trim()) {
+					sub.customLiveSummary.liveSummary =
+						this.config.liveSummary.join("\n");
+				}
+			} else {
+				sub.customLiveSummary.enable = false;
+				sub.customLiveSummary.liveSummary = this.config.liveSummary.join("\n");
 			}
-			// 设置到直播推送消息管理对象
-			this.liveMsgManager.set(sub.uid, liveMsg);
 
 			// PushRecord part
 
@@ -1961,8 +1989,6 @@ class ComRegister {
 		let liveRoomInfo: LiveRoomInfo["data"];
 		let masterInfo: MasterInfo;
 		const liveData: LiveData = { likedNum: "0" };
-		// 获取推送信息对象
-		const liveMsgObj = this.liveMsgManager.get(sub.uid);
 		// 定义函数
 		const sendDanmakuWordCloudAndLiveSummary = async (
 			customLiveSummary: string,
@@ -2121,7 +2147,7 @@ class ComRegister {
 			//设置到liveData
 			liveData.watchedNum = watched;
 			// 设置直播中消息
-			const liveMsg = liveMsgObj.customLive
+			const liveMsg = sub.customLiveMsg.customLive
 				.replace("-name", masterInfo.username)
 				.replace(
 					"-time",
@@ -2243,51 +2269,72 @@ class ComRegister {
 			},
 
 			onGuardBuy: async ({ body }) => {
-				// 判断舰长等级
-				const guardImg: string = ComRegister.GUARD_LEVEL_IMG[body.guard_level];
-				// 获取用户信息
-				const data = await this.ctx["bilibili-notify-api"].getUserInfoInLive(
-					body.user.uid.toString(),
-					sub.uid,
-				);
-				// 判断是否获取成功
-				if (data.code !== 0) {
-					// 获取失败，通过文字发送通知
-					const content = h("message", [
-						h.text(
-							`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
-						),
-						h.image(guardImg),
-					]);
-					// 推送
-					return this.broadcastToTargets(
-						sub.uid,
-						content,
-						PushType.LiveGuardBuy,
-					);
-				}
-				// 解析用户信息
-				const userInfo: UserInfoInLiveData = data.data;
-				// 生成图片
-				const buffer = await this.ctx[
-					"bilibili-notify-generate-img"
-				].generateBoardingImg(
-					guardImg,
-					{
-						guardLevel: body.guard_level,
-						uname: userInfo.uname,
-						face: userInfo.face,
-						isAdmin: userInfo.is_admin,
-					},
-					{
-						masterName: masterInfo.username,
-						masterAvatarUrl: masterInfo.userface,
-					},
-				);
-				// 构建消息
-				const img = h.image(buffer, "image/jpeg");
+				const msg = await (async () => {
+					if (sub.customGuardBuy.enable) {
+						// 舰长图片
+						const guardImg = {
+							[GuardLevel.Jianzhang]: sub.customGuardBuy.captainImgUrl,
+							[GuardLevel.Tidu]: sub.customGuardBuy.supervisorImgUrl,
+							[GuardLevel.Zongdu]: sub.customGuardBuy.governorImgUrl,
+						};
+						// 构建消息
+						const msg = sub.customGuardBuy.guardBuyMsg
+							.replace("-uname", body.user.uname)
+							.replace("-mname", masterInfo.username)
+							.replace("-guard", body.gift_name);
+						// 发送消息
+						return h("message", [
+							h.image(guardImg[body.guard_level]),
+							h.text(msg),
+						]);
+					} else {
+						// 判断舰长等级
+						const guardImg: string =
+							ComRegister.GUARD_LEVEL_IMG[body.guard_level];
+						// 获取用户信息
+						const data = await this.ctx[
+							"bilibili-notify-api"
+						].getUserInfoInLive(body.user.uid.toString(), sub.uid);
+						// 判断是否获取成功
+						if (data.code !== 0) {
+							// 获取失败，通过文字发送通知
+							const content = h("message", [
+								h.image(guardImg),
+								h.text(
+									`【${masterInfo.username}的直播间】${body.user.uname}加入了大航海（${body.gift_name}）`,
+								),
+							]);
+							// 推送
+							return this.broadcastToTargets(
+								sub.uid,
+								content,
+								PushType.LiveGuardBuy,
+							);
+						}
+						// 解析用户信息
+						const userInfo: UserInfoInLiveData = data.data;
+						// 生成图片
+						const buffer = await this.ctx[
+							"bilibili-notify-generate-img"
+						].generateBoardingImg(
+							guardImg,
+							{
+								guardLevel: body.guard_level,
+								uname: userInfo.uname,
+								face: userInfo.face,
+								isAdmin: userInfo.is_admin,
+							},
+							{
+								masterName: masterInfo.username,
+								masterAvatarUrl: masterInfo.userface,
+							},
+						);
+						// 构建消息
+						return h.image(buffer, "image/jpeg");
+					}
+				})();
 				// 推送
-				this.broadcastToTargets(sub.uid, img, PushType.LiveGuardBuy);
+				this.broadcastToTargets(sub.uid, msg, PushType.LiveGuardBuy);
 			},
 
 			onLiveStart: async () => {
@@ -2342,7 +2389,7 @@ class ComRegister {
 				// 将粉丝数设置到liveData
 				liveData.fansNum = followerNum;
 
-				const liveStartMsg = liveMsgObj.customLiveStart
+				const liveStartMsg = sub.customLiveMsg.customLiveStart
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
 					.replace("-follower", followerNum)
@@ -2435,19 +2482,27 @@ class ComRegister {
 				// 将粉丝数变化设置到liveData
 				liveData.fansChanged = followerChange;
 
-				const liveEndMsg = liveMsgObj.customLiveEnd
+				const liveEndMsg = sub.customLiveMsg.customLiveEnd
 					.replace("-name", masterInfo.username)
 					.replace("-time", diffTime)
 					.replace("-follower_change", followerChange)
 					.replaceAll("\\n", "\n");
 
-				await this.sendLiveNotifyCard(
-					LiveType.StopBroadcast,
-					liveData,
-					{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
-					sub.uid,
-					liveEndMsg,
-				);
+				// 判断是否推送下播
+				if (sub.liveEnd) {
+					// 推送下播卡片
+					await this.sendLiveNotifyCard(
+						LiveType.StopBroadcast,
+						liveData,
+						{ liveRoomInfo, masterInfo, cardStyle: sub.customCardStyle },
+						sub.uid,
+						liveEndMsg,
+					);
+					// 推送弹幕词云和直播总结
+					await sendDanmakuWordCloudAndLiveSummary(
+						sub.customLiveSummary.liveSummary,
+					);
+				}
 
 				// 定时器安全关闭
 				if (pushAtTimeTimer) {
@@ -2455,8 +2510,6 @@ class ComRegister {
 					pushAtTimeTimer = null;
 					this.liveWSManager.delete(sub.roomid);
 				}
-
-				await sendDanmakuWordCloudAndLiveSummary(liveMsgObj.liveSummary);
 			},
 		};
 
@@ -2486,7 +2539,7 @@ class ComRegister {
 			// 设置到liveData
 			liveData.watchedNum = watched;
 			// 定义直播中通知消息
-			const liveMsg = liveMsgObj.customLive
+			const liveMsg = sub.customLiveMsg.customLive
 				.replace("-name", masterInfo.username)
 				.replace(
 					"-time",
@@ -2527,354 +2580,6 @@ class ComRegister {
 			// 设置直播状态为true
 			liveStatus = true;
 		}
-	}
-
-	async liveDetectWithAPI() {
-		// 定义直播间信息获取函数
-		const useMasterAndLiveRoomInfo = async (
-			liveType: LiveType,
-			LiveAPIStatus: LiveAPIStatus,
-		) => {
-			// 定义函数是否执行成功flag
-			let flag = true;
-			// 获取直播间信息
-			LiveAPIStatus.liveRoomInfo = await this.getLiveRoomInfo(
-				LiveAPIStatus.roomId,
-			).catch(() => {
-				// 设置flag为false
-				flag = false;
-				// 返回空
-				return null;
-			});
-			// 判断是否成功获取信息
-			if (!flag || !LiveAPIStatus.liveRoomInfo?.uid) {
-				// 上一步未成功
-				flag = false;
-				// 返回flag
-				return flag;
-			}
-			// 获取主播信息(需要满足flag为true，liveRoomInfo.uid有值)
-			LiveAPIStatus.masterInfo = await this.getMasterInfo(
-				LiveAPIStatus.liveRoomInfo.uid,
-				LiveAPIStatus.masterInfo,
-				liveType,
-			).catch(() => {
-				// 设置flag为false
-				flag = false;
-				// 返回空
-				return null;
-			});
-			// 返回信息
-			return flag;
-		};
-
-		const uids = [];
-		for (const [uid] of this.liveAPIManager.entries()) {
-			uids.push(uid);
-		}
-
-		const useLiveInfo = async () => {
-			// 发送请求
-			const { data }: Live | undefined = await withRetry(
-				async () =>
-					(await this.ctx["bilibili-notify-api"].getLiveRoomInfoByUids(
-						uids,
-					)) as Live,
-				3,
-			).catch(async () => {
-				// 返回undefined
-				return undefined;
-			});
-
-			if (!data) {
-				// 停止服务
-				await this.sendPrivateMsgAndStopService();
-				// 返回
-				return;
-			}
-
-			return data;
-		};
-
-		// 获取信息
-		const data = await useLiveInfo();
-		// 初始化
-		for (const item of Object.values(data)) {
-			// 将用户uid转换为string
-			const uid = item.uid.toString();
-			// 获取用户直播状态
-			const LiveAPIStatus = this.liveAPIManager.get(uid);
-			// 获取用户推送消息对象
-			const liveMsgObj = this.liveMsgManager.get(uid);
-			// 获取用户sub
-			const sub = this.subManager.get(uid);
-			// 判断直播状态
-			if (item.live_status === 1) {
-				// 将直播状态改为true
-				LiveAPIStatus.live = true;
-				// 初始化主播和直播间信息
-				await useMasterAndLiveRoomInfo(
-					LiveType.FirstLiveBroadcast,
-					LiveAPIStatus,
-				);
-				// 判断是否需要设置开播时间
-				if (!LiveAPIStatus.liveStartTimeInit) {
-					// 设置开播时间
-					LiveAPIStatus.liveStartTime = LiveAPIStatus.liveRoomInfo.live_time;
-					// 设置开播时间初始化状态
-					LiveAPIStatus.liveStartTimeInit = true;
-				}
-				// 设置直播中消息
-				const liveMsg = liveMsgObj.customLive
-					.replace("-name", LiveAPIStatus.masterInfo.username)
-					.replace(
-						"-time",
-						await this.ctx["bilibili-notify-generate-img"].getTimeDifference(
-							LiveAPIStatus.liveStartTime,
-						),
-					)
-					.replace("-watched", "API模式无法获取")
-					.replaceAll("\\n", "\n")
-					.replace(
-						"-link",
-						`https://live.bilibili.com/${LiveAPIStatus.liveRoomInfo.short_id === 0 ? LiveAPIStatus.liveRoomInfo.room_id : LiveAPIStatus.liveRoomInfo.short_id}`,
-					);
-				// 发送直播通知卡片
-				await this.sendLiveNotifyCard(
-					LiveType.LiveBroadcast,
-					{ watchedNum: "API" },
-					{
-						liveRoomInfo: LiveAPIStatus.liveRoomInfo,
-						masterInfo: LiveAPIStatus.masterInfo,
-						cardStyle: sub.customCardStyle,
-					},
-					uid,
-					liveMsg,
-				);
-			}
-		}
-
-		// 定义函数
-		const handler = async () => {
-			// 发送请求
-			const data = await useLiveInfo();
-			// 进行处理
-			for (const item of Object.values(data)) {
-				// 将用户uid转换为string
-				const uid = item.uid.toString();
-				// 获取用户直播状态
-				const LiveAPIStatus = this.liveAPIManager.get(uid);
-				// 获取用户推送消息对象
-				const liveMsgObj = this.liveMsgManager.get(uid);
-				// 获取sub
-				const sub = this.subManager.get(uid);
-				// 如果未找到sub直接返回
-				if (!sub) return;
-				// 判断当前状态和之前状态是否相同
-				switch (item.live_status) {
-					case 0:
-					case 2: {
-						// 未开播状态
-						if (LiveAPIStatus.live === true) {
-							// 现在下播了，发送下播通知
-							// 判断信息是否获取成功
-							if (
-								!(await useMasterAndLiveRoomInfo(
-									LiveType.StopBroadcast,
-									LiveAPIStatus,
-								))
-							) {
-								// 未获取成功，直接返回
-								await this.sendPrivateMsg(
-									"获取直播间信息失败，推送直播下播卡片失败！",
-								);
-								// 停止服务
-								return await this.sendPrivateMsgAndStopService();
-							}
-							// 更改直播时长
-							if (LiveAPIStatus.liveStartTimeInit) {
-								// 设置直播时长
-								LiveAPIStatus.liveRoomInfo.live_time =
-									LiveAPIStatus.liveStartTime;
-								// 直播时间初始化改为false
-								LiveAPIStatus.liveStartTimeInit = false;
-							}
-							// 获取粉丝数变化
-							const followerChange = (() => {
-								// 获取直播关注变化值
-								const liveFollowerChangeNum =
-									LiveAPIStatus.masterInfo.liveFollowerChange;
-								// 判断是否大于0
-								if (liveFollowerChangeNum > 0) {
-									// 大于0则加+
-									return liveFollowerChangeNum >= 10_000
-										? `+${liveFollowerChangeNum.toFixed(1)}万`
-										: `+${liveFollowerChangeNum}`;
-								}
-								// 小于0
-								return liveFollowerChangeNum <= -10_000
-									? `${liveFollowerChangeNum.toFixed(1)}万`
-									: liveFollowerChangeNum.toString();
-							})();
-							// 定义下播播通知语
-							const liveEndMsg = liveMsgObj.customLiveEnd
-								.replace("-name", LiveAPIStatus.masterInfo.username)
-								.replace(
-									"-time",
-									await this.ctx[
-										"bilibili-notify-generate-img"
-									].getTimeDifference(LiveAPIStatus.liveStartTime),
-								)
-								.replace("-follower_change", followerChange)
-								.replaceAll("\\n", "\n");
-							// 推送通知卡片
-							await this.sendLiveNotifyCard(
-								LiveType.StopBroadcast,
-								{ fansChanged: followerChange },
-								{
-									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
-									masterInfo: LiveAPIStatus.masterInfo,
-									cardStyle: sub.customCardStyle,
-								},
-								uid,
-								liveEndMsg,
-							);
-							// 更改直播状态
-							LiveAPIStatus.live = false;
-						}
-						// 还未开播
-						break;
-					}
-					case 1: {
-						// 开播状态
-						if (LiveAPIStatus.live === false) {
-							// 开播了
-							// 判断信息是否获取成功
-							if (
-								!(await useMasterAndLiveRoomInfo(
-									LiveType.StopBroadcast,
-									LiveAPIStatus,
-								))
-							) {
-								// 未获取成功，直接返回
-								await this.sendPrivateMsg(
-									"获取直播间信息失败，推送直播开播卡片失败！",
-								);
-								// 停止服务
-								return await this.sendPrivateMsgAndStopService();
-							}
-							// 设置开播时间
-							LiveAPIStatus.liveStartTime =
-								LiveAPIStatus.liveRoomInfo.live_time;
-							// 设置开播时间初始化状态
-							LiveAPIStatus.liveStartTimeInit = true;
-							// 获取当前粉丝数
-							const followerNum =
-								LiveAPIStatus.masterInfo.liveOpenFollowerNum >= 10_000
-									? `${(LiveAPIStatus.masterInfo.liveOpenFollowerNum / 10000).toFixed(1)}万`
-									: LiveAPIStatus.masterInfo.liveOpenFollowerNum.toString();
-							// 定义开播通知语
-							const liveStartMsg = liveMsgObj.customLiveStart
-								.replace("-name", LiveAPIStatus.masterInfo.username)
-								.replace(
-									"-time",
-									await this.ctx[
-										"bilibili-notify-generate-img"
-									].getTimeDifference(LiveAPIStatus.liveStartTime),
-								)
-								.replace("-follower", followerNum)
-								.replaceAll("\\n", "\n")
-								.replace(
-									"-link",
-									`https://live.bilibili.com/${LiveAPIStatus.liveRoomInfo.short_id === 0 ? LiveAPIStatus.liveRoomInfo.room_id : LiveAPIStatus.liveRoomInfo.short_id}`,
-								);
-							// 推送开播通知
-							await this.sendLiveNotifyCard(
-								LiveType.StartBroadcasting,
-								{ fansNum: followerNum },
-								{
-									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
-									masterInfo: LiveAPIStatus.masterInfo,
-									cardStyle: sub.customCardStyle,
-								},
-								uid,
-								liveStartMsg,
-							);
-							// 设置开播状态为true
-							LiveAPIStatus.live = true;
-						}
-
-						if (LiveAPIStatus.live === true) {
-							// 还在直播
-							if (LiveAPIStatus.push < (this.config.pushTime * 60 * 60) / 30) {
-								// push++
-								LiveAPIStatus.push++;
-								// 结束本次循环
-								break;
-							}
-							// 判断是否信息是否获取成功
-							if (
-								!(await useMasterAndLiveRoomInfo(
-									LiveType.LiveBroadcast,
-									LiveAPIStatus,
-								))
-							) {
-								// 未获取成功，直接返回
-								await this.sendPrivateMsg(
-									"获取直播间信息失败，推送直播卡片失败！",
-								);
-								// 停止服务
-								return await this.sendPrivateMsgAndStopService();
-							}
-							// 判断是否需要设置开播时间
-							if (!LiveAPIStatus.liveStartTimeInit) {
-								// 设置开播时间
-								LiveAPIStatus.liveStartTime =
-									LiveAPIStatus.liveRoomInfo.live_time;
-								// 设置开播时间初始化状态
-								LiveAPIStatus.liveStartTimeInit = true;
-							}
-							// 设置直播中消息
-							const liveMsg = liveMsgObj.customLive
-								.replace("-name", LiveAPIStatus.masterInfo.username)
-								.replace(
-									"-time",
-									await this.ctx[
-										"bilibili-notify-generate-img"
-									].getTimeDifference(LiveAPIStatus.liveStartTime),
-								)
-								.replace("-watched", "API模式无法获取")
-								.replaceAll("\\n", "\n")
-								.replace(
-									"-link",
-									`https://live.bilibili.com/${LiveAPIStatus.liveRoomInfo.short_id === 0 ? LiveAPIStatus.liveRoomInfo.room_id : LiveAPIStatus.liveRoomInfo.short_id}`,
-								);
-							// 发送直播通知卡片
-							await this.sendLiveNotifyCard(
-								LiveType.LiveBroadcast,
-								{ watchedNum: "API" },
-								{
-									liveRoomInfo: LiveAPIStatus.liveRoomInfo,
-									masterInfo: LiveAPIStatus.masterInfo,
-									cardStyle: sub.customCardStyle,
-								},
-								uid,
-								liveMsg,
-							);
-							// push归零
-							LiveAPIStatus.push = 0;
-						}
-						// 结束
-						break;
-					}
-					default:
-						break;
-				}
-			}
-		};
-
-		// 返回一个闭包函数
-		return withLock(handler);
 	}
 
 	subShow() {
@@ -3201,7 +2906,7 @@ class ComRegister {
 				sub.roomid = userInfoData.live_room?.roomid;
 			}
 			// 判断是否需要订阅直播
-			if (sub.live && sub.roomid && this.config.liveDetectType === "WS") {
+			if (sub.live && sub.roomid) {
 				// 启动直播监测
 				await this.liveDetectWithListener(sub);
 			}
@@ -3229,17 +2934,6 @@ class ComRegister {
 		}
 	}
 
-	checkIfLiveDetectIsNeeded() {
-		// 判断直播监测类型
-		if (this.config.liveDetectType === "API") {
-			// 检查是否有订阅对象需要直播监测
-			if (this.liveAPIManager.size > 0) {
-				// 启动直播监测
-				this.enableLiveDetect();
-			}
-		}
-	}
-
 	enableDynamicDetect() {
 		// 定义Job
 		this.dynamicJob = new CronJob(
@@ -3252,18 +2946,6 @@ class ComRegister {
 		this.logger.info("动态监测已开启");
 		// 开始动态监测
 		this.dynamicJob.start();
-	}
-
-	async enableLiveDetect() {
-		// 定义Job
-		this.liveAPIJob = new CronJob(
-			"*/30 * * * * *",
-			await this.liveDetectWithAPI(),
-		);
-		// logger
-		this.logger.info("直播监测已开启");
-		// 开始直播监测
-		this.liveAPIJob.start();
 	}
 
 	async checkIfIsLogin() {
@@ -3302,7 +2984,6 @@ namespace ComRegister {
 			masterAccount: string;
 			masterAccountGuildId: string;
 		};
-		liveDetectType: string;
 		wordcloudStopWords: string;
 		liveSummary: Array<string>;
 		restartPush: boolean;
@@ -3328,6 +3009,13 @@ namespace ComRegister {
 			baseURL: string;
 			model: string;
 			persona: string;
+		};
+		customGuardBuy: {
+			enable: boolean;
+			captainImgUrl?: string;
+			supervisorImgUrl?: string;
+			governorImgUrl?: string;
+			guardBuyMsg?: string;
 		};
 	}
 
@@ -3359,7 +3047,6 @@ namespace ComRegister {
 			masterAccount: Schema.string(),
 			masterAccountGuildId: Schema.string(),
 		}),
-		liveDetectType: Schema.string(),
 		wordcloudStopWords: Schema.string(),
 		liveSummary: Schema.array(String),
 		restartPush: Schema.boolean().required(),
@@ -3385,6 +3072,15 @@ namespace ComRegister {
 			baseURL: Schema.string().default("https://api.siliconflow.cn/v1"),
 			model: Schema.string().default("gpt-3.5-turbo"),
 			persona: Schema.string(),
+		}),
+		customGuardBuy: Schema.object({
+			enable: Schema.boolean()
+				.default(false)
+				.description("是否启用自定义舰长购买图片"),
+			captainImgUrl: Schema.string().description("舰长图片链接"),
+			supervisorImgUrl: Schema.string().description("提督图片链接"),
+			governorImgUrl: Schema.string().description("总督图片链接"),
+			guardBuyMsg: Schema.string().description("舰长购买消息"),
 		}),
 	});
 }

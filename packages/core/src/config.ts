@@ -1,11 +1,14 @@
 import { Schema } from "koishi";
 
 export interface BAConfig {
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	require: {};
 	key: string;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	master: {};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	basicSettings: {};
 	userAgent: string;
@@ -16,6 +19,7 @@ export interface BAConfig {
 		model?: string;
 		persona?: string;
 	};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	subTitle: {};
 	advancedSub: boolean;
@@ -33,17 +37,25 @@ export interface BAConfig {
 		platform: string;
 		target: string;
 	}>;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	dynamic: {};
 	dynamicUrl: boolean;
 	dynamicCron: string;
 	dynamicVideoUrlToBV: boolean;
 	pushImgsInDynamic: boolean;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	live: {};
-	liveDetectType: "WS" | "API";
 	wordcloudStopWords: string;
 	liveSummary: Array<string>;
+	customGuardBuy: {
+		enable: boolean;
+		guardBuyMsg?: string;
+		captainImgUrl?: string;
+		supervisorImgUrl?: string;
+		governorImgUrl?: string;
+	};
 	restartPush: boolean;
 	pushTime: number;
 	customLiveStart: string;
@@ -51,6 +63,7 @@ export interface BAConfig {
 	customLiveEnd: string;
 	followerDisplay: boolean;
 	hideDesc: boolean;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	style: {};
 	removeBorder: boolean;
@@ -60,8 +73,10 @@ export interface BAConfig {
 	cardBasePlateBorder: string;
 	enableLargeFont: boolean;
 	font: string;
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	filter: {};
+	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	debug: {};
 	dynamicDebugMode: boolean;
@@ -83,7 +98,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			enable: Schema.boolean()
 				.default(false)
 				.description(
-					"是否开启主人账号功能，如果您的机器人没有私聊权限请不要开启此功能。开启后如果机器人运行错误会向您进行报告",
+					"是否开启主人账号功能，开启后如果机器人运行错误会向您进行报告。如果您的机器人没有私聊权限请不要开启此功能",
 				),
 		}).description("主人账号"),
 		Schema.union([
@@ -124,9 +139,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	ai: Schema.intersect([
 		Schema.object({
-			enable: Schema.boolean()
-				.default(false)
-				.description("是否开启AI功能"),
+			enable: Schema.boolean().default(false).description("是否开启AI功能"),
 		}),
 		Schema.union([
 			Schema.object({
@@ -157,12 +170,12 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	subs: Schema.array(
 		Schema.object({
-			name: Schema.string().required().description("备注"),
+			name: Schema.string().required().description("UP昵称"),
 			uid: Schema.string().required().description("UID和roomid"),
 			dynamic: Schema.boolean().default(true).description("动态"),
-			dynamicAtAll: Schema.boolean().default(false).description("动态At全体"),
+			dynamicAtAll: Schema.boolean().default(false).description("动态@全体"),
 			live: Schema.boolean().default(true).description("直播"),
-			liveAtAll: Schema.boolean().default(true).description("直播At全体"),
+			liveAtAll: Schema.boolean().default(true).description("直播@全体"),
 			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
 			superchat: Schema.boolean().default(false).description("SC消息"),
 			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
@@ -173,7 +186,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	)
 		.role("table")
 		.description(
-			"输入订阅信息，自定义订阅内容； UID和roomid，如果经常在初始化插件遇到风控问题，请补充直播间房间号，使用英文逗号分隔例如,1234567,114514 群号/频道号格式：频道号,频道号 使用英文逗号分隔，例如 1234567,2345678",
+			"请在这里填写订阅信息；UP昵称是必填项，影响通知时显示的UP主昵称；UID和roomid，请填写订阅用户的UID，如果经常在初始化插件遇到风控问题，请补充直播间房间号，使用英文逗号分隔例如：1234567,114514；平台名，请填写adapter-xxxx中的xxxx，例如你的机器人使用的是adapter-onebot就填写onebot；群号/频道号，直接填写即可，如果有多个群聊或频道请使用英文逗号分隔，例如：1234567,2345678",
 		),
 
 	dynamic: Schema.object({}).description("动态推送设置"),
@@ -202,26 +215,9 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 
 	live: Schema.object({}).description("直播推送设置"),
 
-	liveDetectType: Schema.union([
-		Schema.const("WS").description(
-			"使用WebSocket连接到B站消息服务器进行直播检测，推荐使用",
-		),
-		Schema.const("API")
-			.description(
-				"通过轮询API发送请求监测直播状态，此模式理论可无限订阅，但容易产生其他问题，功能没有WS模式全面",
-			)
-			.experimental(),
-	])
-		.role("radio")
-		.default("WS")
-		.description(
-			"直播检测方式，WS为连接到B站消息服务器，API为通过轮询发送请求监测，默认使用WS检测",
-		),
-
-	wordcloudStopWords: Schema.string()
-		.description(
-			"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
-		),
+	wordcloudStopWords: Schema.string().description(
+		"词云生成时的停用词，多个停用词请使用英文逗号分隔，例如：哔哩哔哩,弹幕,直播,词云",
+	),
 
 	liveSummary: Schema.array(String)
 		.default([
@@ -240,6 +236,41 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		.description(
 			"自定义直播总结语，开启弹幕词云自动发送。变量解释：-dmc代表总弹幕发送人数，-mdn代表主播粉丝牌子名，-dca代表总弹幕数，-un1到-un5代表弹幕发送条数前五名用户的用户名，-dc1到-dc5代表弹幕发送条数前五名的弹幕发送数量，数组每一行代表换行",
 		),
+
+	customGuardBuy: Schema.intersect([
+		Schema.object({
+			enable: Schema.boolean()
+				.default(false)
+				.description("是否开启自定义上舰消息功能")
+				.experimental(),
+		}),
+		Schema.union([
+			Schema.object({
+				enable: Schema.const(true).required(),
+				guardBuyMsg: Schema.string()
+					.default("【-mname的直播间】-uname加入了大航海（-guard）")
+					.description(
+						"自定义上舰消息，-uname代表用户昵称，-muname代表主播昵称，-guard代表舰长类型",
+					),
+				captainImgUrl: Schema.string()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/captain-Bjw5Byb5.png",
+					)
+					.description("舰长图片链接"),
+				supervisorImgUrl: Schema.string()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/supervisor-u43ElIjU.png",
+					)
+					.description("提督图片链接"),
+				governorImgUrl: Schema.string()
+					.default(
+						"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
+					)
+					.description("总督图片链接"),
+			}),
+			Schema.object({}) as Schema<Partial<BAConfig>>,
+		]),
+	]),
 
 	restartPush: Schema.boolean()
 		.default(true)
