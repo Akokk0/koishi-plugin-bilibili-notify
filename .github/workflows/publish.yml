@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "monorepo"
-      - "monorepo-dev"
     paths:
       - "packages/**/package.json"
 
@@ -35,7 +34,6 @@ jobs:
           CURRENT_VERSION=$(jq -r '.version' "$PKG")
           echo "Current version: $CURRENT_VERSION"
 
-          # 找到上一个 commit 的版本号
           PREVIOUS_VERSION=$(git show HEAD^:"$PKG" 2>/dev/null | jq -r '.version' || echo "")
           echo "Previous version: $PREVIOUS_VERSION"
 
@@ -70,6 +68,11 @@ jobs:
         if: steps.check_version.outputs.publish == 'true'
         working-directory: packages/${{ matrix.package }}
         run: yarn build
+
+      - name: Build client for core
+        if: steps.check_version.outputs.publish == 'true' && matrix.package == 'core'
+        working-directory: packages/${{ matrix.package }}
+        run: yarn client
 
       - name: Publish
         if: steps.check_version.outputs.publish == 'true'

@@ -25,7 +25,8 @@
     "bilibili-notify"
   ],
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "client": "yakumo build"
   },
   "dependencies": {
     "@node-rs/jieba": "^2.0.1",
@@ -50,7 +51,8 @@
     "@types/qrcode": "^1.5.6",
     "@types/tough-cookie": "^4.0.5",
     "koishi-plugin-puppeteer": "^3.9.0",
-    "tsdown": "^0.16.6"
+    "tsdown": "^0.16.8",
+    "yakumo": "^1.0.0-beta.21"
   },
   "peerDependencies": {
     "@koishijs/plugin-console": "^5.30.11",
