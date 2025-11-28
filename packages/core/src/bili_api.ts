@@ -10,12 +10,13 @@ import { JSDOM } from "jsdom";
 import { CookieJar, Cookie } from "tough-cookie";
 import type { Notifier } from "@koishijs/plugin-notifier";
 
-import type {
-	BACookie,
-	BiliTicket,
-	LiveRoomInfo,
-	V_VoucherCaptchaData,
-	ValidateCaptchaData,
+import {
+	BiliLoginStatus,
+	type BACookie,
+	type BiliTicket,
+	type LiveRoomInfo,
+	type V_VoucherCaptchaData,
+	type ValidateCaptchaData,
 } from "./type";
 import { CronJob } from "cron";
 import OpenAI from "openai";
@@ -56,6 +57,7 @@ const GET_MASTER_INFO =
 	"https://api.live.bilibili.com/live_user/v1/Master/info";
 const GET_TIME_NOW = "https://api.bilibili.com/x/report/click/now";
 const GET_SERVER_UTC_TIME = "https://interface.bilibili.com/serverdate.js";
+const GET_USER_CARD_INFO = "https://api.bilibili.com/x/web-interface/card";
 
 // 最近更新UP
 const GET_LATEST_UPDATED_UPS =
@@ -733,6 +735,43 @@ class BiliAPI extends Service {
 		});
 	}
 
+	async getUserCardInfo(mid: string, photo?: boolean) {
+		const run = async () => {
+			// 拼接字符串
+			let url = `${GET_USER_CARD_INFO}?mid=${mid}`;
+			if (photo) {
+				url += "&photo=true";
+			}
+			// 发送请求
+			const { data } = await this.client.get(url);
+			return data;
+		};
+		return await this.pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
+	async getCORSContent(url: string) {
+		const run = async () => {
+			// 发送请求
+			const { data } = await this.client.get(url);
+			return data;
+		};
+		return await this.pRetry(run, {
+			onFailedAttempt: (error) => {
+				this.logger.error(
+					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+				);
+			},
+			retries: 3,
+		});
+	}
+
 	async chatWithAI(content: string) {
 		return await this.aiClient.chat.completions.create({
 			model: this.apiConfig.ai.model,
@@ -886,11 +925,10 @@ class BiliAPI extends Service {
 		const data = (await this.ctx.database.get("loginBili", 1))[0];
 		// 判断是否登录
 		if (data === undefined) {
-			// 没有数据则直接返回
-			// 未登录，在控制台提示
-			this.loginNotifier = this.ctx.notifier.create({
-				type: "warning",
-				content: "您尚未登录，将无法使用插件提供的指令",
+			// 没有数据，向DataServer进行报告
+			this.ctx.emit("bilibili-notify/login-status-report", {
+				status: BiliLoginStatus.NOT_LOGIN,
+				msg: "您尚未登录，请登录后使用插件",
 			});
 			// 返回空值
 			return {
@@ -913,9 +951,9 @@ class BiliAPI extends Service {
 			};
 		} catch (_) {
 			// 数据库被篡改，在控制台提示
-			this.loginNotifier = this.ctx.notifier.create({
-				type: "warning",
-				content: "数据库被篡改，请重新登录",
+			this.ctx.emit("bilibili-notify/login-status-report", {
+				status: BiliLoginStatus.NOT_LOGIN,
+				msg: "数据库被篡改，请重新登录",
 			});
 			// 解密或解析失败，删除数据库登录信息
 			await this.ctx.database.remove("loginBili", [1]);
@@ -1029,6 +1067,8 @@ class BiliAPI extends Service {
 			const csrf = cookies.find((cookie) => {
 				// 判断key是否为bili_jct
 				if (cookie.key === "bili_jct") return true;
+				// 没有返回false
+				return false;
 			}).value;
 			// 检查是否需要更新
 			this.checkIfTokenNeedRefresh(refresh_token, csrf);
@@ -1038,11 +1078,6 @@ class BiliAPI extends Service {
 	async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times = 3) {
 		// 定义方法
 		const notifyAndError = async (info: string) => {
-			// 设置控制台通知
-			this.loginNotifier = this.ctx.notifier.create({
-				type: "warning",
-				content: info,
-			});
 			// 重置为未登录状态
 			await this.createNewClient();
 			// 关闭定时器
@@ -1145,6 +1180,8 @@ class BiliAPI extends Service {
 		// Get new csrf from cookies
 		const newCsrf: string = this.jar.serializeSync().cookies.find((cookie) => {
 			if (cookie.key === "bili_jct") return true;
+			// 没有返回false
+			return false;
 		}).value;
 		// Accept update
 		const { data: aceeptData } = await this.client.post(

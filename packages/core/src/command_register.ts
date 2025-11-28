@@ -1,5 +1,5 @@
 // Koishi核心依赖
-// biome-ignore assist/source/organizeImports: <import>
+// biome-ignore assist/source/organizeImports: <import type>
 import {
 	type Bot,
 	type Context,
@@ -43,6 +43,9 @@ import {
 	type LiveRoomInfo,
 	type LiveData,
 	type UserInfoInLiveData,
+	BiliLoginStatus,
+	type MySelfInfoData,
+	type UserCardInfoData,
 } from "./type";
 import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
@@ -166,104 +169,6 @@ class ComRegister {
 		});
 
 		biliCom
-			.subcommand(".login", "登录B站之后才可以进行之后的操作")
-			.usage("使用二维码登录，登录B站之后才可以进行之后的操作")
-			.example("bili login")
-			.action(async ({ session }) => {
-				this.logger.info("调用bili login指令");
-				// 获取二维码
-				// biome-ignore lint/suspicious/noExplicitAny: <any>
-				let content: any;
-				try {
-					content = await ctx["bilibili-notify-api"].getLoginQRCode();
-				} catch (_) {
-					return "bili login getLoginQRCode() 本次网络请求失败";
-				}
-				// 判断是否出问题
-				if (content.code !== 0) return await session.send("出问题咯！");
-				// 生成二维码
-				QRCode.toBuffer(
-					content.data.url,
-					{
-						errorCorrectionLevel: "H", // 错误更正水平
-						type: "png", // 输出类型
-						margin: 1, // 边距大小
-						color: {
-							dark: "#000000", // 二维码颜色
-							light: "#FFFFFF", // 背景颜色
-						},
-					},
-					async (err, buffer) => {
-						if (err) return await session.send("二维码生成出错，请重新尝试");
-						await session.send(h.image(buffer, "image/jpeg"));
-					},
-				);
-				// 检查之前是否存在登录定时器
-				if (this.loginTimer) this.loginTimer();
-				// 设置flag
-				let flag = true;
-				// 发起登录请求检查登录状态
-				this.loginTimer = ctx.setInterval(async () => {
-					try {
-						// 判断上一个循环是否完成
-						if (!flag) return;
-						flag = false;
-						// 获取登录信息
-						// biome-ignore lint/suspicious/noExplicitAny: <any>
-						let loginContent: any;
-						try {
-							loginContent = await ctx["bilibili-notify-api"].getLoginStatus(
-								content.data.qrcode_key,
-							);
-						} catch (e) {
-							this.logger.error(e);
-							return;
-						}
-						if (loginContent.code !== 0) {
-							this.loginTimer();
-							return await session.send("登录失败请重试");
-						}
-						if (loginContent.data.code === 86038) {
-							this.loginTimer();
-							return await session.send("二维码已失效，请重新登录");
-						}
-						if (loginContent.data.code === 0) {
-							// 登录成功
-							const encryptedCookies = ctx["bilibili-notify-api"].encrypt(
-								ctx["bilibili-notify-api"].getCookies(),
-							);
-							const encryptedRefreshToken = ctx["bilibili-notify-api"].encrypt(
-								loginContent.data.refresh_token,
-							);
-							await ctx.database.upsert("loginBili", [
-								{
-									id: 1,
-									bili_cookies: encryptedCookies,
-									bili_refresh_token: encryptedRefreshToken,
-								},
-							]);
-							// 检查登录数据库是否有数据
-							this.loginDBData = (
-								await this.ctx.database.get("loginBili", 1)
-							)[0];
-							// ba重新加载登录信息
-							await this.ctx["bilibili-notify-api"].loadCookiesFromDatabase();
-							// 判断登录信息是否已加载完毕
-							await this.checkIfLoginInfoIsLoaded();
-							// 销毁定时器
-							this.loginTimer();
-							// 清除控制台通知
-							ctx["bilibili-notify-api"].disposeNotifier();
-							// 发送成功登录推送
-							await session.send("登录成功，请重启插件");
-						}
-					} finally {
-						flag = true;
-					}
-				}, 1000);
-			});
-
-		biliCom
 			.subcommand(".list", "展示订阅对象")
 			.usage("展示订阅对象")
 			.example("bili list")
@@ -322,7 +227,7 @@ class ComRegister {
 						}
 						// 判断是否未开播
 						subLiveUsers.push({
-							uid: Number.parseInt(uid),
+							uid: Number.parseInt(uid, 10),
 							uname: sub.uname,
 							onLive,
 						});
@@ -654,6 +559,8 @@ class ComRegister {
 		this.logger.info("初始化插件中...");
 		// 将config设置给类属性
 		this.config = config;
+		// 注册事件
+		this.registeringForEvents();
 		// 拿到私人机器人实例
 		this.privateBot = this.ctx.bots.find(
 			(bot) => bot.platform === config.master.platform,
@@ -675,12 +582,33 @@ class ComRegister {
 			this.logger.info("账号未登录，请登录");
 			return;
 		}
+		// 已登录，请求个人信息
+		const personalInfo = (await this.ctx[
+			"bilibili-notify-api"
+		].getMyselfInfo()) as MySelfInfoData;
+		// 判断是否获取成功
+		if (personalInfo.code !== 0) {
+			// 发送事件消息
+			this.ctx.emit("bilibili-notify/login-status-report", {
+				status: BiliLoginStatus.LOGGED_IN,
+				msg: "已登录，但获取个人信息失败",
+			});
+		}
+		// 获取个人卡片信息
+		const myCardInfo = (await this.ctx["bilibili-notify-api"].getUserCardInfo(
+			personalInfo.data.mid.toString(),
+			true,
+		)) as UserCardInfoData;
+		// 发送事件消息
+		this.ctx.emit("bilibili-notify/login-status-report", {
+			status: BiliLoginStatus.LOGGED_IN,
+			msg: "已登录",
+			data: myCardInfo.data
+		});
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
 		// 初始化管理器
 		this.initAllManager();
-		// 注册事件
-		this.registeringForEvents();
 		// 判断是否是高级订阅
 		if (config.advancedSub) {
 			// logger
@@ -699,6 +627,151 @@ class ComRegister {
 	}
 
 	registeringForEvents() {
+		// 监听登录事件
+		this.ctx.console.addListener("bilibili-notify/start-login", async () => {
+			this.logger.info("调用bili login指令");
+			// 获取二维码
+			// biome-ignore lint/suspicious/noExplicitAny: <any>
+			let content: any;
+			try {
+				content = await this.ctx["bilibili-notify-api"].getLoginQRCode();
+			} catch (_) {
+				return "bili login getLoginQRCode() 本次网络请求失败";
+			}
+			// 判断是否出问题
+			if (content.code !== 0)
+				return this.ctx.emit("bilibili-notify/login-status-report", {
+					status: BiliLoginStatus.LOGIN_FAILED,
+					msg: "获取二维码失败",
+				});
+			// 生成二维码
+			QRCode.toBuffer(
+				content.data.url,
+				{
+					errorCorrectionLevel: "H", // 错误更正水平
+					type: "png", // 输出类型
+					margin: 1, // 边距大小
+					color: {
+						dark: "#000000", // 二维码颜色
+						light: "#FFFFFF", // 背景颜色
+					},
+				},
+				async (err, buffer) => {
+					if (err) {
+						this.logger.error("生成二维码失败", err);
+						return this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGIN_FAILED,
+							msg: "生成二维码失败",
+						});
+					}
+					// 转换为base64
+					const base64 = Buffer.from(buffer).toString("base64");
+					const url = 'data:image/png;base64,' + base64
+					// 发送二维码
+					this.ctx.emit("bilibili-notify/login-status-report", {
+						status: BiliLoginStatus.LOGIN_QR,
+						msg: "请使用Bilibili App扫码登录",
+						data: url,
+					});
+				},
+			);
+			// 检查之前是否存在登录定时器
+			if (this.loginTimer) this.loginTimer();
+			// 设置flag
+			let flag = true;
+			// 发起登录请求检查登录状态
+			this.loginTimer = this.ctx.setInterval(async () => {
+				try {
+					// 判断上一个循环是否完成
+					if (!flag) return;
+					flag = false;
+					// 获取登录信息
+					// biome-ignore lint/suspicious/noExplicitAny: <any>
+					let loginContent: any;
+					try {
+						loginContent = await this.ctx["bilibili-notify-api"].getLoginStatus(
+							content.data.qrcode_key,
+						);
+					} catch (e) {
+						this.logger.error(e);
+						return;
+					}
+					if (loginContent.data.code === 86101) {
+						return this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGGING_QR,
+							msg: "未扫码",
+						});
+					}
+					if (loginContent.data.code === 86090) {
+						return this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGGING_QR,
+							msg: "二维码已扫码未确认",
+						});
+					}
+					if (loginContent.data.code === 86038) {
+						this.loginTimer();
+						return this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGIN_FAILED,
+							msg: "二维码已失效，请重新登录",
+						});
+					}
+					if (loginContent.data.code === 0) {
+						// 登录成功
+						const encryptedCookies = this.ctx["bilibili-notify-api"].encrypt(
+							this.ctx["bilibili-notify-api"].getCookies(),
+						);
+						const encryptedRefreshToken = this.ctx[
+							"bilibili-notify-api"
+						].encrypt(loginContent.data.refresh_token);
+						await this.ctx.database.upsert("loginBili", [
+							{
+								id: 1,
+								bili_cookies: encryptedCookies,
+								bili_refresh_token: encryptedRefreshToken,
+							},
+						]);
+						// 检查登录数据库是否有数据
+						this.loginDBData = (await this.ctx.database.get("loginBili", 1))[0];
+						// ba重新加载登录信息
+						await this.ctx["bilibili-notify-api"].loadCookiesFromDatabase();
+						// 判断登录信息是否已加载完毕
+						await this.checkIfLoginInfoIsLoaded();
+						// 销毁定时器
+						this.loginTimer();
+						// 清除控制台通知
+						this.ctx["bilibili-notify-api"].disposeNotifier();
+						// 发送登录成功通知
+						this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGIN_SUCCESS,
+							msg: "已登录，请点击按钮重启插件(5s后自动重启)",
+						});
+						// 重启插件
+						await this.ctx["bilibili-notify"].restartPlugin()
+					}
+					if (loginContent.code !== 0) {
+						this.loginTimer();
+						// 登录失败请重试
+						return this.ctx.emit("bilibili-notify/login-status-report", {
+							status: BiliLoginStatus.LOGIN_FAILED,
+							msg: "登录失败，请重试",
+						});
+					}
+				} finally {
+					flag = true;
+				}
+			}, 1000);
+		});
+		// 监听插件重启事件
+		this.ctx.console.addListener("bilibili-notify/restart-plugin", async () => {
+			await this.ctx["bilibili-notify"].restartPlugin()
+		})
+		// 监听CORS请求事件
+		this.ctx.console.addListener("bilibili-notify/request-cors", async (url) => {
+			const res = await fetch(url);
+			const buffer = await res.arrayBuffer();
+			const base64 = Buffer.from(buffer).toString("base64");
+			return 'data:image/png;base64,' + base64
+		})
 		// 注册插件销毁函数
 		this.ctx.on("dispose", () => {
 			// 销毁登录定时器
@@ -1672,9 +1745,7 @@ class ComRegister {
 					const timeline = this.dynamicTimelineManager.get(uid);
 					// logger
 					this.logger.info(
-						`上次推送时间线：${DateTime.fromSeconds(timeline).toFormat(
-							"yyyy-MM-dd HH:mm:ss",
-						)}`,
+						`上次推送时间线：${DateTime.fromSeconds(timeline).toFormat("yyyy-MM-dd HH:mm:ss")}`,
 					);
 					// 判断动态发布时间是否大于时间线
 					if (timeline < postTime) {
@@ -1951,8 +2022,7 @@ class ComRegister {
 		this._jieba
 			.cut(danmaku, true)
 			.filter((word) => word.length >= 2 && !this.stopwords.has(word))
-			.map((w) => {
-				// 定义权重
+			.forEach((w) => {
 				danmakuWeightRecord[w] = (danmakuWeightRecord[w] || 0) + 1;
 			});
 	}
@@ -2107,12 +2177,12 @@ class ComRegister {
 				PushType.WordCloudAndLiveSummary,
 			);
 			// 清理弹幕数据
-			Object.keys(danmakuWeightRecord).forEach(
-				(key) => delete danmakuWeightRecord[key],
-			);
-			Object.keys(danmakuSenderRecord).forEach(
-				(key) => delete danmakuSenderRecord[key],
-			);
+			Object.keys(danmakuWeightRecord).forEach((key) => {
+				delete danmakuWeightRecord[key];
+			});
+			Object.keys(danmakuSenderRecord).forEach((key) => {
+				delete danmakuSenderRecord[key];
+			});
 		};
 
 		// 定义定时推送函数

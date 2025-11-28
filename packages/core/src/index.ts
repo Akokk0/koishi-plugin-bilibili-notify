@@ -3,20 +3,24 @@ import { type Context, type ForkScope, type Schema, Service } from "koishi";
 import { type BAConfig, BAConfigSchema } from "./config";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-notifier";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
+import {} from "@koishijs/plugin-console";
+import { resolve } from "node:path";
 // import plugins
+import BilibiliNotifyDataServer from "./data_server";
 import ComRegister from "./command_register";
 import * as Database from "./database";
 // import Service
 import GenerateImg from "./generate_img";
 import BiliAPI from "./bili_api";
 import BLive from "./bili_live";
-import type { Subscriptions } from "./type";
+import type { BiliDataServer, Subscriptions } from "./type";
 
-export const inject = ["puppeteer", "database", "notifier"];
+export const inject = ["puppeteer", "database", "notifier", "console"];
 
 export const name = "bilibili-notify";
 
-export const usage = /* html */`
+export const usage = /* html */ `
 <h1>Bilibili-Notify</h1>
 <p>使用问题请加群咨询 801338523</p>
 
@@ -32,7 +36,7 @@ export const usage = /* html */`
 - 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
 
 ---
-`
+`;
 
 let globalConfig: BAConfig;
 
@@ -44,6 +48,21 @@ declare module "koishi" {
 	interface Events {
 		"bilibili-notify/advanced-sub"(subs: Subscriptions): void;
 		"bilibili-notify/ready-to-recive"(): void;
+		"bilibili-notify/login-status-report"(data: BiliDataServer): void;
+	}
+}
+
+declare module "@koishijs/plugin-console" {
+	namespace Console {
+		interface Services {
+			"bilibili-notify": BilibiliNotifyDataServer;
+		}
+	}
+
+	interface Events {
+		"bilibili-notify/start-login"(): void;
+		"bilibili-notify/restart-plugin"(): void;
+		"bilibili-notify/request-cors"(url: string): any;
 	}
 }
 
@@ -215,6 +234,13 @@ export function apply(ctx: Context, config: BAConfig) {
 	ctx.plugin(Database);
 	// Register ServerManager
 	ctx.plugin(ServerManager);
+	// load DataServer
+	ctx.plugin(BilibiliNotifyDataServer);
+	// 添加控制台
+	ctx.console.addEntry({
+		dev: resolve(__dirname, "../client/index.ts"),
+		prod: resolve(__dirname, "../dist"),
+	});
 	// 当用户输入“恶魔兔，启动！”时，执行 help 指令
 	ctx.middleware((session, next) => {
 		if (session.content === "恶魔兔，启动！") {
