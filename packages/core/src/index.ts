@@ -62,6 +62,7 @@ declare module "@koishijs/plugin-console" {
 	interface Events {
 		"bilibili-notify/start-login"(): void;
 		"bilibili-notify/restart-plugin"(): void;
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		"bilibili-notify/request-cors"(url: string): any;
 	}
 }

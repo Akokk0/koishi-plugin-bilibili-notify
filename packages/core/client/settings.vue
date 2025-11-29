@@ -11,9 +11,14 @@
     </k-comment>
 
     <k-comment v-if="status === 'logging_qr'" type="warning">
-        <div class="comment">
-            <img class="qrcode" :src="qrcodeImg" alt="qrcode">
+        <div v-if="qrcodeImg" class="comment">
+            <p>请使用Bilibili App扫码登录</p>
+            <img class="qrcode" :src="qrcodeImg" alt="qrcode"></img>
             <p>{{ dataServer.msg }}</p>
+        </div>
+        <div v-if="!qrcodeImg" class="comment">
+            <p>二维码显示失败，请重新登录</p>
+            <k-button @click="login">重新登录</k-button>
         </div>
     </k-comment>
 
@@ -31,7 +36,7 @@
         </div>
     </k-comment>
 
-    <div class="logged-in" v-if="status === 'logged_in'">
+    <div class="logged-in" v-if="status === 'logged_in' && isLoaded">
         <div class="user-bg-wrapper">
             <img class="user-bg" :src="userBGImg" alt="user-bg"></img>
         </div>
@@ -176,6 +181,8 @@ const vipImg = ref("")
 const qrcodeImg = ref("")
 const dataServer = ref({} as { status: BiliLoginStatus, msg: string, data: any })
 
+const isLoaded = ref(false)
+
 const status = computed(() => {
     // 防止其他页面出现该内容
     if (local.value.name !== "koishi-plugin-bilibili-notify") return
@@ -200,6 +207,8 @@ const status = computed(() => {
                 await send("bilibili-notify/request-cors" as any, data.card.vip.label.img_label_uri_hans_static).then(async v => {
                     vipImg.value = v
                 })
+                // 数据请求完毕，可以显示页面
+                isLoaded.value = true
             }
             requestCORS()
             return "logged_in"

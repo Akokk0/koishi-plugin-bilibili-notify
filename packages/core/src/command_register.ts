@@ -603,7 +603,7 @@ class ComRegister {
 		this.ctx.emit("bilibili-notify/login-status-report", {
 			status: BiliLoginStatus.LOGGED_IN,
 			msg: "已登录",
-			data: myCardInfo.data
+			data: myCardInfo.data,
 		});
 		// 合并停用词
 		this.mergeStopWords(config.wordcloudStopWords);
@@ -666,11 +666,11 @@ class ComRegister {
 					}
 					// 转换为base64
 					const base64 = Buffer.from(buffer).toString("base64");
-					const url = 'data:image/png;base64,' + base64
+					const url = `data:image/png;base64,${base64}`;
 					// 发送二维码
 					this.ctx.emit("bilibili-notify/login-status-report", {
 						status: BiliLoginStatus.LOGIN_QR,
-						msg: "请使用Bilibili App扫码登录",
+						msg: "",
 						data: url,
 					});
 				},
@@ -746,7 +746,7 @@ class ComRegister {
 							msg: "已登录，请点击按钮重启插件(5s后自动重启)",
 						});
 						// 重启插件
-						await this.ctx["bilibili-notify"].restartPlugin()
+						await this.ctx["bilibili-notify"].restartPlugin();
 					}
 					if (loginContent.code !== 0) {
 						this.loginTimer();
@@ -763,15 +763,18 @@ class ComRegister {
 		});
 		// 监听插件重启事件
 		this.ctx.console.addListener("bilibili-notify/restart-plugin", async () => {
-			await this.ctx["bilibili-notify"].restartPlugin()
-		})
+			await this.ctx["bilibili-notify"].restartPlugin();
+		});
 		// 监听CORS请求事件
-		this.ctx.console.addListener("bilibili-notify/request-cors", async (url) => {
-			const res = await fetch(url);
-			const buffer = await res.arrayBuffer();
-			const base64 = Buffer.from(buffer).toString("base64");
-			return 'data:image/png;base64,' + base64
-		})
+		this.ctx.console.addListener(
+			"bilibili-notify/request-cors",
+			async (url) => {
+				const res = await fetch(url);
+				const buffer = await res.arrayBuffer();
+				const base64 = Buffer.from(buffer).toString("base64");
+				return `data:image/png;base64,${base64}`;
+			},
+		);
 		// 注册插件销毁函数
 		this.ctx.on("dispose", () => {
 			// 销毁登录定时器
