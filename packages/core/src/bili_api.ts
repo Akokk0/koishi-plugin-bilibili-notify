@@ -173,7 +173,9 @@ class BiliAPI extends Service {
 			);
 		} catch (e) {
 			// 如果获取失败则在控制台输出错误
-			this.logger.error(`更新BiliTicket失败: ${e.message}`);
+			this.logger.error(
+				`主人呜呜 (；>_<) 女仆更新 BiliTicket 失败啦～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+			);
 		}
 	}
 
@@ -257,7 +259,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getTheUserWhoIsLiveStreaming() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getTheUserWhoIsLiveStreaming() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`,
 				);
 			},
 			retries: 3,
@@ -276,7 +278,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getLiveRoomInfoStreamKey() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getLiveRoomInfoStreamKey() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`,
 				);
 			},
 			retries: 3,
@@ -297,7 +299,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getLiveRoomInfoByUids() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getLiveRoomInfoByUids() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`,
 				);
 			},
 			retries: 3,
@@ -318,7 +320,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getServerUTCTime() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getServerUTCTime() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -333,7 +335,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getTimeNow() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getTimeNow() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -348,7 +350,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getAllGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getAllGroup() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`,
 				);
 			},
 			retries: 3,
@@ -378,7 +380,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`removeUserFromGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 removeUserFromGroup() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -408,7 +410,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`copyUserToGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 copyUserToGroup() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -425,7 +427,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getUserSpaceDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getUserSpaceDynamic() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -451,7 +453,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`createGroup() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 createGroup() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -466,7 +468,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getAllDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getAllDynamic() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -483,7 +485,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`hasNewDynamic() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 hasNewDynamic()时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -511,7 +513,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`follow() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 follow() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -528,7 +530,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getRelationGroupDetail() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getRelationGroupDetail() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -549,7 +551,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getCookieInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getCookieInfo() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -578,7 +580,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getUserInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getUserInfo() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -610,7 +612,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getWbiKeys() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getWbiKeys() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -625,7 +627,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getMyselfInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getMyselfInfo() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -640,7 +642,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getLoginQRCode() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getLoginQRCode() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -657,7 +659,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getLoginStatus() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getLoginStatus() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -674,7 +676,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getLiveRoomInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getLiveRoomInfo() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -689,7 +691,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getMasterInfo() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getMasterInfo() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -711,7 +713,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getOnlineGoldRank() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getOnlineGoldRank() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -728,7 +730,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getUserInfoInLive() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -749,7 +751,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getUserInfoInLive() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -765,7 +767,7 @@ class BiliAPI extends Service {
 		return await this.pRetry(run, {
 			onFailedAttempt: (error) => {
 				this.logger.error(
-					`getUserInfoInLive() 第${error.attemptNumber}次失败: ${error.message}`,
+					`主人呜呜 (；>_<) 女仆在执行 getUserInfoInLive() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`
 				);
 			},
 			retries: 3,
@@ -875,7 +877,7 @@ class BiliAPI extends Service {
 				apiKey: this.apiConfig.ai.apiKey,
 			});
 
-			this.logger.info("AI客户端创建成功");
+			this.logger.info("主人～女仆的 AI 客户端创建成功啦～乖乖准备好为主人服务呢 (>ω<)♡");
 		}
 	}
 
@@ -1233,7 +1235,7 @@ class BiliAPI extends Service {
 			})) as { data: V_VoucherCaptchaData };
 		// 判断是否成功
 		if (data.code !== 0) {
-			this.logger.error("验证码获取失败！");
+			this.logger.error("主人呜呜 (；>_<) 女仆获取验证码失败啦，请主人再试一次呀 (>ω<)♡");
 		}
 		return { data: data.data };
 	}
@@ -1264,7 +1266,7 @@ class BiliAPI extends Service {
 		// 判断是否验证成功
 		if (data.code !== 0) {
 			this.logger.info(
-				`验证失败：错误码=${data.code}，错误消息:${data.message}`,
+				`主人呜呜 (；>_<) 验证失败啦～错误码=${data.code}，错误消息:${data.message}，请主人帮女仆看看呀 (>ω<)♡`,
 			);
 			return { data: null };
 		}
