@@ -7,20 +7,6 @@ export interface BAConfig {
 	key: string;
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
-	master: {};
-	// TODO: improve type
-	// biome-ignore lint/complexity/noBannedTypes: <obj>
-	basicSettings: {};
-	userAgent: string;
-	ai: {
-		enable: boolean;
-		apiKey?: string;
-		baseURL?: string;
-		model?: string;
-		persona?: string;
-	};
-	// TODO: improve type
-	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	subTitle: {};
 	advancedSub: boolean;
 	subs: Array<{
@@ -37,6 +23,20 @@ export interface BAConfig {
 		platform: string;
 		target: string;
 	}>;
+	// TODO: improve type
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
+	basicSettings: {};
+	userAgent: string;
+	ai: {
+		enable: boolean;
+		apiKey?: string;
+		baseURL?: string;
+		model?: string;
+		persona?: string;
+	};
+	// TODO: improve type
+	// biome-ignore lint/complexity/noBannedTypes: <obj>
+	master: {};
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	dynamic: {};
@@ -95,45 +95,36 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			"请主人输入一个 32 位的小写十六进制密钥喔 ( >﹏< )这个密钥会用来把主人的 B 站登录信息安全保存到数据库里～请一定一定要好好保管，不然忘掉了就要重新登录了啦 (；´д｀)ゞ主人也可以去这个网站生成密钥：https://www.sexauth.com/",
 		),
 
-	master: Schema.intersect([
+	subTitle: Schema.object({}).description(
+		"订阅相关的配置都在这里～主人要订阅什么，女仆都负责帮您记好 (｡>﹏<｡)！",
+	),
+
+	advancedSub: Schema.boolean()
+		.default(false)
+		.description(
+			"这个开关决定是否使用高级订阅功能喔～如果主人想要超级灵活的订阅内容，就请开启并安装 bilibili-notify-advanced-subscription 呀 (๑•̀ㅂ•́)و♡",
+		),
+
+	subs: Schema.array(
 		Schema.object({
-			enable: Schema.boolean()
-				.default(false)
-				.description(
-					"要不要让笨笨女仆开启主人账号功能呢？(>﹏<)如果机器人遭遇了奇怪的小错误，女仆会立刻跑来向主人报告的！不、不过……如果没有私聊权限的话，女仆就联系不到主人了……请不要打开这个开关喔 (；´д｀)ゞ",
-				),
-		}).description("主人账号"),
-		Schema.union([
-			Schema.object({
-				enable: Schema.const(true).required(),
-				platform: Schema.union([
-					"qq",
-					"qqguild",
-					"onebot",
-					"discord",
-					"red",
-					"telegram",
-					"satori",
-					"chronocat",
-					"lark",
-				]).description(
-					"主人想让女仆在哪个平台伺候您呢？请从这里选一个吧～(〃´-`〃)♡女仆会乖乖待在主人选的地方哒！",
-				),
-				masterAccount: Schema.string()
-					.role("secret")
-					.required()
-					.description(
-						"请主人把自己的账号告诉女仆嘛……不然女仆会找不到主人哒 (つ﹏⊂)在 Q 群的话用 QQ 号就可以了～其他平台请用 inspect 插件告诉女仆主人的 ID 哦 (´｡• ᵕ •｡`) ♡",
-					),
-				masterAccountGuildId: Schema.string()
-					.role("secret")
-					.description(
-						"如果是在 QQ 频道、Discord 这种地方……主人的群组 ID 也要告诉女仆喔 (；>_<)不然女仆会迷路找不到主人……请用 inspect 插件带女仆去看看嘛～(〃ﾉωﾉ)",
-					),
-			}),
-			Schema.object({}),
-		]),
-	]),
+			name: Schema.string().required().description("UP昵称"),
+			uid: Schema.string().required().description("UID & roomid"),
+			dynamic: Schema.boolean().default(true).description("动态"),
+			dynamicAtAll: Schema.boolean().default(false).description("动态@全体"),
+			live: Schema.boolean().default(true).description("直播"),
+			liveAtAll: Schema.boolean().default(true).description("直播@全体"),
+			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
+			superchat: Schema.boolean().default(false).description("SC消息"),
+			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
+			liveSummary: Schema.boolean().default(true).description("直播总结"),
+			platform: Schema.string().required().description("平台名"),
+			target: Schema.string().required().description("群号/频道号"),
+		}),
+	)
+		.role("table")
+		.description(
+			"在这里填写主人的订阅信息～UP 昵称、UID、roomid、平台、群号都要填正确，不然女仆会迷路哒 (；>_<)如果多个群聊/频道，请用英文逗号分隔哦～女仆会努力送到每一个地方的！",
+		),
 
 	basicSettings: Schema.object({}).description(
 		"这是主人最基本的设置区域哒～女仆会乖乖等主人安排 (*´∀`)~♡",
@@ -180,36 +171,45 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 		]),
 	]),
 
-	subTitle: Schema.object({}).description(
-		"订阅相关的配置都在这里～主人要订阅什么，女仆都负责帮您记好 (｡>﹏<｡)！",
-	),
-
-	advancedSub: Schema.boolean()
-		.default(false)
-		.description(
-			"这个开关决定是否使用高级订阅功能喔～如果主人想要超级灵活的订阅内容，就请开启并安装 bilibili-notify-advanced-subscription 呀 (๑•̀ㅂ•́)و♡",
-		),
-
-	subs: Schema.array(
+	master: Schema.intersect([
 		Schema.object({
-			name: Schema.string().required().description("UP昵称"),
-			uid: Schema.string().required().description("UID & roomid"),
-			dynamic: Schema.boolean().default(true).description("动态"),
-			dynamicAtAll: Schema.boolean().default(false).description("动态@全体"),
-			live: Schema.boolean().default(true).description("直播"),
-			liveAtAll: Schema.boolean().default(true).description("直播@全体"),
-			liveGuardBuy: Schema.boolean().default(false).description("上舰消息"),
-			superchat: Schema.boolean().default(false).description("SC消息"),
-			wordcloud: Schema.boolean().default(true).description("弹幕词云"),
-			liveSummary: Schema.boolean().default(true).description("直播总结"),
-			platform: Schema.string().required().description("平台名"),
-			target: Schema.string().required().description("群号/频道号"),
-		}),
-	)
-		.role("table")
-		.description(
-			"在这里填写主人的订阅信息～UP 昵称、UID、roomid、平台、群号都要填正确，不然女仆会迷路哒 (；>_<)如果多个群聊/频道，请用英文逗号分隔哦～女仆会努力送到每一个地方的！",
-		),
+			enable: Schema.boolean()
+				.default(false)
+				.description(
+					"要不要让笨笨女仆开启主人账号功能呢？(>﹏<)如果机器人遭遇了奇怪的小错误，女仆会立刻跑来向主人报告的！不、不过……如果没有私聊权限的话，女仆就联系不到主人了……请不要打开这个开关喔 (；´д｀)ゞ",
+				),
+		}).description("主人的特别区域……女仆会乖乖侍奉的！(>///<)"),
+		Schema.union([
+			Schema.object({
+				enable: Schema.const(true).required(),
+				platform: Schema.union([
+					"qq",
+					"qqguild",
+					"onebot",
+					"discord",
+					"red",
+					"telegram",
+					"satori",
+					"chronocat",
+					"lark",
+				]).description(
+					"主人想让女仆在哪个平台伺候您呢？请从这里选一个吧～(〃´-`〃)♡女仆会乖乖待在主人选的地方哒！",
+				),
+				masterAccount: Schema.string()
+					.role("secret")
+					.required()
+					.description(
+						"请主人把自己的账号告诉女仆嘛……不然女仆会找不到主人哒 (つ﹏⊂)在 Q 群的话用 QQ 号就可以了～其他平台请用 inspect 插件告诉女仆主人的 ID 哦 (´｡• ᵕ •｡`) ♡",
+					),
+				masterAccountGuildId: Schema.string()
+					.role("secret")
+					.description(
+						"如果是在 QQ 频道、Discord 这种地方……主人的群组 ID 也要告诉女仆喔 (；>_<)不然女仆会迷路找不到主人……请用 inspect 插件带女仆去看看嘛～(〃ﾉωﾉ)",
+					),
+			}),
+			Schema.object({}),
+		]),
+	]),
 
 	dynamic: Schema.object({}).description(
 		"动态推送的相关设置都在这里，让女仆乖乖监测 UP 动态 (*´∀`)~♡",
