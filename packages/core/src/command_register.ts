@@ -439,27 +439,29 @@ class ComRegister {
 			).then((content) => content.data);
 			// 判断是否满足风控条件
 			if (userInfoCode !== -352 || !userInfoData.v_voucher)
-				return "不满足验证条件，不需要执行该命令，如果提示风控可以尝试重启插件";
+				return "主人～女仆发现不满足验证条件呢～所以这个命令不用执行哦 (>ω<)♡ 如果提示风控，主人可以尝试重启插件看看呀 (*>ω<)b";
 			// 开始进行风控验证
 			const { data } = await ctx["bilibili-notify-api"].v_voucherCaptcha(
 				userInfoData.v_voucher,
 			);
 			// 判断是否能进行风控验证
 			if (!data.geetest) {
-				return "当前风控无法通过该验证解除，或许考虑人工申诉？";
+				return "主人呜呜 (；>_<) 女仆发现当前风控无法通过验证解除哦～主人可能需要考虑人工申诉呢 (>ω<)♡";
 			}
 			// 发送提示消息消息
 			await session.send(
-				"请到该网站进行验证操作：https://kuresaru.github.io/geetest-validator/",
+				"主人～请到这个网站进行验证操作哦～乖乖跟着做，女仆也会帮主人关注进度呢 (〃>ω<〃) https://kuresaru.github.io/geetest-validator/",
 			);
 			await session.send(
-				"请手动填入 gt 和 challenge 后点击生成进行验证，验证完成后点击结果，根据提示输入对应validate",
+				"主人～请手动填入 gt 和 challenge，然后点击生成进行验证哦～验证完成后再点击结果，并根据提示输入对应的 validate，女仆会在一旁乖乖等主人完成呢 (>ω<)♡",
 			);
 			// gt 和 challenge
 			await session.send(`gt:${data.geetest.gt}`);
 			await session.send(`challenge:${data.geetest.challenge}`);
 			// 发送等待输入消息 validate
-			await session.send("请直接输入validate");
+			await session.send(
+				"主人～验证完成啦～请直接输入 validate 告诉女仆哦 (>ω<)♡",
+			);
 			// 等待输入
 			const validate = await session.prompt();
 			// seccode
@@ -469,7 +471,8 @@ class ComRegister {
 				"bilibili-notify-api"
 			].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 			// 判断验证是否成功
-			if (validateCaptchaData?.is_valid !== 1) return "验证不成功！";
+			if (validateCaptchaData?.is_valid !== 1)
+				return "主人呜呜 (；>_<) 验证没有成功呢～请主人再试一次呀 (>ω<)♡";
 			// Sleep
 			await this.ctx.sleep(10 * 1000);
 			// 再次请求
@@ -477,9 +480,12 @@ class ComRegister {
 				"bilibili-notify-api"
 			].getUserInfo("114514", validateCaptchaData.grisk_id);
 			// 再次验证
-			if (validCode === -352 && validData.v_voucher) return "验证不成功！";
+			if (validCode === -352 && validData.v_voucher)
+				return "主人呜呜 (；>_<) 验证没有成功呢～请主人再试一次呀 (>ω<)♡";
 			// 验证成功
-			await session.send("验证成功！请重启插件");
+			await session.send(
+				"主人～验证成功啦！请主人重启插件，女仆会乖乖继续工作哦 (>ω<)♡",
+			);
 		});
 
 		biliCom.subcommand(".ai").action(async () => {
@@ -636,6 +642,121 @@ class ComRegister {
 					"主人～女仆初始化完毕啦，但发现还没有添加任何订阅呢 (>_<) 请快点添加，让女仆可以开始努力工作呀♡",
 				);
 		}
+	}
+
+	preInitConfig(subs: Subscriptions) {
+		// 遍历subs
+		for (const sub of Object.values(subs)) {
+			// 判断是否个性化推送消息
+			if (sub.customLiveMsg.enable) {
+				if (!sub.customLiveMsg.customLiveStart.trim()) {
+					sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
+				}
+				if (!sub.customLiveMsg.customLiveEnd.trim()) {
+					sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
+				}
+				if (!sub.customLiveMsg.customLive.trim()) {
+					sub.customLiveMsg.customLive = this.config.customLive;
+				}
+			} else {
+				sub.customLiveMsg.enable = false;
+				sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
+				sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
+				sub.customLiveMsg.customLive = this.config.customLive;
+			}
+			// 判断是否个性化舰长图片推送
+			if (sub.customGuardBuy.enable) {
+				if (!sub.customGuardBuy.guardBuyMsg.trim()) {
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
+				}
+				if (!sub.customGuardBuy.captainImgUrl.trim()) {
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
+				}
+				if (!sub.customGuardBuy.supervisorImgUrl.trim()) {
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+				}
+				if (!sub.customGuardBuy.governorImgUrl.trim()) {
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
+				}
+			} else {
+				if (this.config.customGuardBuy.enable) {
+					sub.customGuardBuy.enable = true;
+					sub.customGuardBuy.guardBuyMsg =
+						this.config.customGuardBuy.guardBuyMsg;
+					sub.customGuardBuy.captainImgUrl =
+						this.config.customGuardBuy.captainImgUrl;
+					sub.customGuardBuy.supervisorImgUrl =
+						this.config.customGuardBuy.supervisorImgUrl;
+					sub.customGuardBuy.governorImgUrl =
+						this.config.customGuardBuy.governorImgUrl;
+				}
+			}
+			// 判断是否个性化直播总结
+			if (sub.customLiveSummary.enable) {
+				if (sub.customLiveSummary.liveSummary.length === 0) {
+					sub.customLiveSummary.liveSummary =
+						this.config.liveSummary.join("\n");
+				}
+			} else {
+				sub.customLiveSummary.enable = false;
+				sub.customLiveSummary.liveSummary = this.config.liveSummary.join("\n");
+			}
+
+			// PushRecord part
+
+			// 定义数组
+			const dynamicArr: Array<string> = [];
+			const dynamicAtAllArr: Array<string> = [];
+			const liveArr: Array<string> = [];
+			const liveAtAllArr: Array<string> = [];
+			const liveGuardBuyArr: Array<string> = [];
+			const superchatArr: Array<string> = [];
+			const wordcloudArr: Array<string> = [];
+			const liveSummaryArr: Array<string> = [];
+			// 遍历target
+			for (const platform of sub.target) {
+				// 遍历channelArr
+				for (const channel of platform.channelArr) {
+					// 构建目标
+					const target = `${platform.platform}:${channel.channelId}`;
+					// 定义条件
+					const conditions: [keyof typeof channel, typeof dynamicArr][] = [
+						["dynamic", dynamicArr],
+						["dynamicAtAll", dynamicAtAllArr],
+						["live", liveArr],
+						["liveAtAll", liveAtAllArr],
+						["liveGuardBuy", liveGuardBuyArr],
+						["superchat", superchatArr],
+						["wordcloud", wordcloudArr],
+						["liveSummary", liveSummaryArr],
+					];
+					// 判断
+					for (const [key, arr] of conditions) {
+						if (channel[key]) arr.push(target);
+					}
+				}
+			}
+			// 组装record
+			this.pushArrMap.set(sub.uid, {
+				dynamicArr,
+				dynamicAtAllArr,
+				liveArr,
+				liveAtAllArr,
+				liveSummaryArr,
+				liveGuardBuyArr,
+				superchatArr,
+				wordcloudArr,
+			});
+		}
+		// logger
+		this.logger.info(
+			"主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦 (>ω<)♡",
+		);
+		this.logger.info(this.pushArrMap);
 	}
 
 	registeringForEvents() {
@@ -1104,121 +1225,6 @@ class ComRegister {
 				);
 			},
 		);
-	}
-
-	preInitConfig(subs: Subscriptions) {
-		// 遍历subs
-		for (const sub of Object.values(subs)) {
-			// 判断是否个性化推送消息
-			if (sub.customLiveMsg.enable) {
-				if (!sub.customLiveMsg.customLiveStart.trim()) {
-					sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
-				}
-				if (!sub.customLiveMsg.customLiveEnd.trim()) {
-					sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
-				}
-				if (!sub.customLiveMsg.customLive.trim()) {
-					sub.customLiveMsg.customLive = this.config.customLive;
-				}
-			} else {
-				sub.customLiveMsg.enable = false;
-				sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
-				sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
-				sub.customLiveMsg.customLive = this.config.customLive;
-			}
-			// 判断是否个性化舰长图片推送
-			if (sub.customGuardBuy.enable) {
-				if (!sub.customGuardBuy.guardBuyMsg.trim()) {
-					sub.customGuardBuy.guardBuyMsg =
-						this.config.customGuardBuy.guardBuyMsg;
-				}
-				if (!sub.customGuardBuy.captainImgUrl.trim()) {
-					sub.customGuardBuy.captainImgUrl =
-						this.config.customGuardBuy.captainImgUrl;
-				}
-				if (!sub.customGuardBuy.supervisorImgUrl.trim()) {
-					sub.customGuardBuy.supervisorImgUrl =
-						this.config.customGuardBuy.supervisorImgUrl;
-				}
-				if (!sub.customGuardBuy.governorImgUrl.trim()) {
-					sub.customGuardBuy.governorImgUrl =
-						this.config.customGuardBuy.governorImgUrl;
-				}
-			} else {
-				if (this.config.customGuardBuy.enable) {
-					sub.customGuardBuy.enable = true;
-					sub.customGuardBuy.guardBuyMsg =
-						this.config.customGuardBuy.guardBuyMsg;
-					sub.customGuardBuy.captainImgUrl =
-						this.config.customGuardBuy.captainImgUrl;
-					sub.customGuardBuy.supervisorImgUrl =
-						this.config.customGuardBuy.supervisorImgUrl;
-					sub.customGuardBuy.governorImgUrl =
-						this.config.customGuardBuy.governorImgUrl;
-				}
-			}
-			// 判断是否个性化直播总结
-			if (sub.customLiveSummary.enable) {
-				if (!sub.customLiveSummary.liveSummary.trim()) {
-					sub.customLiveSummary.liveSummary =
-						this.config.liveSummary.join("\n");
-				}
-			} else {
-				sub.customLiveSummary.enable = false;
-				sub.customLiveSummary.liveSummary = this.config.liveSummary.join("\n");
-			}
-
-			// PushRecord part
-
-			// 定义数组
-			const dynamicArr: Array<string> = [];
-			const dynamicAtAllArr: Array<string> = [];
-			const liveArr: Array<string> = [];
-			const liveAtAllArr: Array<string> = [];
-			const liveGuardBuyArr: Array<string> = [];
-			const superchatArr: Array<string> = [];
-			const wordcloudArr: Array<string> = [];
-			const liveSummaryArr: Array<string> = [];
-			// 遍历target
-			for (const platform of sub.target) {
-				// 遍历channelArr
-				for (const channel of platform.channelArr) {
-					// 构建目标
-					const target = `${platform.platform}:${channel.channelId}`;
-					// 定义条件
-					const conditions: [keyof typeof channel, typeof dynamicArr][] = [
-						["dynamic", dynamicArr],
-						["dynamicAtAll", dynamicAtAllArr],
-						["live", liveArr],
-						["liveAtAll", liveAtAllArr],
-						["liveGuardBuy", liveGuardBuyArr],
-						["superchat", superchatArr],
-						["wordcloud", wordcloudArr],
-						["liveSummary", liveSummaryArr],
-					];
-					// 判断
-					for (const [key, arr] of conditions) {
-						if (channel[key]) arr.push(target);
-					}
-				}
-			}
-			// 组装record
-			this.pushArrMap.set(sub.uid, {
-				dynamicArr,
-				dynamicAtAllArr,
-				liveArr,
-				liveAtAllArr,
-				liveSummaryArr,
-				liveGuardBuyArr,
-				superchatArr,
-				wordcloudArr,
-			});
-		}
-		// logger
-		this.logger.info(
-			"主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦 (>ω<)♡",
-		);
-		this.logger.info(this.pushArrMap);
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <message>
@@ -2698,7 +2704,7 @@ class ComRegister {
 					);
 					// 推送弹幕词云和直播总结
 					await sendDanmakuWordCloudAndLiveSummary(
-						sub.customLiveSummary.liveSummary,
+						sub.customLiveSummary.liveSummary as string,
 					);
 				}
 
@@ -2921,7 +2927,11 @@ class ComRegister {
 		if (code !== 0) {
 			return { code, message };
 		}
-		return { code: 0, message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕 (>ω<)♡", data };
+		return {
+			code: 0,
+			message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕 (>ω<)♡",
+			data,
+		};
 	}
 
 	async subUserInBili(mid: string): Promise<Result> {
@@ -2929,7 +2939,10 @@ class ComRegister {
 		for (const user of this.groupInfo) {
 			if (user.mid.toString() === mid) {
 				// 已关注订阅对象
-				return { code: 0, message: "主人～女仆发现订阅对象已经在分组里啦 (>ω<)♡" };
+				return {
+					code: 0,
+					message: "主人～女仆发现订阅对象已经在分组里啦 (>ω<)♡",
+				};
 			}
 		}
 		// 订阅对象
@@ -2942,43 +2955,50 @@ class ComRegister {
 			[-101]: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现账号未登录哦～请主人使用指令 `bili login` 登录后再进行订阅操作呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现账号未登录哦～请主人使用指令 `bili login` 登录后再进行订阅操作呀 (>ω<)♡",
 				};
 			},
 			[-102]: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现账号被封停啦，所以无法进行订阅操作呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现账号被封停啦，所以无法进行订阅操作呀 (>ω<)♡",
 				};
 			},
 			22002: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现因为对方隐私设置，无法进行订阅操作呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现因为对方隐私设置，无法进行订阅操作呀 (>ω<)♡",
 				};
 			},
 			22003: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现您已经把对方拉黑啦，所以无法进行订阅操作呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现您已经把对方拉黑啦，所以无法进行订阅操作呀 (>ω<)♡",
 				};
 			},
 			22013: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现账号已注销啦，所以无法进行订阅操作呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现账号已注销啦，所以无法进行订阅操作呀 (>ω<)♡",
 				};
 			},
 			40061: () => {
 				return {
 					code: subUserData.code,
-					message: "主人呜呜 (；>_<) 女仆发现账号不存在哦～请主人检查 UID 输入是否正确，或者用户是否真的存在呀 (>ω<)♡",
+					message:
+						"主人呜呜 (；>_<) 女仆发现账号不存在哦～请主人检查 UID 输入是否正确，或者用户是否真的存在呀 (>ω<)♡",
 				};
 			},
 			22001: () => {
 				return {
 					code: 0,
-					message: "主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦 (>ω<)♡",
+					message:
+						"主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦 (>ω<)♡",
 				};
 			},
 			// 已订阅该对象
@@ -2992,11 +3012,15 @@ class ComRegister {
 					// 添加失败
 					return {
 						code: copyUserToGroupData.code,
-						message: "主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
+						message:
+							"主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
 					};
 				}
 				// 添加成功
-				return { code: 0, message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡" };
+				return {
+					code: 0,
+					message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡",
+				};
 			},
 			// 账号异常
 			22015: async () => {
@@ -3013,11 +3037,15 @@ class ComRegister {
 					// 添加失败
 					return {
 						code: copyUserToGroupData.code,
-						message: "主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
+						message:
+							"主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
 					};
 				}
 				// 添加成功
-				return { code: 0, message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡" };
+				return {
+					code: 0,
+					message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡",
+				};
 			},
 		};
 		// 获取函数

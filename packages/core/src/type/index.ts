@@ -52,7 +52,7 @@ export type CustomGuardBuy = {
 
 export type CustomLiveSummary = {
 	enable: boolean;
-	liveSummary?: string;
+	liveSummary?: Array<string> | string;
 };
 
 export type SubItem = {
