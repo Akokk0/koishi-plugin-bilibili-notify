@@ -184,7 +184,7 @@ class ComRegister {
 			.action(async ({ session }) => {
 				// 发送消息
 				await this.sendPrivateMsg(
-					`主人～女仆向您问好啦！Ciallo～(∠・ω< )⌒★乖乖打招呼呀 (>ω<)♡`,
+					"主人～女仆向您问好啦！Ciallo～(∠・ω< )⌒★乖乖打招呼呀 (>ω<)♡",
 				);
 				// 发送提示
 				await session.send(
@@ -260,6 +260,19 @@ class ComRegister {
 				// 获取动态
 				const content =
 					await this.ctx["bilibili-notify-api"].getUserSpaceDynamic(uid);
+				// 判断content是否存在
+				if (!content || !content.data) {
+					this.logger.error(
+						"主人呜呜 (；>_<) 女仆获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡",
+					);
+					return;
+				}
+				if (content.code !== 0) {
+					this.logger.error(
+						`主人呜呜 (；>_<) 女仆获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡ 错误码: ${content.code}`,
+					);
+					return;
+				}
 				// 获取动态内容
 				const item = content.data.items[i];
 				// 生成图片
@@ -1496,7 +1509,12 @@ class ComRegister {
 				);
 			});
 			// content不存在则直接返回
-			if (!content) return;
+			if (!content || !content.data) {
+				this.logger.error(
+					"主人呜呜 (；>_<) 女仆在执行 dynamicDetect 时获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡",
+				);
+				return;
+			}
 			// 判断获取动态内容是否成功
 			if (content.code !== 0) {
 				switch (content.code) {
