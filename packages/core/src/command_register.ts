@@ -2660,6 +2660,13 @@ class ComRegister {
 					return;
 				}
 
+				// 定时器安全关闭
+				if (pushAtTimeTimer) {
+					pushAtTimeTimer();
+					pushAtTimeTimer = null;
+					this.liveWSManager.delete(sub.roomid);
+				}
+
 				// 获取信息
 				if (
 					!(await useLiveRoomInfo(LiveType.StopBroadcast)) &&
@@ -2724,13 +2731,6 @@ class ComRegister {
 					await sendDanmakuWordCloudAndLiveSummary(
 						sub.customLiveSummary.liveSummary as string,
 					);
-				}
-
-				// 定时器安全关闭
-				if (pushAtTimeTimer) {
-					pushAtTimeTimer();
-					pushAtTimeTimer = null;
-					this.liveWSManager.delete(sub.roomid);
 				}
 			},
 		};
