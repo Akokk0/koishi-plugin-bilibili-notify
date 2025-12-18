@@ -3,36 +3,51 @@ import { type Context, type ForkScope, type Schema, Service } from "koishi";
 import { type BAConfig, BAConfigSchema } from "./config";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-notifier";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
+import {} from "@koishijs/plugin-console";
+import { resolve } from "node:path";
 // import plugins
+import BilibiliNotifyDataServer from "./data_server";
 import ComRegister from "./command_register";
 import * as Database from "./database";
 // import Service
 import GenerateImg from "./generate_img";
 import BiliAPI from "./bili_api";
 import BLive from "./bili_live";
-import type { Subscriptions } from "./type";
+import type { BiliDataServer, Subscriptions } from "./type";
 
-export const inject = ["puppeteer", "database", "notifier"];
+export const inject = ["puppeteer", "database", "notifier", "console"];
 
 export const name = "bilibili-notify";
 
-export const usage = /* html */`
+export const usage = /* html */ `
 <h1>Bilibili-Notify</h1>
 <p>使用问题请加群咨询 801338523</p>
 
 ---
 
-使用说明：
-- 请仔细阅读subs的配置说明，并在订阅配置中填写正确的 UID 和订阅类型
-- 订阅类型包括：动态、直播等
+主人好呀～我是笨笨女仆小助手哒 (〃∀〃)♡
+专门帮主人管理 B 站订阅和直播推送的！
+女仆虽然笨笨的，但是会尽力不出错哦～
+主人，只要按照女仆的提示一步一步设置，女仆就可以乖乖帮您工作啦！
 
-注意事项：
-- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
-- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
-- 如果你使用的是 onebot 机器人，平台名请填写 onebot 而不是 qq
+首先呢～请主人仔细阅读订阅相关的 subs 的填写说明 (>ω<)b
+【主人账号部分非必填】然后再告诉女仆您的 主人账号 (///▽///)，并选择您希望女仆服务的平台～
+接着，请认真填写 主人的 ID 和 群组 ID，确保信息完全正确～
+这样女仆才能顺利找到您并准确汇报动态呢 (≧▽≦)
+
+不用着急，女仆会一直在这里陪着您，一步一步完成设置～
+主人只要乖乖填好这些信息，就能让女仆变得超级听话、超级勤快啦 (>///<)♡
+
+主人～注意事项要仔细看呀 (>_<)♡  
+- 如果主人使用的是 onebot 机器人，平台名请填写 onebot，而不是 qq 哦～  
+- 同样的呀，如果是 onebot 机器人，请务必填写 onebot，不要写成 qq 哦～  
+- 女仆再提醒一次～onebot 机器人就填 onebot，千万不要写 qq 哦～  
+
+乖乖遵守这些规则，女仆才能顺利帮主人工作呢 (*>ω<)b
 
 ---
-`
+`;
 
 let globalConfig: BAConfig;
 
@@ -44,6 +59,22 @@ declare module "koishi" {
 	interface Events {
 		"bilibili-notify/advanced-sub"(subs: Subscriptions): void;
 		"bilibili-notify/ready-to-recive"(): void;
+		"bilibili-notify/login-status-report"(data: BiliDataServer): void;
+	}
+}
+
+declare module "@koishijs/plugin-console" {
+	namespace Console {
+		interface Services {
+			"bilibili-notify": BilibiliNotifyDataServer;
+		}
+	}
+
+	interface Events {
+		"bilibili-notify/start-login"(): void;
+		"bilibili-notify/restart-plugin"(): void;
+		// biome-ignore lint/suspicious/noExplicitAny: <any>
+		"bilibili-notify/request-cors"(url: string): any;
 	}
 }
 
@@ -64,11 +95,10 @@ class ServerManager extends Service {
 			.usage("重启插件")
 			.example("bn restart")
 			.action(async () => {
-				this.logger.info("调用 bn restart 指令");
 				if (await this.restartPlugin()) {
-					return "插件重启成功";
+					return "主人～女仆成功重启插件啦～乖乖继续为主人服务呢 (>ω<)♡";
 				}
-				return "插件重启失败";
+				return "主人呜呜 (；>_<) 女仆重启插件失败啦～请主人检查一下再试哦 (>ω<)♡";
 			});
 
 		sysCom
@@ -76,11 +106,10 @@ class ServerManager extends Service {
 			.usage("停止插件")
 			.example("bn stop")
 			.action(async () => {
-				this.logger.info("调用 bn stop 指令");
 				if (await this.disposePlugin()) {
-					return "插件已停止";
+					return "主人～女仆已经停止插件啦～休息一下先 (>ω<)♡";
 				}
-				return "停止插件失败";
+				return "主人呜呜 (；>_<) 女仆停止插件失败啦～请主人检查一下再试哦 (>ω<)♡";
 			});
 
 		sysCom
@@ -88,18 +117,17 @@ class ServerManager extends Service {
 			.usage("启动插件")
 			.example("bn start")
 			.action(async () => {
-				this.logger.info("调用 bn start 指令");
 				if (await this.registerPlugin()) {
-					return "插件启动成功";
+					return "主人～女仆成功启动插件啦～准备好乖乖为主人工作呢 (>ω<)♡";
 				}
-				return "插件启动失败";
+				return "主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡";
 			});
 	}
 
 	protected start(): void | Promise<void> {
 		// 注册插件
 		if (!this.registerPlugin()) {
-			this.logger.error("插件启动失败");
+			this.logger.error("主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡");
 		}
 	}
 
@@ -160,7 +188,7 @@ class ServerManager extends Service {
 			this.servers.push(gi);
 			this.servers.push(cr);
 		} catch (e) {
-			this.logger.error("插件注册失败", e);
+			this.logger.error(`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`);
 			return false;
 		}
 		// 成功返回true
@@ -187,7 +215,7 @@ class ServerManager extends Service {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) {
 			// logger
-			this.logger.warn("目前插件未运行，请使用 bn start 启动插件");
+			this.logger.warn("主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡");
 			// 返回
 			return false;
 		}
@@ -199,7 +227,7 @@ class ServerManager extends Service {
 				try {
 					this.registerPlugin();
 				} catch (e) {
-					this.logger.error("重启插件失败", e);
+					this.logger.error(`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`);
 					resolve(false);
 				}
 				resolve(true);
@@ -215,6 +243,13 @@ export function apply(ctx: Context, config: BAConfig) {
 	ctx.plugin(Database);
 	// Register ServerManager
 	ctx.plugin(ServerManager);
+	// load DataServer
+	ctx.plugin(BilibiliNotifyDataServer);
+	// 添加控制台
+	ctx.console.addEntry({
+		dev: resolve(__dirname, "../client/index.ts"),
+		prod: resolve(__dirname, "../dist"),
+	});
 	// 当用户输入“恶魔兔，启动！”时，执行 help 指令
 	ctx.middleware((session, next) => {
 		if (session.content === "恶魔兔，启动！") {

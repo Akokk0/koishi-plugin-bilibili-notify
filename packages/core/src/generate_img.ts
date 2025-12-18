@@ -101,7 +101,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -262,12 +262,12 @@ class GenerateImg extends Service {
 			guardLevel,
 			uname,
 			face,
-            isAdmin,
+			isAdmin,
 		}: {
 			guardLevel: GuardLevel;
 			uname: string;
 			face: string;
-            isAdmin: number;
+			isAdmin: number;
 		},
 		{
 			masterAvatarUrl,
@@ -300,7 +300,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
 
                     html {
@@ -862,7 +862,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -1226,7 +1226,7 @@ class GenerateImg extends Service {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -1705,7 +1705,7 @@ class GenerateImg extends Service {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: \"${this.giConfig.font}\", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {

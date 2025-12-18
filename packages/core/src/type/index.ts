@@ -52,7 +52,7 @@ export type CustomGuardBuy = {
 
 export type CustomLiveSummary = {
 	enable: boolean;
-	liveSummary?: string;
+	liveSummary?: Array<string> | string;
 };
 
 export type SubItem = {
@@ -572,3 +572,101 @@ export type UserInfoInLiveData = {
 		accompany_slake: number;
 	};
 };
+
+export enum BiliLoginStatus {
+	NOT_LOGIN,
+    LOADING_LOGIN_INFO,
+    LOGIN_QR,
+    LOGGING_QR,
+    LOGGING_IN,
+    LOGGED_IN,
+    LOGIN_SUCCESS,
+    LOGIN_FAILED,
+}
+
+export type BiliDataServer = {
+	status: BiliLoginStatus;
+	msg: string;
+	// biome-ignore lint/suspicious/noExplicitAny: <any>
+	data?: any;
+};
+
+export type MySelfInfoData = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: {
+		mid: number;
+	};
+};
+
+export type UserCardInfoData = {
+	code: number;
+	message: string;
+	ttl: number;
+	data: {
+		card: {
+			mid: string;
+			approve: boolean;
+			name: string;
+			sex: string;
+			face: string;
+			DisplayRank: string;
+			regtime: number;
+			spacesta: number;
+			birthday: string;
+			place: string;
+			description: string;
+			article: number;
+			attention: number;
+			sign: string;
+			level_info: {
+				current_level: number;
+				current_min: number;
+				current_exp: number;
+				next_exp: number;
+			};
+			pendant: {
+				pid: number;
+				name: string;
+				image: string;
+				expire: number;
+			};
+			nameplate: {
+				nid: number;
+				name: string;
+				image: string;
+				image_small: string;
+				level: string;
+				condition: string;
+			};
+			Official: {
+				role: number;
+				title: string;
+				desc: string;
+				type: number;
+			};
+			official_verify: {
+				type: number;
+				desc: string;
+			};
+			vip: {
+				vipType: number;
+				dueRemark: string;
+				accessStatus: number;
+				vipStatus: number;
+				vipStatusWarn: string;
+				theme_type: number;
+			};
+		},
+		space: {
+			s_img: string;
+			l_img: string;
+		}
+		following: boolean;
+		archive_count: number;
+		article_count: number;
+		follower: number;
+		like_num: number
+	}
+}
