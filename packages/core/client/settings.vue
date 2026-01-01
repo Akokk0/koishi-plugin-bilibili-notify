@@ -41,6 +41,9 @@
         <div v-if="!isLoaded" class="loading-wrapper">
             <div class="spinner"></div>
             <p>正在加载登录账号信息中...</p>
+            <div v-show="tips">
+                <span>加载太久？可能是网络错误，可以尝试切换到其他插件页再切回来；加载不出来也不影响使用哦～</span>
+            </div>
         </div>
         <div v-else class="logged-in fade-in">
             <div class="user-bg-wrapper">
@@ -82,7 +85,7 @@
 
 <script lang="ts" setup>
 import { store, send } from "@koishijs/client";
-import { computed, inject, ref } from "vue"
+import { inject, ref, watch } from "vue"
 
 enum BiliLoginStatus {
     NOT_LOGIN,
@@ -190,47 +193,64 @@ const dataServer = ref({} as { status: BiliLoginStatus, msg: string, data: any }
 
 const isLoaded = ref(false)
 
-const status = computed(() => {
-    // 防止其他页面出现该内容
-    if (local.value.name !== "koishi-plugin-bilibili-notify") return
-    // 赋值
-    dataServer.value = store["bilibili-notify"]
-    // 判断
-    switch (store["bilibili-notify"].status) {
-        case BiliLoginStatus.LOADING_LOGIN_INFO: return "loading"
-        case BiliLoginStatus.NOT_LOGIN: return "not_login"
-        case BiliLoginStatus.LOGGED_IN: {
-            // 获取数据
-            const data = store["bilibili-notify"].data as UserCardInfoData;
-            // 请求数据
-            const requestCORS = async () => {
-                await send("bilibili-notify/request-cors" as any, data.card.face).then(async v => {
-                    avatarImg.value = v
-                })
-                await send("bilibili-notify/request-cors" as any, data.space.l_img).then(async v => {
-                    userBGImg.value = v
-                })
-                await send("bilibili-notify/request-cors" as any, data.card.vip.label.img_label_uri_hans_static).then(async v => {
-                    vipImg.value = v
-                })
-                // 数据请求完毕，可以显示页面
-                isLoaded.value = true
+const status = ref("")
+const tips = ref(false)
+
+// 监听登录状态变化
+watch(
+    () => store["bilibili-notify"].status,
+    async () => {
+        // 防止其他页面出现该内容
+        if (local.value.name !== "koishi-plugin-bilibili-notify") return
+        // 赋值
+        dataServer.value = store["bilibili-notify"]
+        // 判断
+        switch (store["bilibili-notify"].status) {
+            case BiliLoginStatus.LOADING_LOGIN_INFO: return status.value = "loading"
+            case BiliLoginStatus.NOT_LOGIN: return status.value = "not_login"
+            case BiliLoginStatus.LOGGED_IN: {
+                // 开启定时器
+                const timer = setTimeout(() => {
+                    tips.value = true
+                }, 60000)
+                // 获取数据
+                const data = store["bilibili-notify"].data as UserCardInfoData;
+                // 请求数据
+                const requestCORS = async () => {
+                    await send("bilibili-notify/request-cors" as any, data.card.face).then(async v => {
+                        avatarImg.value = v
+                    })
+                    await send("bilibili-notify/request-cors" as any, data.space.l_img).then(async v => {
+                        userBGImg.value = v
+                    })
+                    await send("bilibili-notify/request-cors" as any, data.card.vip.label.img_label_uri_hans_static).then(async v => {
+                        vipImg.value = v
+                    })
+                    // 清除定时器
+                    clearTimeout(timer)
+                    // 数据请求完毕，可以显示页面
+                    isLoaded.value = true
+                }
+                // 设置状态
+                status.value = "logged_in"
+                // 请求CORS图片
+                await requestCORS()
+                // 结束
+                return 
             }
-            requestCORS()
-            return "logged_in"
+            case BiliLoginStatus.LOGIN_QR: {
+                qrcodeImg.value = dataServer.value.data
+                return status.value = "logging_qr"
+            }
+            case BiliLoginStatus.LOGGING_QR: {
+                return status.value = "logging_qr"
+            }
+            case BiliLoginStatus.LOGGING_IN: return status.value = "logging_in"
+            case BiliLoginStatus.LOGIN_FAILED: return status.value = "login_failed"
+            case BiliLoginStatus.LOGIN_SUCCESS: return status.value = "login_success"
         }
-        case BiliLoginStatus.LOGIN_QR: {
-            qrcodeImg.value = dataServer.value.data
-            return "logging_qr"
-        }
-        case BiliLoginStatus.LOGGING_QR: {
-            return "logging_qr"
-        }
-        case BiliLoginStatus.LOGGING_IN: return "logging_in"
-        case BiliLoginStatus.LOGIN_FAILED: return "login_failed"
-        case BiliLoginStatus.LOGIN_SUCCESS: return "login_success"
     }
-})
+    , { immediate: true })
 
 const login = () => {
     send("bilibili-notify/start-login" as any);
