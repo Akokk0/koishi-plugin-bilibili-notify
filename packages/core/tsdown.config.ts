@@ -8,9 +8,9 @@ export default defineConfig({
 	clean: true,
 	outDir: "lib",
 	copy: [
-		{ from: "src/page", to: "lib/page" },
-		{ from: "src/img", to: "lib/img" },
-		{ from: "src/static", to: "lib/static" },
+		{ from: "src/page", to: "lib" },
+		{ from: "src/img", to: "lib" },
+		{ from: "src/static", to: "lib" },
 	],
 	exports: true,
 	external: [/^node:/, /^[^./]/],
