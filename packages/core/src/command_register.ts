@@ -184,11 +184,11 @@ class ComRegister {
 			.action(async ({ session }) => {
 				// 发送消息
 				await this.sendPrivateMsg(
-					"主人～女仆向您问好啦！Ciallo～(∠・ω< )⌒★乖乖打招呼呀 (>ω<)♡",
+					"主人～女仆向您问好啦！Ciallo～(∠・ω< )⌒★乖乖打招呼呀",
 				);
 				// 发送提示
 				await session.send(
-					"主人～女仆已经发送消息啦～如果主人没收到，可能是机器人不支持发送私聊消息，或者主人填写的信息有误哦 (>ω<)♡",
+					"主人～女仆已经发送消息啦～如果主人没收到，可能是机器人不支持发送私聊消息，或者主人填写的信息有误哦",
 				);
 			});
 
@@ -263,13 +263,13 @@ class ComRegister {
 				// 判断content是否存在
 				if (!content || !content.data) {
 					this.logger.error(
-						"主人呜呜 (；>_<) 女仆获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡",
+						"主人呜呜，女仆获取动态内容失败啦～请主人帮女仆看看呀！",
 					);
 					return;
 				}
 				if (content.code !== 0) {
 					this.logger.error(
-						`主人呜呜 (；>_<) 女仆获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡ 错误码: ${content.code}`,
+						`主人呜呜，女仆获取动态内容失败啦～请主人帮女仆看看呀！错误码: ${content.code}`,
 					);
 					return;
 				}
@@ -285,25 +285,25 @@ class ComRegister {
 					// 直播开播动态，不做处理
 					if (e.message === "直播开播动态，不做处理") {
 						await session.send(
-							"主人～女仆发现直播开播动态啦，但女仆不处理哦 (>ω<)♡",
+							"主人～女仆发现直播开播动态啦，但女仆不处理哦",
 						);
 						return;
 					}
 					if (e.message === "出现关键词，屏蔽该动态") {
-						await session.send("主人～女仆已经屏蔽了这条动态啦 (>ω<)♡");
+						await session.send("主人～女仆已经屏蔽了这条动态啦");
 						return;
 					}
 					if (e.message === "已屏蔽转发动态") {
-						await session.send("主人～女仆已经屏蔽了这条转发动态啦 (>ω<)♡");
+						await session.send("主人～女仆已经屏蔽了这条转发动态啦");
 						return;
 					}
 					if (e.message === "已屏蔽专栏动态") {
-						await session.send("主人～女仆已经屏蔽了这条专栏动态啦 (>ω<)♡");
+						await session.send("主人～女仆已经屏蔽了这条专栏动态啦");
 						return;
 					}
 					// 未知错误
 					this.logger.error(
-						`主人呜呜 (；>_<) 女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+						`主人呜呜，女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀！`,
 					);
 				});
 				// 发送图片
@@ -452,28 +452,28 @@ class ComRegister {
 			).then((content) => content.data);
 			// 判断是否满足风控条件
 			if (userInfoCode !== -352 || !userInfoData.v_voucher)
-				return "主人～女仆发现不满足验证条件呢～所以这个命令不用执行哦 (>ω<)♡ 如果提示风控，主人可以尝试重启插件看看呀 (*>ω<)b";
+				return "主人～女仆发现不满足验证条件呢～所以这个命令不用执行哦 如果提示风控，主人可以尝试重启插件看看呀 (*>ω<)b";
 			// 开始进行风控验证
 			const { data } = await ctx["bilibili-notify-api"].v_voucherCaptcha(
 				userInfoData.v_voucher,
 			);
 			// 判断是否能进行风控验证
 			if (!data.geetest) {
-				return "主人呜呜 (；>_<) 女仆发现当前风控无法通过验证解除哦～主人可能需要考虑人工申诉呢 (>ω<)♡";
+				return "主人呜呜，女仆发现当前风控无法通过验证解除哦～主人可能需要考虑人工申诉呢";
 			}
 			// 发送提示消息消息
 			await session.send(
 				"主人～请到这个网站进行验证操作哦～乖乖跟着做，女仆也会帮主人关注进度呢 (〃>ω<〃) https://kuresaru.github.io/geetest-validator/",
 			);
 			await session.send(
-				"主人～请手动填入 gt 和 challenge，然后点击生成进行验证哦～验证完成后再点击结果，并根据提示输入对应的 validate，女仆会在一旁乖乖等主人完成呢 (>ω<)♡",
+				"主人～请手动填入 gt 和 challenge，然后点击生成进行验证哦～验证完成后再点击结果，并根据提示输入对应的 validate，女仆会在一旁乖乖等主人完成呢",
 			);
 			// gt 和 challenge
 			await session.send(`gt:${data.geetest.gt}`);
 			await session.send(`challenge:${data.geetest.challenge}`);
 			// 发送等待输入消息 validate
 			await session.send(
-				"主人～验证完成啦～请直接输入 validate 告诉女仆哦 (>ω<)♡",
+				"主人～验证完成啦～请直接输入 validate 告诉女仆哦",
 			);
 			// 等待输入
 			const validate = await session.prompt();
@@ -485,7 +485,7 @@ class ComRegister {
 			].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 			// 判断验证是否成功
 			if (validateCaptchaData?.is_valid !== 1)
-				return "主人呜呜 (；>_<) 验证没有成功呢～请主人再试一次呀 (>ω<)♡";
+				return "主人呜呜，验证没有成功呢～请主人再试一次呀";
 			// Sleep
 			await this.ctx.sleep(10 * 1000);
 			// 再次请求
@@ -494,10 +494,10 @@ class ComRegister {
 			].getUserInfo("114514", validateCaptchaData.grisk_id);
 			// 再次验证
 			if (validCode === -352 && validData.v_voucher)
-				return "主人呜呜 (；>_<) 验证没有成功呢～请主人再试一次呀 (>ω<)♡";
+				return "主人呜呜，验证没有成功呢～请主人再试一次呀";
 			// 验证成功
 			await session.send(
-				"主人～验证成功啦！请主人重启插件，女仆会乖乖继续工作哦 (>ω<)♡",
+				"主人～验证成功啦！请主人重启插件，女仆会乖乖继续工作哦",
 			);
 		});
 
@@ -591,7 +591,7 @@ class ComRegister {
 		if (!this.privateBot) {
 			this.ctx.notifier.create({
 				content:
-					"主人呜呜 (；>_<) 您还没有配置主人账号呢～女仆没办法向您推送插件运行状态啦，请快点配置哦 (>ω<)♡",
+					"主人呜呜，您还没有配置主人账号呢～女仆没办法向您推送插件运行状态啦，请快点配置哦",
 			});
 		}
 		// 检查登录数据库是否有数据
@@ -604,7 +604,7 @@ class ComRegister {
 		if (!(await this.checkIfIsLogin())) {
 			// log
 			this.logger.info(
-				"主人…呜呜 (；>_<) 女仆发现账号还没登录呢，请主人快点登录好让女仆继续工作呀 (>ω<)♡",
+				"主人…呜呜 (；>_<) 女仆发现账号还没登录呢，请主人快点登录好让女仆继续工作呀",
 			);
 			return;
 		}
@@ -617,7 +617,7 @@ class ComRegister {
 			// 发送事件消息
 			this.ctx.emit("bilibili-notify/login-status-report", {
 				status: BiliLoginStatus.LOGGED_IN,
-				msg: "主人…呜呜 (；>_<) 虽然账号已登录，但女仆获取个人信息失败啦，请主人检查一下呀 (>ω<)♡",
+				msg: "主人…呜呜 (；>_<) 虽然账号已登录，但女仆获取个人信息失败啦，请主人检查一下呀",
 			});
 		}
 		// 获取个人卡片信息
@@ -767,7 +767,7 @@ class ComRegister {
 		}
 		// logger
 		this.logger.info(
-			"主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦 (>ω<)♡",
+			"主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦",
 		);
 		this.logger.info(this.pushArrMap);
 	}
@@ -775,7 +775,7 @@ class ComRegister {
 	registeringForEvents() {
 		// 监听登录事件
 		this.ctx.console.addListener("bilibili-notify/start-login", async () => {
-			this.logger.info("主人～女仆正在触发登录事件呢，请稍等一下哦 (>ω<)♡");
+			this.logger.info("主人～女仆正在触发登录事件呢，请稍等一下哦");
 			// 获取二维码
 			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			let content: any;
@@ -783,7 +783,7 @@ class ComRegister {
 				content = await this.ctx["bilibili-notify-api"].getLoginQRCode();
 			} catch (_) {
 				this.logger.error(
-					"主人呜呜 (；>_<) 女仆在请求 bili login getLoginQRCode() 的时候网络失败啦，请检查网络后再试呀 (>ω<)♡",
+					"主人呜呜，女仆在请求 bili login getLoginQRCode() 的时候网络失败啦，请检查网络后再试呀",
 				);
 				return;
 			}
@@ -791,7 +791,7 @@ class ComRegister {
 			if (content.code !== 0)
 				return this.ctx.emit("bilibili-notify/login-status-report", {
 					status: BiliLoginStatus.LOGIN_FAILED,
-					msg: `主人…呜呜 (；>_<) 女仆获取二维码失败啦，请主人再试一次哦 (>ω<)♡`,
+					msg: `主人…呜呜 (；>_<) 女仆获取二维码失败啦，请主人再试一次哦`,
 				});
 			// 生成二维码
 			QRCode.toBuffer(
@@ -808,11 +808,11 @@ class ComRegister {
 				async (err, buffer) => {
 					if (err) {
 						this.logger.error(
-							`主人呜呜 (；>_<) 女仆生成二维码失败啦～错误信息：${err}，请主人帮女仆看看问题呀 (>ω<)♡`,
+							`主人呜呜，女仆生成二维码失败啦～错误信息：${err}，请主人帮女仆看看问题呀`,
 						);
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGIN_FAILED,
-							msg: "主人呜呜 (；>_<) 女仆生成二维码失败啦～",
+							msg: "主人呜呜，女仆生成二维码失败啦～",
 						});
 					}
 					// 转换为base64
@@ -845,27 +845,27 @@ class ComRegister {
 						);
 					} catch (e) {
 						this.logger.error(
-							`主人…呜呜 (；>_<) 女仆获取登录信息失败啦～错误信息：${e}，请主人帮女仆检查一下呀 (>ω<)♡`,
+							`主人…呜呜 (；>_<) 女仆获取登录信息失败啦～错误信息：${e}，请主人帮女仆检查一下呀`,
 						);
 						return;
 					}
 					if (loginContent.data.code === 86101) {
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGGING_QR,
-							msg: "主人～呜呜 (；>_<) 女仆发现您还没有扫码呢，请主人快点扫码呀 (>ω<)♡",
+							msg: "主人～呜呜 (；>_<) 女仆发现您还没有扫码呢，请主人快点扫码呀",
 						});
 					}
 					if (loginContent.data.code === 86090) {
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGGING_QR,
-							msg: "主人～呜呜 (；>_<) 女仆看到二维码已经扫码了，但还没有确认呢，请主人快点确认呀 (>ω<)♡",
+							msg: "主人～呜呜 (；>_<) 女仆看到二维码已经扫码了，但还没有确认呢，请主人快点确认呀",
 						});
 					}
 					if (loginContent.data.code === 86038) {
 						this.loginTimer();
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGIN_FAILED,
-							msg: "主人呜呜 (；>_<) 女仆发现二维码已经失效啦，请主人重新登录好让女仆继续工作呀 (>ω<)♡",
+							msg: "主人呜呜，女仆发现二维码已经失效啦，请主人重新登录好让女仆继续工作呀",
 						});
 					}
 					if (loginContent.data.code === 0) {
@@ -896,7 +896,7 @@ class ComRegister {
 						// 发送登录成功通知
 						this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGIN_SUCCESS,
-							msg: "主人～女仆看到您已登录啦，请点击按钮重启插件哦～女仆也会在5秒后自动帮您重启的 (>ω<)♡",
+							msg: "主人～女仆看到您已登录啦，请点击按钮重启插件哦～女仆也会在5秒后自动帮您重启的",
 						});
 						// 重启插件
 						await this.ctx["bilibili-notify"].restartPlugin();
@@ -906,7 +906,7 @@ class ComRegister {
 						// 登录失败请重试
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGIN_FAILED,
-							msg: "主人呜呜 (；>_<) 女仆登录失败啦，请主人再试一次，好让女仆继续工作呀 (>ω<)♡",
+							msg: "主人呜呜，女仆登录失败啦，请主人再试一次，好让女仆继续工作呀",
 						});
 					}
 				} finally {
@@ -986,14 +986,14 @@ class ComRegister {
 		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
 		this.logger.info(
-			"主人～女仆已经获取到订阅信息啦，正在乖乖开始加载订阅中哦 (>ω<)♡",
+			"主人～女仆已经获取到订阅信息啦，正在乖乖开始加载订阅中哦",
 		);
 		// 判断订阅分组是否存在
 		const groupInfoResult = await this.getGroupInfo();
 		// 判断是否获取成功
 		if (groupInfoResult.code !== 0) {
 			this.logger.error(
-				"主人呜呜 (；>_<) 女仆获取分组信息失败啦，插件初始化失败…请主人帮女仆看看问题呀 (>ω<)♡",
+				"主人呜呜，女仆获取分组信息失败啦，插件初始化失败…请主人帮女仆看看问题呀",
 			);
 			return;
 		}
@@ -1005,11 +1005,11 @@ class ComRegister {
 		if (code !== 0) {
 			// logger
 			this.logger.error(
-				`主人呜呜 (；>_<) 女仆加载订阅对象失败啦，插件初始化失败～错误信息：${message}，请主人帮女仆看看呀 (>ω<)♡`,
+				`主人呜呜，女仆加载订阅对象失败啦，插件初始化失败～错误信息：${message}，请主人帮女仆看看呀！`,
 			);
 			// 发送私聊消息
 			await this.sendPrivateMsg(
-				"主人呜呜 (；>_<) 女仆加载订阅对象失败啦，插件初始化失败～",
+				"主人呜呜，女仆加载订阅对象失败啦，插件初始化失败～",
 			);
 			// 返回
 			return;
@@ -1021,7 +1021,7 @@ class ComRegister {
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// 初始化完毕
-		this.logger.info("主人～女仆插件初始化完毕啦！乖乖准备好为您服务哦 (>ω<)♡");
+		this.logger.info("主人～女仆插件初始化完毕啦！乖乖准备好为您服务哦");
 	}
 
 	mergeStopWords(stopWordsStr: string) {
@@ -1132,7 +1132,7 @@ class ComRegister {
 			if (this.privateBot?.status !== Universal.Status.ONLINE) {
 				// 不具备推送条件 logger
 				this.logger.error(
-					`主人～呜呜 (；>_<) 女仆发现 ${this.privateBot.platform} 机器人还没初始化完毕呢，暂时不能进行推送～女仆会乖乖等它准备好 (>ω<)♡`,
+					`主人～呜呜 (；>_<) 女仆发现 ${this.privateBot.platform} 机器人还没初始化完毕呢，暂时不能进行推送～女仆会乖乖等它准备好`,
 				);
 				// 返回
 				return;
@@ -1160,11 +1160,11 @@ class ComRegister {
 		if (this.rebootCount >= 3) {
 			// logger
 			this.logger.error(
-				"主人呜呜 (；>_<) 女仆已经重启插件三次啦，请主人检查一下机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+				"主人呜呜，女仆已经重启插件三次啦，请主人检查一下机器人状态，然后输入指令 `bn start` 来启动插件哦",
 			);
 			// 重启失败，发送消息
 			await this.sendPrivateMsg(
-				"主人呜呜 (；>_<) 女仆已经重启插件三次啦，请主人检查一下机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+				"主人呜呜，女仆已经重启插件三次啦，请主人检查一下机器人状态，然后输入指令 `bn start` 来启动插件哦",
 			);
 			// 关闭插件
 			await this.ctx["bilibili-notify"].disposePlugin();
@@ -1175,23 +1175,23 @@ class ComRegister {
 		this.rebootCount++;
 		// logger
 		this.logger.info(
-			"主人呜呜 (；>_<) 女仆发现插件出现未知错误啦，正在乖乖重启插件中～请主人稍等哦 (>ω<)♡",
+			"主人呜呜，女仆发现插件出现未知错误啦，正在乖乖重启插件中～请主人稍等哦",
 		);
 		// 重启插件
 		const flag = await this.ctx["bilibili-notify"].restartPlugin();
 		// 判断是否重启成功
 		if (flag) {
 			this.logger.info(
-				"主人～女仆成功重启插件啦！乖乖准备继续为您服务哦 (>ω<)♡",
+				"主人～女仆成功重启插件啦！乖乖准备继续为您服务哦",
 			);
 		} else {
 			// logger
 			this.logger.error(
-				"主人呜呜 (；>_<) 女仆重启插件失败啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+				"主人呜呜，女仆重启插件失败啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦",
 			);
 			// 重启失败，发送消息
 			await this.sendPrivateMsg(
-				"主人呜呜 (；>_<) 女仆重启插件失败啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+				"主人呜呜，女仆重启插件失败啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦",
 			);
 			// 关闭插件
 			await this.ctx["bilibili-notify"].disposePlugin();
@@ -1201,11 +1201,11 @@ class ComRegister {
 	async sendPrivateMsgAndStopService() {
 		// 发送消息
 		await this.sendPrivateMsg(
-			"主人呜呜 (；>_<) 女仆发现插件发生未知错误啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+			"主人呜呜，女仆发现插件发生未知错误啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦",
 		);
 		// logger
 		this.logger.error(
-			"主人呜呜 (；>_<) 女仆发现插件发生未知错误啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦 (>ω<)♡",
+			"主人呜呜，女仆发现插件发生未知错误啦，请主人检查机器人状态，然后输入指令 `bn start` 来启动插件哦",
 		);
 		// 关闭插件
 		await this.ctx["bilibili-notify"].disposePlugin();
@@ -1231,10 +1231,10 @@ class ComRegister {
 				}
 				// 打印错误信息
 				this.logger.error(
-					`主人呜呜 (；>_<) 女仆发送群组ID: ${channelId} 的消息失败啦～原因：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆发送群组ID: ${channelId} 的消息失败啦～原因：${e.message}，请主人帮女仆看看呀！`,
 				);
 				await this.sendPrivateMsg(
-					`主人呜呜 (；>_<) 女仆发送群组ID: ${channelId} 的消息失败啦～请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆发送群组ID: ${channelId} 的消息失败啦～请主人帮女仆看看呀！`,
 				);
 			},
 		);
@@ -1276,7 +1276,7 @@ class ComRegister {
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
 					this.logger.warn(
-						`主人呜呜 (；>_<) 女仆发现 ${platform} 没有配置对应机器人呢，暂时无法进行推送哦 (>ω<)♡`,
+						`主人呜呜，女仆发现 ${platform} 没有配置对应机器人呢，暂时无法进行推送哦`,
 					);
 					return;
 				}
@@ -1286,18 +1286,18 @@ class ComRegister {
 					if (retry >= 3000 * 2 ** 5) {
 						// logger
 						this.logger.error(
-							`主人呜呜 (；>_<) 女仆发现 ${platform} 机器人还没初始化完毕呢～已经重试5次啦，暂时放弃推送了 (>ω<)♡`,
+							`主人呜呜，女仆发现 ${platform} 机器人还没初始化完毕呢～已经重试5次啦，暂时放弃推送了`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`主人呜呜 (；>_<) 女仆发现 ${platform} 机器人还没初始化完毕呢～已经重试5次啦，暂时放弃推送了 (>ω<)♡`,
+							`主人呜呜，女仆发现 ${platform} 机器人还没初始化完毕呢～已经重试5次啦，暂时放弃推送了`,
 						);
 						// 返回
 						return;
 					}
 					// 有机器人未准备好，直接返回
 					this.logger.error(
-						`主人～女仆发现 ${platform} 机器人还没初始化完毕呢，暂时无法推送～${retry / 1000} 秒后女仆会再试一次哦 (>ω<)♡`,
+						`主人～女仆发现 ${platform} 机器人还没初始化完毕呢，暂时无法推送～${retry / 1000} 秒后女仆会再试一次哦`,
 					);
 					// 等待
 					await this.ctx.sleep(retry);
@@ -1316,7 +1316,7 @@ class ComRegister {
 				} catch (e) {
 					// logger
 					this.logger.error(
-						`主人呜呜 (；>_<) 女仆遇到错误啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
+						`主人呜呜，女仆遇到错误啦～错误信息：${e}，请主人帮女仆看看呀！`,
 					);
 					// 判断是否还有其他机器人
 					if (bots.length > 1) await sendMessageByBot(channelId, botIndex++);
@@ -1360,7 +1360,7 @@ class ComRegister {
 
 		// 有推送目标才打印一次全局信息
 		this.logger.info(
-			`主人～女仆这次要推送的对象是 ${uid}，推送类型是 ${PushTypeMsg[type]} 哦～乖乖完成任务啦 (>ω<)♡`,
+			`主人～女仆这次要推送的对象是 ${uid}，推送类型是 ${PushTypeMsg[type]} 哦～乖乖完成任务啦`,
 		);
 
 		// 推送 @全体（开播）
@@ -1369,7 +1369,7 @@ class ComRegister {
 			record.liveAtAllArr?.length > 0
 		) {
 			this.logger.info(
-				`主人～女仆推送给 @全体 的消息啦～对象列表：${record.liveAtAllArr} 哦 (>ω<)♡`,
+				`主人～女仆推送给 @全体 的消息啦～对象列表：${record.liveAtAllArr} 哦`,
 			);
 			const atAllArr = structuredClone(record.liveAtAllArr);
 			await withRetry(() => this.pushMessage(atAllArr, h.at("all")), 1);
@@ -1379,7 +1379,7 @@ class ComRegister {
 		if (type === PushType.Dynamic && record.dynamicArr?.length > 0) {
 			if (record.dynamicAtAllArr?.length > 0) {
 				this.logger.info(
-					`主人～女仆推送动态给 @全体 哦～对象列表：${record.dynamicAtAllArr} (>ω<)♡`,
+					`主人～女仆推送动态给 @全体 哦～对象列表：${record.dynamicAtAllArr}`,
 				);
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
 				await withRetry(
@@ -1388,7 +1388,7 @@ class ComRegister {
 				);
 			}
 			this.logger.info(
-				`主人～女仆正在推送动态啦～对象列表：${record.dynamicArr} (>ω<)♡`,
+				`主人～女仆正在推送动态啦～对象列表：${record.dynamicArr}`,
 			);
 			const dynamicArr = structuredClone(record.dynamicArr);
 			await withRetry(
@@ -1403,7 +1403,7 @@ class ComRegister {
 			record.liveArr?.length > 0
 		) {
 			this.logger.info(
-				`主人～女仆正在推送直播啦～对象列表：${record.liveArr} (>ω<)♡`,
+				`主人～女仆正在推送直播啦～对象列表：${record.liveArr}`,
 			);
 			const liveArr = structuredClone(record.liveArr);
 			await withRetry(
@@ -1415,7 +1415,7 @@ class ComRegister {
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) {
 			this.logger.info(
-				`主人～女仆正在推送直播守护购买消息啦～对象列表：${record.liveGuardBuyArr} (>ω<)♡`,
+				`主人～女仆正在推送直播守护购买消息啦～对象列表：${record.liveGuardBuyArr}`,
 			);
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
 			await withRetry(
@@ -1427,7 +1427,7 @@ class ComRegister {
 		// 推送SC
 		if (type === PushType.Superchat && record.superchatArr?.length > 0) {
 			this.logger.info(
-				`主人～女仆正在推送 SC 消息啦～对象列表：${record.superchatArr} (>ω<)♡`,
+				`主人～女仆正在推送 SC 消息啦～对象列表：${record.superchatArr}`,
 			);
 			const superchatArr = structuredClone(record.superchatArr);
 			await withRetry(
@@ -1453,7 +1453,7 @@ class ComRegister {
 
 			if (wordcloudAndLiveSummaryArr.length > 0) {
 				this.logger.info(
-					`主人～女仆正在推送词云和直播总结啦～对象列表：${wordcloudAndLiveSummaryArr} (>ω<)♡`,
+					`主人～女仆正在推送词云和直播总结啦～对象列表：${wordcloudAndLiveSummaryArr}`,
 				);
 
 				const msgs = content.filter(Boolean);
@@ -1468,7 +1468,7 @@ class ComRegister {
 
 			if (content[0] && wordcloudOnlyArr.length > 0) {
 				this.logger.info(
-					`主人～女仆正在推送词云啦～对象列表：${wordcloudOnlyArr} (>ω<)♡`,
+					`主人～女仆正在推送词云啦～对象列表：${wordcloudOnlyArr}`,
 				);
 				await withRetry(
 					() => this.pushMessage(wordcloudOnlyArr, h("message", content[0])),
@@ -1478,7 +1478,7 @@ class ComRegister {
 
 			if (content[1] && liveSummaryOnlyArr.length > 0) {
 				this.logger.info(
-					`主人～女仆正在推送直播总结啦～对象列表：${liveSummaryOnlyArr} (>ω<)♡`,
+					`主人～女仆正在推送直播总结啦～对象列表：${liveSummaryOnlyArr}`,
 				);
 				await withRetry(
 					() => this.pushMessage(liveSummaryOnlyArr, h("message", content[1])),
@@ -1505,13 +1505,13 @@ class ComRegister {
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
-					`主人呜呜 (；>_<) 女仆在执行 dynamicDetect getAllDynamic() 时发生了错误～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆在执行 dynamicDetect getAllDynamic() 时发生了错误～错误信息：${e.message}，请主人帮女仆看看呀！`,
 				);
 			});
 			// content不存在则直接返回
 			if (!content || !content.data) {
 				this.logger.error(
-					"主人呜呜 (；>_<) 女仆在执行 dynamicDetect 时获取动态内容失败啦～请主人帮女仆看看呀 (>ω<)♡",
+					"主人呜呜，女仆在执行 dynamicDetect 时获取动态内容失败啦～请主人帮女仆看看呀！",
 				);
 				return;
 			}
@@ -1521,11 +1521,11 @@ class ComRegister {
 					case -101: {
 						// 账号未登录
 						this.logger.error(
-							"主人…呜呜，女仆发现您还没登录账号呢 (；>_<)插件已经乖乖停止工作啦…请主人快点登录，让女仆可以继续努力为您服务～ (>ω<)♡",
+							"主人…呜呜，女仆发现您还没登录账号呢 (；>_<)插件已经乖乖停止工作啦…请主人快点登录，让女仆可以继续努力为您服务～",
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							"主人…呜呜，女仆发现您还没登录账号呢 (；>_<)插件已经乖乖停止工作啦…请主人快点登录，让女仆可以继续努力为您服务～ (>ω<)♡",
+							"主人…呜呜，女仆发现您还没登录账号呢 (；>_<)插件已经乖乖停止工作啦…请主人快点登录，让女仆可以继续努力为您服务～",
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1535,11 +1535,11 @@ class ComRegister {
 					case -352: {
 						// 风控
 						this.logger.error(
-							"主人…呜呜 (；>_<) 女仆发现账号被风控啦～插件已经乖乖停止工作了…请主人输入指令 bili cap，然后按照提示来解除风控吧～女仆会在旁边乖乖等您完成的 (>ω<)♡",
+							"主人…呜呜 (；>_<) 女仆发现账号被风控啦～插件已经乖乖停止工作了…请主人输入指令 bili cap，然后按照提示来解除风控吧～女仆会在旁边乖乖等您完成的",
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							"主人…呜呜 (；>_<) 女仆发现账号被风控啦～插件已经乖乖停止工作了…请主人输入指令 bili cap，然后按照提示来解除风控吧～女仆会在旁边乖乖等您完成的 (>ω<)♡",
+							"主人…呜呜 (；>_<) 女仆发现账号被风控啦～插件已经乖乖停止工作了…请主人输入指令 bili cap，然后按照提示来解除风控吧～女仆会在旁边乖乖等您完成的",
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1549,11 +1549,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`主人…呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件～女仆会乖乖等着的 (>ω<)♡`,
+							`主人…呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件～女仆会乖乖等着的`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`主人…呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件～女仆会乖乖等着的 (>ω<)♡`,
+							`主人…呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件～女仆会乖乖等着的`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1625,7 +1625,7 @@ class ComRegister {
 							}
 							// 未知错误
 							this.logger.error(
-								`主人呜呜 (；>_<) 女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+								`主人呜呜，女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀！`,
 							);
 							// 发送私聊消息并重启服务
 							await this.sendPrivateMsgAndStopService();
@@ -1660,7 +1660,7 @@ class ComRegister {
 						if (this.config.ai.enable) {
 							// logger
 							this.logger.info(
-								"主人～女仆正在努力生成 AI 动态推送内容中呢…请稍等一下呀 (>ω<)♡",
+								"主人～女仆正在努力生成 AI 动态推送内容中呢…请稍等一下呀",
 							);
 							// 收集信息
 							if (item.type === "DYNAMIC_TYPE_AV") {
@@ -1691,11 +1691,11 @@ class ComRegister {
 							}
 							// logger
 							this.logger.info(
-								`主人～女仆的 AI 动态推送内容生成完毕啦！乖乖准备好发送给大家哦 (>ω<)♡`,
+								`主人～女仆的 AI 动态推送内容生成完毕啦！乖乖准备好发送给大家哦`,
 							);
 						}
 						// logger
-						this.logger.info(`主人～女仆正在推送动态中呢…请稍等哦 (>ω<)♡`);
+						this.logger.info(`主人～女仆正在推送动态中呢…请稍等哦`);
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
@@ -1758,7 +1758,7 @@ class ComRegister {
 				AllDynamicInfo["data"]["items"][number]
 			> = {};
 			// logger
-			this.logger.info(`主人～女仆正在开始获取动态信息呢…请稍等一下呀 (>ω<)♡`);
+			this.logger.info(`主人～女仆正在开始获取动态信息呢…请稍等一下呀`);
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
@@ -1768,7 +1768,7 @@ class ComRegister {
 			}, 1).catch((e) => {
 				// logger
 				this.logger.error(
-					`主人呜呜 (；>_<) 女仆在执行 dynamicDetect getAllDynamic() 时遇到错误啦～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆在执行 dynamicDetect getAllDynamic() 时遇到错误啦～错误信息：${e.message}，请主人帮女仆看看呀！`,
 				);
 			});
 			// content不存在则直接返回
@@ -1779,11 +1779,11 @@ class ComRegister {
 					case -101: {
 						// 账号未登录
 						this.logger.error(
-							`主人呜呜 (；>_<) 女仆发现账号还没登录呢，插件已经停止工作啦～请主人快点登录好让女仆继续努力呀 (>ω<)♡`,
+							`主人呜呜，女仆发现账号还没登录呢，插件已经停止工作啦～请主人快点登录好让女仆继续努力呀`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`主人呜呜 (；>_<) 女仆发现账号还没登录呢，插件已经停止工作啦～请主人快点登录好让女仆继续努力呀 (>ω<)♡`,
+							`主人呜呜，女仆发现账号还没登录呢，插件已经停止工作啦～请主人快点登录好让女仆继续努力呀`,
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1794,11 +1794,11 @@ class ComRegister {
 						// 风控
 						// 输出日志
 						this.logger.error(
-							"主人呜呜 (；>_<) 女仆发现账号被风控啦，插件已经停止工作～请主人输入指令 `bili cap` 并根据提示解除风控呀～女仆会乖乖等您完成的 (>ω<)♡",
+							"主人呜呜，女仆发现账号被风控啦，插件已经停止工作～请主人输入指令 `bili cap` 并根据提示解除风控呀～女仆会乖乖等您完成的",
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							"主人呜呜 (；>_<) 女仆发现账号被风控啦，插件已经停止工作～请主人输入指令 `bili cap` 并根据提示解除风控呀～女仆会乖乖等您完成的 (>ω<)♡",
+							"主人呜呜，女仆发现账号被风控啦，插件已经停止工作～请主人输入指令 `bili cap` 并根据提示解除风控呀～女仆会乖乖等您完成的",
 						);
 						// 停止服务
 						await this.ctx["bilibili-notify"].disposePlugin();
@@ -1808,11 +1808,11 @@ class ComRegister {
 					default: {
 						// 未知错误
 						this.logger.error(
-							`主人呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件呀～女仆会乖乖等着的 (>ω<)♡`,
+							`主人呜呜，女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件呀～女仆会乖乖等着的`,
 						);
 						// 发送私聊消息
 						await this.sendPrivateMsg(
-							`主人呜呜 (；>_<) 女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件呀～女仆会乖乖等着的 (>ω<)♡`,
+							`主人呜呜，女仆在获取动态信息时遇到问题啦～错误码：${content.code}，错误信息：${content.message}，请主人排除问题后输入指令 \`bn start\` 重启插件呀～女仆会乖乖等着的`,
 						);
 
 						// 停止服务
@@ -1824,7 +1824,7 @@ class ComRegister {
 			}
 			// logger
 			this.logger.info(
-				"主人～女仆成功获取动态信息啦！正在乖乖开始处理动态信息呢 (>ω<)♡",
+				"主人～女仆成功获取动态信息啦！正在乖乖开始处理动态信息呢",
 			);
 			// 获取动态内容
 			const items = content.data.items;
@@ -1839,7 +1839,7 @@ class ComRegister {
 				const name = item.modules.module_author.name;
 				// logger
 				this.logger.info(
-					`主人主人～女仆已经成功拿到动态信息啦！UP主是：${name}，UID：${uid}，动态发布时间是：${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")} 哦～女仆超乖地汇报给您呢 (>ω<)♡`,
+					`主人主人～女仆已经成功拿到动态信息啦！UP主是：${name}，UID：${uid}，动态发布时间是：${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")} 哦～女仆超乖地汇报给您呢`,
 				);
 				// 判断是否存在时间线
 				if (this.dynamicTimelineManager.has(uid)) {
@@ -1910,7 +1910,7 @@ class ComRegister {
 							}
 							// 未知错误
 							this.logger.error(
-								`主人呜呜 (；>_<) 女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+								`主人呜呜，女仆在执行 dynamicDetect generateDynamicImg() 时推送卡片发送失败啦～原因：${e.message}，请主人帮女仆看看呀！`,
 							);
 							// 发送私聊消息并重启服务
 							await this.sendPrivateMsgAndStopService();
@@ -1919,7 +1919,7 @@ class ComRegister {
 						if (!buffer) continue;
 						// logger
 						this.logger.info(
-							"主人～女仆渲染推送卡片成功啦！乖乖准备好发送啦 (>ω<)♡",
+							"主人～女仆渲染推送卡片成功啦！乖乖准备好发送啦",
 						);
 						// 定义动态链接
 						let dUrl = "";
@@ -1927,7 +1927,7 @@ class ComRegister {
 						if (this.config.dynamicUrl) {
 							// logger
 							this.logger.info(
-								"主人～女仆发现需要发送动态链接啦，正在努力生成链接中呢 (>ω<)♡",
+								"主人～女仆发现需要发送动态链接啦，正在努力生成链接中呢",
 							);
 							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
@@ -1950,11 +1950,11 @@ class ComRegister {
 							}
 							// logger
 							this.logger.info(
-								"主人～女仆成功生成动态链接啦！准备好发送给大家啦 (>ω<)♡",
+								"主人～女仆成功生成动态链接啦！准备好发送给大家啦",
 							);
 						}
 						// logger
-						this.logger.info("主人～女仆正在推送动态中呢…请稍等哦 (>ω<)♡");
+						this.logger.info("主人～女仆正在推送动态中呢…请稍等哦");
 						// 发送推送卡片
 						await this.broadcastToTargets(
 							uid,
@@ -1965,7 +1965,7 @@ class ComRegister {
 						if (this.config.pushImgsInDynamic) {
 							// logger
 							this.logger.info(
-								"主人～女仆发现动态里有图片要发送哦，正在努力发送中呢 (>ω<)♡",
+								"主人～女仆发现动态里有图片要发送哦，正在努力发送中呢",
 							);
 							// 判断是否为图文动态
 							if (item.type === "DYNAMIC_TYPE_DRAW") {
@@ -1985,7 +1985,7 @@ class ComRegister {
 							}
 							// logger
 							this.logger.info(
-								"主人～女仆已经把动态中的图片发送完毕啦！乖乖完成任务啦 (>ω<)♡",
+								"主人～女仆已经把动态中的图片发送完毕啦！乖乖完成任务啦",
 							);
 						}
 						// 如果当前订阅对象已存在更早推送，则无需再更新时间线
@@ -2002,7 +2002,7 @@ class ComRegister {
 			}
 			// logger
 			this.logger.info(
-				"主人～女仆已经把动态信息处理完毕啦！一切都乖乖完成啦 (>ω<)♡",
+				"主人～女仆已经把动态信息处理完毕啦！一切都乖乖完成啦",
 			);
 			// 遍历currentPushDyn
 			for (const uid in currentPushDyn) {
@@ -2012,12 +2012,12 @@ class ComRegister {
 				this.dynamicTimelineManager.set(uid, postTime);
 				// logger
 				this.logger.info(
-					`主人～女仆成功更新了时间线啦！UP主：${uid}，时间线：${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")} 哦～女仆超乖地汇报给您呢 (>ω<)♡`,
+					`主人～女仆成功更新了时间线啦！UP主：${uid}，时间线：${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")} 哦～女仆超乖地汇报给您呢`,
 				);
 			}
 			// logger
 			this.logger.info(
-				`主人～女仆这次要推送的动态数量是：${Object.keys(currentPushDyn).length} 条哦～乖乖完成任务啦 (>ω<)♡`,
+				`主人～女仆这次要推送的动态数量是：${Object.keys(currentPushDyn).length} 条哦～乖乖完成任务啦`,
 			);
 		};
 		// 返回一个闭包函数
@@ -2080,7 +2080,7 @@ class ComRegister {
 			.then((content) => content.data)
 			.catch((e) => {
 				this.logger.error(
-					`主人呜呜 (；>_<) 女仆在执行 liveDetect getLiveRoomInfo 时遇到错误啦～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆在执行 liveDetect getLiveRoomInfo 时遇到错误啦～错误信息：${e.message}，请主人帮女仆看看呀！`,
 				);
 			});
 		// 发送私聊消息并重启服务
@@ -2116,7 +2116,7 @@ class ComRegister {
 			);
 		}, 1).catch((e) => {
 			this.logger.error(
-				`主人呜呜 (；>_<) 女仆在执行 liveDetect generateLiveImg() 时推送卡片生成失败啦～原因：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+				`主人呜呜，女仆在执行 liveDetect generateLiveImg() 时推送卡片生成失败啦～原因：${e.message}，请主人帮女仆看看呀！`,
 			);
 		});
 		// 发送私聊消息并重启服务
@@ -2189,7 +2189,7 @@ class ComRegister {
 			this.logger.info(
 				"主人～女仆正在开始制作弹幕词云呢～请稍等一下呀 (〃ﾉωﾉ)♡",
 			);
-			this.logger.info("主人～女仆正在努力获取前90热词呢～请稍等哦 (>ω<)♡");
+			this.logger.info("主人～女仆正在努力获取前90热词呢～请稍等哦");
 			// 获取数据
 			const words = Object.entries(danmakuWeightRecord);
 			const danmaker = Object.entries(danmakuSenderRecord);
@@ -2199,7 +2199,7 @@ class ComRegister {
 				if (words.length < 50) {
 					// logger
 					this.logger.info(
-						"主人呜呜 (；>_<) 女仆发现热词不足50个呢，本次弹幕词云只好放弃啦 (>ω<)♡",
+						"主人呜呜，女仆发现热词不足50个呢，本次弹幕词云只好放弃啦",
 					);
 					// 返回
 					return;
@@ -2207,11 +2207,11 @@ class ComRegister {
 				// 拿到前90个热词
 				const top90Words = words.sort((a, b) => b[1] - a[1]).slice(0, 90);
 				this.logger.info(
-					"主人～女仆整理好了弹幕词云前90词及权重啦～请主人过目哦 (>ω<)♡",
+					"主人～女仆整理好了弹幕词云前90词及权重啦～请主人过目哦",
 				);
 				this.logger.info(top90Words);
 				this.logger.info(
-					"主人～女仆正在准备生成弹幕词云呢～请稍等一下呀 (>ω<)♡",
+					"主人～女仆正在准备生成弹幕词云呢～请稍等一下呀",
 				);
 				// 生成弹幕词云图片
 				const buffer = await this.ctx[
@@ -2226,14 +2226,14 @@ class ComRegister {
 				if (danmaker.length < 5) {
 					// logger
 					this.logger.info(
-						"主人呜呜 (；>_<) 女仆发现发言人数不足5位呢，本次弹幕词云只好放弃啦 (>ω<)♡",
+						"主人呜呜，女仆发现发言人数不足5位呢，本次弹幕词云只好放弃啦",
 					);
 					// 返回
 					return;
 				}
 				// logger
 				this.logger.info(
-					"主人～女仆正在开始构建弹幕发送排行榜消息呢～请稍等呀 (>ω<)♡",
+					"主人～女仆正在开始构建弹幕发送排行榜消息呢～请稍等呀",
 				);
 				// 弹幕发送者数量
 				const danmakuSenderCount = Object.keys(danmakuSenderRecord).length;
@@ -2251,7 +2251,7 @@ class ComRegister {
 				// 判断是否开启AI
 				if (this.config.ai.enable) {
 					this.logger.info(
-						"主人～女仆发现 AI 直播总结功能已开启啦，正在努力生成 AI 直播总结呢 (>ω<)♡",
+						"主人～女仆发现 AI 直播总结功能已开启啦，正在努力生成 AI 直播总结呢",
 					);
 					// 拿到前10个热词
 					const top10Words = words.sort((a, b) => b[1] - a[1]).slice(0, 10);
@@ -2284,7 +2284,7 @@ class ComRegister {
 					);
 					// logger
 					this.logger.info(
-						"主人～女仆生成好了 AI 直播总结啦，请主人过目哦 (>ω<)♡",
+						"主人～女仆生成好了 AI 直播总结啦，请主人过目哦",
 					);
 					this.logger.info(res.choices[0].message.content);
 					// 返回结果
@@ -2332,7 +2332,7 @@ class ComRegister {
 			) {
 				// 未获取成功，直接返回
 				await this.sendPrivateMsg(
-					"主人呜呜 (；>_<) 女仆获取直播间信息失败啦，推送直播卡片也失败了～请主人帮女仆看看呀 (>ω<)♡",
+					"主人呜呜，女仆获取直播间信息失败啦，推送直播卡片也失败了～请主人帮女仆看看呀！",
 				);
 				// 停止服务
 				return await this.sendPrivateMsgAndStopService();
@@ -2345,7 +2345,7 @@ class ComRegister {
 				pushAtTimeTimer?.();
 				// 发送私聊消息
 				await this.sendPrivateMsg(
-					"主人～女仆发现直播间已下播啦！可能与直播间的连接断开了，请主人使用指令 `bn restart` 重启插件呀 (>ω<)♡",
+					"主人～女仆发现直播间已下播啦！可能与直播间的连接断开了，请主人使用指令 `bn restart` 重启插件呀",
 				);
 				// 返回
 				return;
@@ -2450,10 +2450,10 @@ class ComRegister {
 				pushAtTimeTimer = null;
 				this.ctx["bilibili-notify-live"].closeListener(sub.roomid);
 				await this.sendPrivateMsg(
-					`主人呜呜 (；>_<) 女仆发现 [${sub.roomid}] 直播间连接发生错误啦，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆发现 [${sub.roomid}] 直播间连接发生错误啦，请主人帮女仆看看呀！`,
 				);
 				this.logger.error(
-					`主人呜呜 (；>_<) 女仆发现 [${sub.roomid}] 直播间连接发生错误啦，请主人帮女仆看看呀 (>ω<)♡`,
+					`主人呜呜，女仆发现 [${sub.roomid}] 直播间连接发生错误啦，请主人帮女仆看看呀！`,
 				);
 			},
 
@@ -2557,7 +2557,7 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveStart < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(
-						`主人～女仆发现 [${sub.roomid}] 的开播事件在冷却期内，所以被忽略啦 (>ω<)♡`,
+						`主人～女仆发现 [${sub.roomid}] 的开播事件在冷却期内，所以被忽略啦`,
 					);
 					return;
 				}
@@ -2567,7 +2567,7 @@ class ComRegister {
 				// 状态守卫
 				if (liveStatus) {
 					this.logger.warn(
-						`主人～女仆发现 [${sub.roomid}] 已经是开播状态啦，所以忽略了重复的开播事件哦 (>ω<)♡`,
+						`主人～女仆发现 [${sub.roomid}] 已经是开播状态啦，所以忽略了重复的开播事件哦`,
 					);
 					return;
 				}
@@ -2580,14 +2580,14 @@ class ComRegister {
 				) {
 					liveStatus = false;
 					await this.sendPrivateMsg(
-						"主人呜呜 (；>_<) 女仆获取直播间信息失败啦，推送直播开播卡片也失败了，请主人帮女仆看看呀 (>ω<)♡",
+						"主人呜呜，女仆获取直播间信息失败啦，推送直播开播卡片也失败了，请主人帮女仆看看呀！",
 					);
 					return await this.sendPrivateMsgAndStopService();
 				}
 
 				// fans number log
 				this.logger.info(
-					`主人～女仆查到房间号是：${masterInfo.roomId}，开播时的粉丝数有：${masterInfo.liveOpenFollowerNum} 哦～女仆乖乖汇报完毕 (>ω<)♡`,
+					`主人～女仆查到房间号是：${masterInfo.roomId}，开播时的粉丝数有：${masterInfo.liveOpenFollowerNum} 哦～女仆乖乖汇报完毕`,
 				);
 
 				liveTime =
@@ -2645,7 +2645,7 @@ class ComRegister {
 				// 冷却期保护
 				if (now - lastLiveEnd < LIVE_EVENT_COOLDOWN) {
 					this.logger.warn(
-						`主人～女仆发现 [${sub.roomid}] 的下播事件在冷却期内，所以被忽略啦 (>ω<)♡`,
+						`主人～女仆发现 [${sub.roomid}] 的下播事件在冷却期内，所以被忽略啦`,
 					);
 					return;
 				}
@@ -2655,7 +2655,7 @@ class ComRegister {
 				// 状态守卫
 				if (!liveStatus) {
 					this.logger.warn(
-						`主人～女仆发现 [${sub.roomid}] 已经是下播状态啦，所以忽略了重复的下播事件哦 (>ω<)♡`,
+						`主人～女仆发现 [${sub.roomid}] 已经是下播状态啦，所以忽略了重复的下播事件哦`,
 					);
 					return;
 				}
@@ -2674,7 +2674,7 @@ class ComRegister {
 				) {
 					liveStatus = false;
 					await this.sendPrivateMsg(
-						"主人呜呜 (；>_<) 女仆获取直播间信息失败啦，推送直播开播卡片也失败了，请主人帮女仆看看呀 (>ω<)♡",
+						"主人呜呜，女仆获取直播间信息失败啦，推送直播开播卡片也失败了，请主人帮女仆看看呀！",
 					);
 					return await this.sendPrivateMsgAndStopService();
 				}
@@ -2683,7 +2683,7 @@ class ComRegister {
 
 				// fans number log
 				this.logger.info(
-					`主人～女仆报告开播时粉丝数：${masterInfo.liveOpenFollowerNum}，下播时粉丝数：${masterInfo.liveEndFollowerNum}，粉丝数变化：${masterInfo.liveFollowerChange} 哦～女仆乖乖汇报完毕 (>ω<)♡`,
+					`主人～女仆报告开播时粉丝数：${masterInfo.liveOpenFollowerNum}，下播时粉丝数：${masterInfo.liveEndFollowerNum}，粉丝数变化：${masterInfo.liveFollowerChange} 哦～女仆乖乖汇报完毕`,
 				);
 
 				// 保证 liveTime 必然有值
@@ -2747,12 +2747,12 @@ class ComRegister {
 		) {
 			// 未获取成功，直接返回
 			return this.sendPrivateMsg(
-				"主人呜呜 (；>_<) 女仆获取直播间信息失败啦，所以启动直播间弹幕检测也失败了，请主人帮女仆看看呀 (>ω<)♡",
+				"主人呜呜，女仆获取直播间信息失败啦，所以启动直播间弹幕检测也失败了，请主人帮女仆看看呀！",
 			);
 		}
 		// fans number log
 		this.logger.info(
-			`主人～女仆查到当前粉丝数是：${masterInfo.liveOpenFollowerNum} 哦～乖乖报告完毕 (>ω<)♡`,
+			`主人～女仆查到当前粉丝数是：${masterInfo.liveOpenFollowerNum} 哦～乖乖报告完毕`,
 		);
 		// 判断直播状态
 		if (liveRoomInfo.live_status === 1) {
@@ -2902,7 +2902,7 @@ class ComRegister {
 				// 创建成功
 				return { code: createGroupData.code, message: createGroupData.message };
 			}
-			return { code: 0, message: "主人～女仆发现这个分组已经存在啦 (>ω<)♡" };
+			return { code: 0, message: "主人～女仆发现这个分组已经存在啦" };
 		};
 		// 判断分组是否准备好
 		const resp = await checkGroupIsReady();
@@ -2935,7 +2935,7 @@ class ComRegister {
 			}
 			return {
 				code: 0,
-				message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕 (>ω<)♡",
+				message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕",
 				data: relationGroupDetailData.data,
 			};
 		};
@@ -2947,7 +2947,7 @@ class ComRegister {
 		}
 		return {
 			code: 0,
-			message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕 (>ω<)♡",
+			message: "主人～女仆获取分组明细成功啦～乖乖汇报完毕",
 			data,
 		};
 	}
@@ -2959,7 +2959,7 @@ class ComRegister {
 				// 已关注订阅对象
 				return {
 					code: 0,
-					message: "主人～女仆发现订阅对象已经在分组里啦 (>ω<)♡",
+					message: "主人～女仆发现订阅对象已经在分组里啦",
 				};
 			}
 		}
@@ -2974,49 +2974,49 @@ class ComRegister {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现账号未登录哦～请主人使用指令 `bili login` 登录后再进行订阅操作呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号未登录哦～请主人使用指令 `bili login` 登录后再进行订阅操作呀",
 				};
 			},
 			[-102]: () => {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现账号被封停啦，所以无法进行订阅操作呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号被封停啦，所以无法进行订阅操作呀",
 				};
 			},
 			22002: () => {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现因为对方隐私设置，无法进行订阅操作呀 (>ω<)♡",
+						"主人呜呜，女仆发现因为对方隐私设置，无法进行订阅操作呀",
 				};
 			},
 			22003: () => {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现您已经把对方拉黑啦，所以无法进行订阅操作呀 (>ω<)♡",
+						"主人呜呜，女仆发现您已经把对方拉黑啦，所以无法进行订阅操作呀",
 				};
 			},
 			22013: () => {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现账号已注销啦，所以无法进行订阅操作呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号已注销啦，所以无法进行订阅操作呀",
 				};
 			},
 			40061: () => {
 				return {
 					code: subUserData.code,
 					message:
-						"主人呜呜 (；>_<) 女仆发现账号不存在哦～请主人检查 UID 输入是否正确，或者用户是否真的存在呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号不存在哦～请主人检查 UID 输入是否正确，或者用户是否真的存在呀",
 				};
 			},
 			22001: () => {
 				return {
 					code: 0,
 					message:
-						"主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦 (>ω<)♡",
+						"主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦",
 				};
 			},
 			// 已订阅该对象
@@ -3031,13 +3031,13 @@ class ComRegister {
 					return {
 						code: copyUserToGroupData.code,
 						message:
-							"主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
+							"主人呜呜，女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦",
 					};
 				}
 				// 添加成功
 				return {
 					code: 0,
-					message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡",
+					message: "主人～女仆已经成功把订阅对象添加到分组啦",
 				};
 			},
 			// 账号异常
@@ -3056,13 +3056,13 @@ class ComRegister {
 					return {
 						code: copyUserToGroupData.code,
 						message:
-							"主人呜呜 (；>_<) 女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦 (>ω<)♡",
+							"主人呜呜，女仆尝试把订阅对象添加到分组失败啦～请主人稍后再试哦",
 					};
 				}
 				// 添加成功
 				return {
 					code: 0,
-					message: "主人～女仆已经成功把订阅对象添加到分组啦 (>ω<)♡",
+					message: "主人～女仆已经成功把订阅对象添加到分组啦",
 				};
 			},
 		};
@@ -3083,7 +3083,7 @@ class ComRegister {
 		for (const sub of Object.values(subs)) {
 			// logger
 			this.logger.info(
-				`主人～女仆正在加载订阅 UID：${sub.uid} 中呢～请稍等呀 (>ω<)♡`,
+				`主人～女仆正在加载订阅 UID：${sub.uid} 中呢～请稍等呀`,
 			);
 			// 在B站中订阅该对象
 			const subInfo = await this.subUserInBili(sub.uid);
@@ -3093,7 +3093,7 @@ class ComRegister {
 			if (subInfo.code === 22015) {
 				// 账号异常
 				this.logger.warn(
-					`主人呜呜 (；>_<) 女仆发现账号异常，无法自动订阅 UID：${sub.uid} 哦～请主人手动订阅，然后把订阅移动到 "订阅" 分组里呀 (>ω<)♡`,
+					`主人呜呜，女仆发现账号异常，无法自动订阅 UID：${sub.uid} 哦～请主人手动订阅，然后把订阅移动到 "订阅" 分组里呀`,
 				);
 			}
 			// 将该订阅添加到sm中
@@ -3111,7 +3111,7 @@ class ComRegister {
 			if (sub.live && !sub.roomid) {
 				// logger
 				this.logger.info(
-					`主人～女仆发现 UID：${sub.uid} 请求了用户接口哦～女仆乖乖记录啦 (>ω<)♡`,
+					`主人～女仆发现 UID：${sub.uid} 请求了用户接口哦～女仆乖乖记录啦`,
 				);
 				// 定义Data
 				const {
@@ -3127,23 +3127,23 @@ class ComRegister {
 					return data;
 				}).catch((e) => {
 					this.logger.error(
-						`主人呜呜 (；>_<) 女仆在执行 loadSubFromConfig() 的 getUserInfo() 时发生错误啦～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
+						`主人呜呜，女仆在执行 loadSubFromConfig() 的 getUserInfo() 时发生错误啦～错误信息：${e.message}，请主人帮女仆看看呀！`,
 					);
 					// 返回失败
 					return {
 						code: -1,
-						message: `主人呜呜 (；>_<) 女仆加载订阅 UID：${sub.uid} 失败啦～请主人帮女仆看看呀 (>ω<)♡`,
+						message: `主人呜呜，女仆加载订阅 UID：${sub.uid} 失败啦～请主人帮女仆看看呀！`,
 					};
 				});
 				// v_voucher风控
 				if (userInfoCode === -352 && userInfoData.v_voucher) {
 					// logger
 					this.logger.info(
-						"主人呜呜 (；>_<) 女仆发现账号被风控啦～请主人使用指令 `bili cap` 进行风控验证呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号被风控啦～请主人使用指令 `bili cap` 进行风控验证呀",
 					);
 					// 发送私聊消息
 					await this.sendPrivateMsg(
-						"主人呜呜 (；>_<) 女仆发现账号被风控啦～请主人使用指令 `bili cap` 进行风控验证呀 (>ω<)♡",
+						"主人呜呜，女仆发现账号被风控啦～请主人使用指令 `bili cap` 进行风控验证呀",
 					);
 					return { code: userInfoCode, message: userInfoMsg };
 				}
@@ -3156,7 +3156,7 @@ class ComRegister {
 					sub.live = false;
 					// 发送提示
 					this.logger.warn(
-						`主人～女仆发现 UID：${sub.uid} 的用户没有开通直播间哦，所以无法订阅直播啦 (>ω<)♡`,
+						`主人～女仆发现 UID：${sub.uid} 的用户没有开通直播间哦，所以无法订阅直播啦`,
 					);
 				}
 				// 将roomid设置进去
@@ -3169,7 +3169,7 @@ class ComRegister {
 			}
 			// logger
 			this.logger.info(
-				`主人～女仆订阅 UID：${sub.uid} 已经加载完毕啦～乖乖完成任务啦 (>ω<)♡`,
+				`主人～女仆订阅 UID：${sub.uid} 已经加载完毕啦～乖乖完成任务啦`,
 			);
 			// 判断是不是最后一个订阅
 			if (sub !== Object.values(subs).pop()) {
@@ -3178,7 +3178,7 @@ class ComRegister {
 				const randomDelay = Math.floor(Math.random() * 3) + 1;
 				// logger
 				this.logger.info(
-					`主人～女仆设置了随机延迟哦～延迟时间：${randomDelay} 秒呢 (>ω<)♡`,
+					`主人～女仆设置了随机延迟哦～延迟时间：${randomDelay} 秒呢`,
 				);
 				// delay
 				await this.ctx.sleep(randomDelay * 1000);
@@ -3208,7 +3208,7 @@ class ComRegister {
 		);
 		// logger
 		this.logger.info(
-			"主人～女仆的动态监测已经开启啦～开始乖乖监控动态呢 (>ω<)♡",
+			"主人～女仆的动态监测已经开启啦～开始乖乖监控动态呢",
 		);
 		// 开始动态监测
 		this.dynamicJob.start();
