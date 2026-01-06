@@ -198,7 +198,7 @@ const tips = ref(false)
 
 // 监听登录状态变化
 watch(
-    () => store["bilibili-notify"].status,
+    () => [store["bilibili-notify"].status, store["bilibili-notify"].msg],
     async () => {
         // 防止其他页面出现该内容
         if (local.value.name !== "koishi-plugin-bilibili-notify") return
