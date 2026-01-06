@@ -129,7 +129,9 @@ class ServerManager extends Service {
 	protected start(): void | Promise<void> {
 		// 注册插件
 		if (!this.registerPlugin()) {
-			this.logger.error("主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡");
+			this.logger.error(
+				"主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡",
+			);
 		}
 	}
 
@@ -190,7 +192,9 @@ class ServerManager extends Service {
 			this.servers.push(gi);
 			this.servers.push(cr);
 		} catch (e) {
-			this.logger.error(`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`);
+			this.logger.error(
+				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
+			);
 			return false;
 		}
 		// 成功返回true
@@ -217,7 +221,9 @@ class ServerManager extends Service {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) {
 			// logger
-			this.logger.warn("主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡");
+			this.logger.warn(
+				"主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡",
+			);
 			// 返回
 			return false;
 		}
@@ -229,7 +235,9 @@ class ServerManager extends Service {
 				try {
 					this.registerPlugin();
 				} catch (e) {
-					this.logger.error(`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`);
+					this.logger.error(
+						`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
+					);
 					resolve(false);
 				}
 				resolve(true);
