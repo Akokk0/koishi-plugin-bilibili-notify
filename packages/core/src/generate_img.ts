@@ -3,7 +3,7 @@ import { type Context, Schema, Service } from "koishi";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
-import path, { resolve } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "./utils";
 import type { Dynamic, LiveData, RichTextNode } from "./type";
@@ -36,13 +36,10 @@ const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
 class GenerateImg extends Service {
 	static inject = ["puppeteer"];
 	giConfig: GenerateImg.Config;
-	fontPath: string;
 
 	constructor(ctx: Context, config: GenerateImg.Config) {
 		super(ctx, "bilibili-notify-generate-img");
 		this.giConfig = config;
-		// 获取font文件路径
-		this.fontPath = path.resolve(__dirname, "font/HYZhengYuan-75W.ttf");
 	}
 
 	numberToStr(num: number) {
@@ -100,17 +97,11 @@ class GenerateImg extends Service {
             <head>
                 <title>直播通知</title>
                 <style>
-                    @font-face {
-                        font-family: "NotoColorEmoji";
-                        src: url('file://${this.fontPath}') format('truetype');
-                        font-display: swap;
-                    }
-
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "NotoColorEmoji", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -305,17 +296,11 @@ class GenerateImg extends Service {
             <head>
                 <title>上舰通知</title>
                 <style>
-                    @font-face {
-                        font-family: "NotoColorEmoji";
-                        src: url('file://${this.fontPath}') format('truetype');
-                        font-display: swap;
-                    }
-
                     * {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "NotoColorEmoji", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
 
                     html {
@@ -873,17 +858,11 @@ class GenerateImg extends Service {
 		let style: string;
 		if (this.giConfig.enableLargeFont) {
 			style = /* css */ `
-            @font-face {
-                font-family: "NotoColorEmoji";
-                src: url('file://${this.fontPath}') format('truetype');
-                font-display: swap;
-            }
-            
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "NotoColorEmoji", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -1243,17 +1222,11 @@ class GenerateImg extends Service {
             `;
 		} else {
 			style = /* css */ `
-            @font-face {
-                font-family: "NotoColorEmoji";
-                src: url('file://${this.fontPath}') format('truetype');
-                font-display: swap;
-            }
-
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "NotoColorEmoji", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
     
             html {
@@ -1728,17 +1701,11 @@ class GenerateImg extends Service {
             <meta charset="UTF-8">
             <title>高清词云展示</title>
             <style>
-                @font-face {
-                    font-family: "NotoColorEmoji";
-                    src: url('file://${this.fontPath}') format('truetype');
-                    font-display: swap;
-                }
-
                 * {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: "${this.giConfig.font}", "NotoColorEmoji", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {
