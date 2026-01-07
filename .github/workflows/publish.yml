@@ -49,6 +49,7 @@ jobs:
             RUN="false"
           fi
 
+          echo "run=$RUN" >> $GITHUB_OUTPUT
           echo "force=$FORCE" >> $GITHUB_OUTPUT
 
       - name: Check version change
