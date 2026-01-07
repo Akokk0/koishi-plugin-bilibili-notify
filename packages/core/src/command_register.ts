@@ -284,9 +284,7 @@ class ComRegister {
 				}, 1).catch(async (e) => {
 					// 直播开播动态，不做处理
 					if (e.message === "直播开播动态，不做处理") {
-						await session.send(
-							"主人～女仆发现直播开播动态啦，但女仆不处理哦",
-						);
+						await session.send("主人～女仆发现直播开播动态啦，但女仆不处理哦");
 						return;
 					}
 					if (e.message === "出现关键词，屏蔽该动态") {
@@ -472,9 +470,7 @@ class ComRegister {
 			await session.send(`gt:${data.geetest.gt}`);
 			await session.send(`challenge:${data.geetest.challenge}`);
 			// 发送等待输入消息 validate
-			await session.send(
-				"主人～验证完成啦～请直接输入 validate 告诉女仆哦",
-			);
+			await session.send("主人～验证完成啦～请直接输入 validate 告诉女仆哦");
 			// 等待输入
 			const validate = await session.prompt();
 			// seccode
@@ -766,9 +762,7 @@ class ComRegister {
 			});
 		}
 		// logger
-		this.logger.info(
-			"主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦",
-		);
+		this.logger.info("主人～女仆正在初始化推送群组/频道信息呢，请稍等一下哦");
 		this.logger.info(this.pushArrMap);
 	}
 
@@ -936,12 +930,15 @@ class ComRegister {
 			if (this.dynamicJob) this.dynamicJob.stop();
 			// 销毁直播监测
 			if (this.liveAPIJob) this.liveAPIJob.stop();
-			// 遍历WS管理器
-			for (const [roomId, timer] of this.liveWSManager) {
-				// 关闭直播监听
-				this.ctx["bilibili-notify-live"].closeListener(roomId);
-				// 关闭cron
-				if (timer) timer();
+			// 判断WS是否存在
+			if (this.liveWSManager || this.liveWSManager.size > 0) {
+				// 遍历WS管理器
+				for (const [roomId, timer] of this.liveWSManager) {
+					// 关闭直播监听
+					this.ctx["bilibili-notify-live"].closeListener(roomId);
+					// 关闭cron
+					if (timer) timer();
+				}
 			}
 		});
 		// 如果开启高级订阅才监听bilibili-notify事件
@@ -1181,9 +1178,7 @@ class ComRegister {
 		const flag = await this.ctx["bilibili-notify"].restartPlugin();
 		// 判断是否重启成功
 		if (flag) {
-			this.logger.info(
-				"主人～女仆成功重启插件啦！乖乖准备继续为您服务哦",
-			);
+			this.logger.info("主人～女仆成功重启插件啦！乖乖准备继续为您服务哦");
 		} else {
 			// logger
 			this.logger.error(
@@ -1402,9 +1397,7 @@ class ComRegister {
 			(type === PushType.Live || type === PushType.StartBroadcasting) &&
 			record.liveArr?.length > 0
 		) {
-			this.logger.info(
-				`主人～女仆正在推送直播啦～对象列表：${record.liveArr}`,
-			);
+			this.logger.info(`主人～女仆正在推送直播啦～对象列表：${record.liveArr}`);
 			const liveArr = structuredClone(record.liveArr);
 			await withRetry(
 				() => this.pushMessage(liveArr, h("message", content)),
@@ -1918,9 +1911,7 @@ class ComRegister {
 						// 判断是否执行成功，未执行成功直接返回
 						if (!buffer) continue;
 						// logger
-						this.logger.info(
-							"主人～女仆渲染推送卡片成功啦！乖乖准备好发送啦",
-						);
+						this.logger.info("主人～女仆渲染推送卡片成功啦！乖乖准备好发送啦");
 						// 定义动态链接
 						let dUrl = "";
 						// 判断是否需要发送URL
@@ -2001,9 +1992,7 @@ class ComRegister {
 				}
 			}
 			// logger
-			this.logger.info(
-				"主人～女仆已经把动态信息处理完毕啦！一切都乖乖完成啦",
-			);
+			this.logger.info("主人～女仆已经把动态信息处理完毕啦！一切都乖乖完成啦");
 			// 遍历currentPushDyn
 			for (const uid in currentPushDyn) {
 				// 获取动态发布时间
@@ -2210,9 +2199,7 @@ class ComRegister {
 					"主人～女仆整理好了弹幕词云前90词及权重啦～请主人过目哦",
 				);
 				this.logger.info(top90Words);
-				this.logger.info(
-					"主人～女仆正在准备生成弹幕词云呢～请稍等一下呀",
-				);
+				this.logger.info("主人～女仆正在准备生成弹幕词云呢～请稍等一下呀");
 				// 生成弹幕词云图片
 				const buffer = await this.ctx[
 					"bilibili-notify-generate-img"
@@ -2283,9 +2270,7 @@ class ComRegister {
 						以下是直播数据：${JSON.stringify(liveSummaryData)}`,
 					);
 					// logger
-					this.logger.info(
-						"主人～女仆生成好了 AI 直播总结啦，请主人过目哦",
-					);
+					this.logger.info("主人～女仆生成好了 AI 直播总结啦，请主人过目哦");
 					this.logger.info(res.choices[0].message.content);
 					// 返回结果
 					return res.choices[0].message.content;
@@ -2980,15 +2965,13 @@ class ComRegister {
 			[-102]: () => {
 				return {
 					code: subUserData.code,
-					message:
-						"主人呜呜，女仆发现账号被封停啦，所以无法进行订阅操作呀",
+					message: "主人呜呜，女仆发现账号被封停啦，所以无法进行订阅操作呀",
 				};
 			},
 			22002: () => {
 				return {
 					code: subUserData.code,
-					message:
-						"主人呜呜，女仆发现因为对方隐私设置，无法进行订阅操作呀",
+					message: "主人呜呜，女仆发现因为对方隐私设置，无法进行订阅操作呀",
 				};
 			},
 			22003: () => {
@@ -3001,8 +2984,7 @@ class ComRegister {
 			22013: () => {
 				return {
 					code: subUserData.code,
-					message:
-						"主人呜呜，女仆发现账号已注销啦，所以无法进行订阅操作呀",
+					message: "主人呜呜，女仆发现账号已注销啦，所以无法进行订阅操作呀",
 				};
 			},
 			40061: () => {
@@ -3015,8 +2997,7 @@ class ComRegister {
 			22001: () => {
 				return {
 					code: 0,
-					message:
-						"主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦",
+					message: "主人～女仆发现订阅对象是主人自己呢～所以不用添加到分组啦",
 				};
 			},
 			// 已订阅该对象
@@ -3082,9 +3063,7 @@ class ComRegister {
 		// 加载订阅
 		for (const sub of Object.values(subs)) {
 			// logger
-			this.logger.info(
-				`主人～女仆正在加载订阅 UID：${sub.uid} 中呢～请稍等呀`,
-			);
+			this.logger.info(`主人～女仆正在加载订阅 UID：${sub.uid} 中呢～请稍等呀`);
 			// 在B站中订阅该对象
 			const subInfo = await this.subUserInBili(sub.uid);
 			// 判断订阅是否成功
@@ -3207,9 +3186,7 @@ class ComRegister {
 				: this.dynamicDetect(),
 		);
 		// logger
-		this.logger.info(
-			"主人～女仆的动态监测已经开启啦～开始乖乖监控动态呢",
-		);
+		this.logger.info("主人～女仆的动态监测已经开启啦～开始乖乖监控动态呢");
 		// 开始动态监测
 		this.dynamicJob.start();
 	}
