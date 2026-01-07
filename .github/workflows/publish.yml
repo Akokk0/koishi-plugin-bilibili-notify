@@ -6,6 +6,16 @@ on:
       - "monorepo"
     paths:
       - "packages/**/package.json"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force build & publish even if version unchanged"
+        required: false
+        default: "false"
+      package:
+        description: "Which package to force publish (core or advanced-subscription). Leave empty to run all."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -25,8 +35,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine if package should run
+        id: check_run
+        run: |
+          FORCE="${{ github.event.inputs.force }}"
+          SELECT_PACKAGE="${{ github.event.inputs.package }}"
+          CURRENT_PACKAGE="${{ matrix.package }}"
+
+          RUN="true"
+
+          if [ -n "$SELECT_PACKAGE" ] && [ "$SELECT_PACKAGE" != "$CURRENT_PACKAGE" ]; then
+            echo "Package $CURRENT_PACKAGE is not selected. Skipping."
+            RUN="false"
+          fi
+
+          echo "force=$FORCE" >> $GITHUB_OUTPUT
+
       - name: Check version change
         id: check_version
+        if: steps.check_run.outputs.run == 'true'
         run: |
           set -e
           PKG="packages/${{ matrix.package }}/package.json"
@@ -37,16 +64,23 @@ jobs:
           PREVIOUS_VERSION=$(git show HEAD^:"$PKG" 2>/dev/null | jq -r '.version' || echo "")
           echo "Previous version: $PREVIOUS_VERSION"
 
+          PUBLISH="false"
+
+          if [ "${{ steps.check_run.outputs.force }}" = "true" ]; then
+            echo "Force build enabled, publishing."
+            PUBLISH="true"
           if [ -z "$PREVIOUS_VERSION" ]; then
             echo "First release of this package (no previous version)."
-            echo "publish=true" >> $GITHUB_OUTPUT
+            PUBLISH="true"
           elif [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
             echo "Version bump detected: $PREVIOUS_VERSION → $CURRENT_VERSION"
-            echo "publish=true" >> $GITHUB_OUTPUT
+            PUBLISH="true"
           else
             echo "No new version bump in this push."
-            echo "publish=false" >> $GITHUB_OUTPUT
           fi
+
+          echo "publish=$PUBLISH" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Node
         if: steps.check_version.outputs.publish == 'true'
