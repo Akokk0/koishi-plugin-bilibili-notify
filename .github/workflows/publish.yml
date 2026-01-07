@@ -70,7 +70,7 @@ jobs:
           if [ "${{ steps.check_run.outputs.force }}" = "true" ]; then
             echo "Force build enabled, publishing."
             PUBLISH="true"
-          if [ -z "$PREVIOUS_VERSION" ]; then
+          elif [ -z "$PREVIOUS_VERSION" ]; then
             echo "First release of this package (no previous version)."
             PUBLISH="true"
           elif [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
