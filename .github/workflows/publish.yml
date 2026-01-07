@@ -11,11 +11,11 @@ on:
       force:
         description: "Force build & publish even if version unchanged"
         required: false
-        default: "false"
+        default: "true"
       package:
         description: "Which package to force publish (core or advanced-subscription). Leave empty to run all."
         required: false
-        default: ""
+        default: "core"
 
 permissions:
   contents: write
