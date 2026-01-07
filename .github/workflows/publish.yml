@@ -11,11 +11,11 @@ on:
       force:
         description: "Force build & publish even if version unchanged"
         required: false
-        default: "false"
+        default: "true"
       package:
         description: "Which package to force publish (core or advanced-subscription). Leave empty to run all."
         required: false
-        default: ""
+        default: "core"
 
 permissions:
   contents: write
@@ -49,6 +49,7 @@ jobs:
             RUN="false"
           fi
 
+          echo "run=$RUN" >> $GITHUB_OUTPUT
           echo "force=$FORCE" >> $GITHUB_OUTPUT
 
       - name: Check version change
@@ -69,7 +70,7 @@ jobs:
           if [ "${{ steps.check_run.outputs.force }}" = "true" ]; then
             echo "Force build enabled, publishing."
             PUBLISH="true"
-          if [ -z "$PREVIOUS_VERSION" ]; then
+          elif [ -z "$PREVIOUS_VERSION" ]; then
             echo "First release of this package (no previous version)."
             PUBLISH="true"
           elif [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
