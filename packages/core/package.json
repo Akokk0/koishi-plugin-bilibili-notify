@@ -36,9 +36,9 @@
     "cacheable-lookup": "^7.0.0",
     "cron": "^4.4.0",
     "jsdom": "^26.1.0",
-    "luxon": "^3.8.0-alpha.1",
+    "luxon": "^3.7.2",
     "md5": "^2.3.0",
-    "openai": "^6.15.0",
+    "openai": "^6.16.0",
     "p-retry": "^7.1.1",
     "qrcode": "^1.5.4",
     "tough-cookie": "^6.0.0"
@@ -51,7 +51,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/tough-cookie": "^4.0.5",
     "koishi-plugin-puppeteer": "^3.9.0",
-    "tsdown": "^0.18.4",
+    "tsdown": "^ 0.19.0",
     "yakumo": "^1.0.0"
   },
   "peerDependencies": {
