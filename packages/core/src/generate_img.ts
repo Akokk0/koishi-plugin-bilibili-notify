@@ -872,7 +872,7 @@ class GenerateImg extends Service {
 	richTextParser(rt: RichTextNode, title?: string) {
 		const richText = rt.reduce((accumulator, currentValue) => {
 			if (currentValue.emoji) {
-				return /* html */ `${accumulator}<img style="width:28px; height:28px;" src="${currentValue.emoji.icon_url}"/>`;
+				return /* html */ `${accumulator}<img style="width:17px; height:17px;" src="${currentValue.emoji.icon_url}"/>`;
 			}
 			return accumulator + currentValue.text;
 		}, "");
