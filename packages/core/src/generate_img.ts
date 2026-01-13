@@ -46,6 +46,406 @@ class GenerateImg extends Service {
 		return num > 10000 ? `${(num / 10000).toFixed(1)}万` : num.toString();
 	}
 
+	// CSS 变量配置
+	private readonly CARD_STYLES = {
+		large: {
+			avatarSize: "70px",
+			upNameFont: "27px",
+			pubTimeFont: "20px",
+			dressUpFont: "17px",
+			cardDetailsFont: "22px",
+			forwardUserinfoHeight: "35px",
+			forwardUsernameFont: "20px",
+			forwardAvatarSize: "25px",
+			videoCardHeight: "147px",
+			dynTitleFont: "20px",
+			upInfoHeight: "70px",
+			dynamicCardRight: "67px",
+			dynamicCardTop: "24px",
+		},
+		normal: {
+			avatarSize: "50px",
+			upNameFont: "20px",
+			pubTimeFont: "12px",
+			dressUpFont: "12px",
+			cardDetailsFont: "14px",
+			forwardUserinfoHeight: "30px",
+			forwardUsernameFont: "15px",
+			forwardAvatarSize: "20px",
+			videoCardHeight: "132px",
+			dynTitleFont: "20px",
+			upInfoHeight: "50px",
+			dynamicCardRight: "37px",
+			dynamicCardTop: "5px",
+		},
+	} as const;
+
+	private generateCardStyle(
+		isLargeFont: boolean,
+		cardColorStart: string,
+		cardColorEnd: string,
+		cardBasePlateBorder: string,
+		cardBasePlateColor: string,
+		dynamicCardColor: string,
+	): string {
+		const style = isLargeFont ? this.CARD_STYLES.large : this.CARD_STYLES.normal;
+		return /* css */ `
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+            }
+
+            html {
+                width: 800px;
+                height: auto;
+            }
+
+            .background {
+                width: 100%;
+                height: auto;
+                padding: 15px;
+                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
+                overflow: hidden;
+            }
+
+            .base-plate {
+                width: 100%;
+                height: auto;
+                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                padding: ${cardBasePlateBorder};
+                border-radius: 10px;
+                background-color: ${cardBasePlateColor};
+            }
+
+            .card {
+                width: 100%;
+                height: auto;
+                border-radius: 5px;
+                padding: 15px;
+                overflow: hidden;
+                background-color: #fff;
+            }
+
+            .card-body {
+                display: flex;
+                padding: 15px;
+            }
+
+            .card .anchor-avatar {
+                max-width: ${style.avatarSize};
+                max-height: ${style.avatarSize};
+                margin-right: 20px;
+                border-radius: 10px;
+            }
+
+            .card .card-body .card-content {
+                width: 100%;
+            }
+
+            .card .card-body .card-content .card-header {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+            }
+
+            .card .up-info {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                height: ${style.upInfoHeight};
+            }
+
+            .card .up-info .up-name {
+                font-size: ${style.upNameFont};
+            }
+
+            .card .pub-time {
+                font-size: ${style.pubTimeFont};
+                color: grey;
+            }
+
+            .card .card-header img {
+                height: 50px;
+            }
+
+            .card .dress-up {
+                position: relative;
+                font-size: ${style.dressUpFont};
+            }
+
+            .card .dress-up img {
+                max-width: 100%;
+                max-height: 100%;
+            }
+
+            .card .dress-up span {
+                position: absolute;
+                color: ${dynamicCardColor};
+                right: ${style.dynamicCardRight};
+                top: ${style.dynamicCardTop};
+            }
+
+            .card .dyn-title {
+                font-size: ${style.dynTitleFont};
+                margin-bottom: 10px;
+            }
+
+            .card .card-topic {
+                display: flex;
+                align-items: center;
+                margin-top: 10px;
+                font-size: 20px;
+                color: #008AC5;
+                gap: 3px;
+            }
+
+            .card .card-details {
+                margin-top: 5px;
+                margin-bottom: 15px;
+                font-size: ${style.cardDetailsFont};
+                width: 90%;
+            }
+
+            .card .card-major {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .card .card-major .photo-item {
+                border-radius: 10px;
+                overflow: hidden;
+                width: 170px;
+                height: 170px;
+                object-fit: cover;
+            }
+
+            .card .card-major .single-photo-mask {
+                position: absolute;
+                text-align: center;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 30%);
+            }
+
+            .card .card-major .single-photo-mask-text {
+                position: absolute;
+                color: #fff;
+                font-size: 24px;
+                right: 0;
+                bottom: 66px;
+                left: 0;
+                text-align: center;
+            }
+
+            .card .card-major .single-photo-mask-arrow {
+                position: absolute;
+                width: 70px;
+                height: 70px;
+                bottom: 7px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .card .card-major .single-photo-container {
+                position: relative;
+                max-width: 500px;
+                max-height: 1000px;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .card .card-major .single-photo-item {
+                max-width: 500px;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .card .card-major .four-photo-item {
+                width: 170px;
+                height: 170px;
+                object-fit: cover;
+                border-radius: 10px;
+                overflow: hidden;
+                flex-basis: 20%;
+            }
+
+            .card .card-stat {
+                display: flex;
+                justify-content: space-between;
+                width: 90%;
+                margin-top: 15px;
+                color: gray;
+                font-size: 14px;
+            }
+
+            .card .card-stat .stat-item {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+            }
+
+            .card .card-video {
+                display: flex;
+                overflow: hidden;
+                border-radius: 5px 0 0 5px;
+                margin-top: 10px;
+                height: ${style.videoCardHeight};
+            }
+
+            .card .video-cover {
+                position: relative;
+                flex: 2;
+                overflow: hidden;
+            }
+
+            .card .video-cover img {
+                width: 236px;
+            }
+
+            .card .cover-mask {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                top: 0;
+                left: 0;
+                background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
+            }
+
+            .card .video-cover span {
+                position: absolute;
+                color: #fff;
+                font-size: 14px;
+                right: 10px;
+                bottom: 8px;
+            }
+
+            .card .video-info {
+                display: flex;
+                justify-content: space-between;
+                flex-direction: column;
+                flex: 3;
+                border: #e5e7e9 1px solid;
+                border-left: none;
+                border-radius: 0 5px 5px 0;
+                padding: 12px 16px 10px;
+                background-color: #fff;
+            }
+
+            .card .video-info-header .video-title {
+                font-size: 16px;
+            }
+
+            .card .video-info-header .video-introduction {
+                margin-top: 5px;
+                font-size: 12px;
+                color: #AAA;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+            }
+
+            .card .video-stat {
+                font-size: 12px;
+                color: #AAA;
+                display: flex;
+                gap: 35px
+            }
+
+            .card .video-stat .video-stat-item {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+            }
+
+            .card .card-forward {
+                border-radius: 5px;
+                padding: 12px 10px 14px 10px;
+                background-color: #F6F7F8;
+            }
+
+            .card-forward .forward-userinfo {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                height: ${style.forwardUserinfoHeight};
+            }
+
+            .forward-userinfo img {
+                width: ${style.forwardAvatarSize};
+                height: ${style.forwardAvatarSize};
+                border-radius: 50%;
+            }
+
+            .forward-userinfo span {
+                color: #61666D;
+                font-size: ${style.forwardUsernameFont};
+            }
+
+            .card .card-reserve {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 20px 10px 20px;
+                margin-top: 10px;
+                border-radius: 10px;
+                background-color: #F6F7F8;
+            }
+
+            .card-reserve .reserve-title {
+                font-size: 14px;
+                color: #18191C;
+            }
+
+            .card-reserve .reserve-desc {
+                margin-top: 7px;
+                font-size: 12px;
+                color: #9499A0;
+            }
+
+            .reserve-info .reserve-time {
+                margin-right: 7px;
+            }
+
+            .card-reserve .reserve-prize {
+                display: flex;
+                align-items: center;
+                margin-top: 3px;
+                gap: 3px;
+                color: #00AEEC;
+            }
+
+            .card .card-reserve .reserve-button button {
+                border: none;
+                height: 30px;
+                width: 72px;
+                font-size: 13px;
+                border-radius: 7px;
+            }
+
+            .card .card-reserve .reserve-button .reserve-button-end {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #9499A0;
+                background-color: #E3E5E7;
+            }
+
+            .card .card-reserve .reserve-button .reserve-button-ing {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #FFF;
+                background-color: #00A0D8;
+            }
+        `;
+	}
+
 	async imgHandler(html: string) {
 		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
 		const page = await this.ctx.puppeteer.page();
@@ -854,738 +1254,16 @@ class GenerateImg extends Service {
 
 		// 获取动态主要内容
 		const [main] = await getDynamicMajor(data, false);
-		// 判断是否开启大字体模式
-		let style: string;
-		if (this.giConfig.enableLargeFont) {
-			style = /* css */ `
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
-            }
 
-            html {
-                width: 800px;
-                height: auto;
-            }
-
-            .background {
-                width: 100%;
-                height: auto;
-                padding: 15px;
-                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
-                overflow: hidden;
-            }
-
-            .base-plate {
-                width: 100%;
-                height: auto;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: ${cardBasePlateBorder};
-                border-radius: 10px;
-                background-color: ${cardBasePlateColor};
-            }
-
-            .card {
-                width: 100%;
-                height: auto;
-                border-radius: 5px;
-                padding: 15px;
-                overflow: hidden;
-                background-color: #fff;
-            }
-    
-            .card-body {
-                display: flex;
-                padding: 15px;
-            }
-    
-            .card .anchor-avatar {
-                max-width: 70px;
-                /* 设置最大宽度为容器宽度的100% */
-                max-height: 70px;
-                /* 设置最大高度为容器高度的90% */
-                margin-right: 20px;
-                border-radius: 10px;
-            }
-    
-            .card .card-body .card-content {
-                width: 100%;
-            }
-    
-            .card .card-body .card-content .card-header {
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-            }
-    
-            .card .up-info {
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                height: 70px;
-            }
-    
-            .card .up-info .up-name {
-                font-size: 27px;
-            }
-    
-            .card .pub-time {
-                font-size: 20px;
-                color: grey;
-            }
-    
-            .card .card-header img {
-                height: 50px;
-            }
-
-            .card .dress-up {
-                position: relative;
-                /* background-image: url('${dynamicCardUrl}');
-                background-size: cover; */
-                font-size: 17px;
-            }
-
-            .card .dress-up img {
-                max-width: 100%;
-                max-height: 100%;
-            }
-
-            .card .dress-up span {
-                position: absolute;
-                color: ${dynamicCardColor};
-                right: 67px;
-                top: 24px;
-            }
-
-            .card .dyn-title {
-                font-size: 20px;
-                margin-bottom: 10px;
-            }
-
-            .card .card-topic {
-                display: flex;
-                align-items: center;
-                margin-top: 10px;
-                font-size: 20px;
-                color: #008AC5;
-                gap: 3px;
-            }
-    
-            .card .card-details {
-                margin-top: 5px;
-                margin-bottom: 15px;
-                font-size: 22px;
-                width: 90%;
-            }
-    
-            .card .card-major {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 5px;
-            }
-    
-            .card .card-major .photo-item {
-                border-radius: 10px;
-                overflow: hidden;
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-            }
-
-            .card .card-major .single-photo-mask {
-                position: absolute;
-                text-align: center;
-                width: 100%;
-                height: 100%;
-                top: 0;
-                left: 0;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 30%);
-            }
-
-            .card .card-major .single-photo-mask-text {
-                position: absolute;
-                color: #fff;
-                font-size: 24px;
-                right: 0;
-                bottom: 66px;
-                left: 0;
-                text-align: center;
-            }
-
-            .card .card-major .single-photo-mask-arrow {
-                position: absolute;
-                width: 70px;
-                height: 70px;
-                bottom: 7px;
-                left: 50%;
-                transform: translateX(-50%);
-            }
-
-            .card .card-major .single-photo-container {
-                position: relative;
-                max-width: 500px;
-                max-height: 1000px;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .card .card-major .single-photo-item {
-                max-width: 500px;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .card .card-major .four-photo-item {
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-                border-radius: 10px;
-                overflow: hidden;
-                flex-basis: 20%; /* or any value less than 50% */
-            }
-    
-            .card .card-stat {
-                display: flex;
-                justify-content: space-between;
-                width: 90%;
-                margin-top: 15px;
-                color: gray;
-                font-size: 14px;
-            }
-    
-            .card .card-stat .stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-video {
-                display: flex;
-                overflow: hidden;
-                border-radius: 5px 0 0 5px;
-                margin-top: 10px;
-                height: 147px;
-            }
-    
-            .card .video-cover {
-                position: relative;
-                flex: 2;
-                overflow: hidden;
-            }
-    
-            .card .video-cover img {
-                width: 236px;
-            }
-
-            .card .cover-mask {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                top: 0;
-                left: 0;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
-            }
-    
-            .card .video-cover span {
-                position: absolute;
-                color: #fff;
-                font-size: 14px;
-                right: 10px;
-                bottom: 8px;
-            }
-    
-            .card .video-info {
-                display: flex;
-                justify-content: space-between;
-                flex-direction: column;
-                flex: 3;
-                border: #e5e7e9 1px solid;
-                border-left: none;
-                border-radius: 0 5px 5px 0;
-                padding: 12px 16px 10px;
-                background-color: #fff;
-            }
-    
-            .card .video-info-header .video-title {
-                font-size: 16px;
-            }
-    
-            .card .video-info-header .video-introduction {
-                margin-top: 5px;
-                font-size: 12px;
-                color: #AAA;
-                display: -webkit-box;
-                /* 必须设置为 -webkit-box 或 -webkit-inline-box */
-                -webkit-box-orient: vertical;
-                /* 必须设置为 vertical */
-                -webkit-line-clamp: 2;
-                /* 显示的文本行数 */
-                overflow: hidden;
-                /* 必须设置为 hidden */
-            }
-    
-            .card .video-stat {
-                font-size: 12px;
-                color: #AAA;
-                display: flex;
-                gap: 35px
-            }
-    
-            .card .video-stat .video-stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-forward {
-                border-radius: 5px;
-                padding: 12px 10px 14px 10px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-forward .forward-userinfo {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                height: 35px;
-            }
-    
-            .forward-userinfo img {
-                width: 25px;
-                height: 25px;
-                border-radius: 50%;
-            }
-    
-            .forward-userinfo span {
-                color: #61666D;
-                font-size: 20px;
-            }
-
-            .card .card-reserve {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 10px 20px 10px 20px;
-                margin-top: 10px;
-                border-radius: 10px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-reserve .reserve-title {
-                font-size: 14px;
-                color: #18191C;
-            }
-    
-            .card-reserve .reserve-desc {
-                margin-top: 7px;
-                font-size: 12px;
-                color: #9499A0;
-            }
-    
-            .reserve-info .reserve-time {
-                margin-right: 7px;
-            }
-    
-            .card-reserve .reserve-prize {
-                display: flex;
-                align-items: center;
-                margin-top: 3px;
-                gap: 3px;
-                color: #00AEEC;
-            }
-    
-            .card .card-reserve .reserve-button button {
-                border: none;
-                height: 30px;
-                width: 72px;
-                font-size: 13px;
-                border-radius: 7px;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-end {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #9499A0;
-                background-color: #E3E5E7;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-ing {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #FFF;
-                background-color: #00A0D8;
-            }
-            `;
-		} else {
-			style = /* css */ `
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
-            }
-    
-            html {
-                width: 800px;
-                height: auto;
-            }
-    
-            .background {
-                width: 100%;
-                height: auto;
-                padding: 15px;
-                background: linear-gradient(to right bottom, ${cardColorStart}, ${cardColorEnd});
-                overflow: hidden;
-            }
-
-            .base-plate {
-                width: 100%;
-                height: auto;
-                box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-                padding: ${cardBasePlateBorder};
-                border-radius: 10px;
-                background-color: ${cardBasePlateColor};
-            }
-    
-            .card {
-                width: 100%;
-                height: auto;
-                border-radius: 5px;
-                padding: 15px;
-                overflow: hidden;
-                background-color: #fff;
-            }
-    
-            .card-body {
-                display: flex;
-                padding: 15px;
-            }
-    
-            .card .anchor-avatar {
-                border-radius: 5px 5px 0 0;
-                max-width: 50px;
-                /* 设置最大宽度为容器宽度的100% */
-                max-height: 50px;
-                /* 设置最大高度为容器高度的90% */
-                margin-right: 20px;
-                border-radius: 10px;
-            }
-    
-            .card .card-body .card-content {
-                width: 100%;
-            }
-    
-            .card .card-body .card-content .card-header {
-                width: 100%;
-                display: flex;
-                justify-content: space-between;
-            }
-    
-            .card .up-info {
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                height: 50px;
-            }
-    
-            .card .up-info .up-name {
-                font-size: 20px;
-            }
-    
-            .card .pub-time {
-                font-size: 12px;
-                color: grey;
-            }
-    
-            .card .card-header img {
-                height: 50px;
-            }
-
-            .card .dress-up {
-                position: relative;
-                max-width: 110px;
-                max-height: 34px;
-                /* background-image: url('${dynamicCardUrl}');
-                background-size: cover; */
-                font-size: 12px;
-                line-height: 33px;
-            }
-
-            .card .dress-up img {
-                max-width: 100%;
-                max-height: 100%;
-            }
-
-            .card .dress-up span {
-                position: absolute;
-                color: ${dynamicCardColor};
-                right: 37px;
-                top: 5px;
-            }
-
-            .card .dyn-title {
-                font-size: 20px;
-                margin-bottom: 10px;
-            }
-
-            .card .card-topic {
-                display: flex;
-                align-items: center;
-                margin-top: 10px;
-                color: #008AC5;
-                gap: 3px;
-            }
-    
-            .card .card-details {
-                margin-bottom: 15px;
-                width: 90%;
-            }
-    
-            .card .card-major {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 5px;
-            }
-    
-            .card .card-major .photo-item {
-                border-radius: 10px;
-                overflow: hidden;
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-            }
-
-            .card .card-major .single-photo-mask {
-                position: absolute;
-                text-align: center;
-                width: 100%;
-                height: 100%;
-                top: 0;
-                left: 0;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 30%);
-            }
-
-            .card .card-major .single-photo-mask-text {
-                position: absolute;
-                color: #fff;
-                font-size: 24px;
-                right: 0;
-                bottom: 66px;
-                left: 0;
-                text-align: center;
-            }
-
-            .card .card-major .single-photo-mask-arrow {
-                position: absolute;
-                width: 70px;
-                height: 70px;
-                bottom: 7px;
-                left: 50%;
-                transform: translateX(-50%);
-            }
-
-            .card .card-major .single-photo-container {
-                position: relative;
-                max-width: 500px;
-                max-height: 1000px;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .card .card-major .single-photo-item {
-                max-width: 500px;
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .card .card-major .four-photo-item {
-                width: 170px;
-                height: 170px;
-                object-fit: cover;
-                border-radius: 10px;
-                overflow: hidden;
-                flex-basis: 20%; /* or any value less than 50% */
-            }
-    
-            .card .card-stat {
-                display: flex;
-                justify-content: space-between;
-                width: 90%;
-                margin-top: 15px;
-                color: gray;
-                font-size: 14px;
-            }
-    
-            .card .card-stat .stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-video {
-                display: flex;
-                overflow: hidden;
-                border-radius: 5px 0 0 5px;
-                margin-top: 10px;
-                height: 132px;
-            }
-    
-            .card .video-cover {
-                position: relative;
-                flex: 2;
-                overflow: hidden;
-            }
-    
-            .card .video-cover img {
-                width: 236px;
-            }
-
-            .card .cover-mask {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                top: 0;
-                left: 0;
-                background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 30%);
-            }
-    
-            .card .video-cover span {
-                position: absolute;
-                color: #fff;
-                font-size: 14px;
-                right: 10px;
-                bottom: 8px;
-            }
-    
-            .card .video-info {
-                display: flex;
-                justify-content: space-between;
-                flex-direction: column;
-                flex: 3;
-                border: #e5e7e9 1px solid;
-                border-left: none;
-                border-radius: 0 5px 5px 0;
-                padding: 12px 16px 10px;
-                background-color: #fff;
-            }
-    
-            .card .video-info-header .video-title {
-                font-size: 16px;
-            }
-    
-            .card .video-info-header .video-introduction {
-                margin-top: 5px;
-                font-size: 12px;
-                color: #AAA;
-                display: -webkit-box;
-                /* 必须设置为 -webkit-box 或 -webkit-inline-box */
-                -webkit-box-orient: vertical;
-                /* 必须设置为 vertical */
-                -webkit-line-clamp: 2;
-                /* 显示的文本行数 */
-                overflow: hidden;
-                /* 必须设置为 hidden */
-            }
-    
-            .card .video-stat {
-                font-size: 12px;
-                color: #AAA;
-                display: flex;
-                gap: 35px
-            }
-    
-            .card .video-stat .video-stat-item {
-                display: flex;
-                align-items: center;
-                gap: 3px;
-            }
-
-            .card .card-forward {
-                border-radius: 5px;
-                padding: 12px 10px 14px 10px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-forward .forward-userinfo {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-                height: 30px;
-            }
-    
-            .forward-userinfo img {
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-            }
-    
-            .forward-userinfo span {
-                color: #61666D;
-                font-size: 15px;
-            }
-
-            .card .card-reserve {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 10px 20px 10px 20px;
-                margin-top: 10px;
-                border-radius: 10px;
-                background-color: #F6F7F8;
-            }
-    
-            .card-reserve .reserve-title {
-                font-size: 14px;
-                color: #18191C;
-            }
-    
-            .card-reserve .reserve-desc {
-                margin-top: 7px;
-                font-size: 12px;
-                color: #9499A0;
-            }
-    
-            .reserve-info .reserve-time {
-                margin-right: 7px;
-            }
-    
-            .card-reserve .reserve-prize {
-                display: flex;
-                align-items: center;
-                margin-top: 3px;
-                gap: 3px;
-                color: #00AEEC;
-            }
-    
-            .card .card-reserve .reserve-button button {
-                border: none;
-                height: 30px;
-                width: 72px;
-                font-size: 13px;
-                border-radius: 7px;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-end {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #9499A0;
-                background-color: #E3E5E7;
-            }
-    
-            .card .card-reserve .reserve-button .reserve-button-ing {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #FFF;
-                background-color: #00A0D8;
-            }
-            `;
-		}
+		// 生成样式 - 统一使用 generateCardStyle 方法
+		const style = this.generateCardStyle(
+			this.giConfig.enableLargeFont,
+			cardColorStart,
+			cardColorEnd,
+			cardBasePlateBorder,
+			cardBasePlateColor,
+			dynamicCardColor ?? "#FFFFFF",
+		);
 		// 定义卡片内容
 		const html = /* html */ `
             <!DOCTYPE html>
