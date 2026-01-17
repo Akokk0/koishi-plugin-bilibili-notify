@@ -112,8 +112,8 @@ class BiliAPI extends Service {
 	): Promise<T> {
 		return this.pRetry(fn, {
 			onFailedAttempt: (error) => {
-				this.logger.error(
-					`主人呜呜 (；>_<) 女仆在执行 ${methodName}() 时第 ${error.attemptNumber} 次失败啦～原因：${error.message}，请主人帮女仆看看呀 (>ω<)♡`,
+				this.logger.warn(
+					`${methodName}() 第 ${error.attemptNumber} 次尝试失败: ${error.message}`,
 				);
 			},
 			...this.RETRY_CONFIG,
@@ -122,6 +122,9 @@ class BiliAPI extends Service {
 
 	constructor(ctx: Context, config: BiliAPI.Config) {
 		super(ctx, "bilibili-notify-api");
+		// logger
+		this.logger.level = config.logLevel;
+		// API配置
 		this.apiConfig = config;
 	}
 
@@ -186,10 +189,7 @@ class BiliAPI extends Service {
 				ticket.data.nav.sub.lastIndexOf("."),
 			);
 		} catch (e) {
-			// 如果获取失败则在控制台输出错误
-			this.logger.error(
-				`主人呜呜 (；>_<) 女仆更新 BiliTicket 失败啦～错误信息：${e.message}，请主人帮女仆看看呀 (>ω<)♡`,
-			);
+			this.logger.error(`更新 BiliTicket 失败: ${e.message}`);
 		}
 	}
 
@@ -434,7 +434,7 @@ class BiliAPI extends Service {
 			const { data } = await this.client
 				.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
 				.catch((e) => {
-					this.logger.info(e.message);
+					this.logger.debug(e.message);
 					return null;
 				});
 			return data;
@@ -664,7 +664,7 @@ class BiliAPI extends Service {
 				apiKey: this.apiConfig.ai.apiKey,
 			});
 
-			this.logger.info("主人～女仆的 AI 客户端创建成功啦～乖乖准备好为主人服务呢 (>ω<)♡");
+			this.logger.info("AI 客户端创建成功");
 		}
 	}
 
@@ -930,7 +930,9 @@ class BiliAPI extends Service {
 			},
 		]);
 		// Get new csrf from cookies
-		const newCsrf = this.jar.serializeSync().cookies.find((cookie) => cookie.key === "bili_jct")?.value;
+		const newCsrf = this.jar
+			.serializeSync()
+			.cookies.find((cookie) => cookie.key === "bili_jct")?.value;
 		if (!newCsrf) {
 			throw new Error("未找到 bili_jct cookie");
 		}
@@ -979,11 +981,11 @@ class BiliAPI extends Service {
 				},
 			)
 			.catch((e) => {
-				this.logger.error(e);
+				this.logger.error(`获取验证码失败: ${e.message}`);
 			})) as { data: V_VoucherCaptchaData };
 		// 判断是否成功
 		if (data.code !== 0) {
-			this.logger.error("主人呜呜 (；>_<) 女仆获取验证码失败啦，请主人再试一次呀 (>ω<)♡");
+			this.logger.error("获取验证码失败");
 		}
 		return { data: data.data };
 	}
@@ -1013,9 +1015,7 @@ class BiliAPI extends Service {
 		)) as { data: ValidateCaptchaData };
 		// 判断是否验证成功
 		if (data.code !== 0) {
-			this.logger.info(
-				`主人呜呜 (；>_<) 验证失败啦～错误码=${data.code}，错误消息:${data.message}，请主人帮女仆看看呀 (>ω<)♡`,
-			);
+			this.logger.warn(`验证失败: code=${data.code}, message=${data.message}`);
 			return { data: null };
 		}
 		// 添加cookie
@@ -1027,6 +1027,7 @@ class BiliAPI extends Service {
 
 namespace BiliAPI {
 	export interface Config {
+		logLevel: number;
 		userAgent: string;
 		key: string;
 		ai: {
@@ -1039,6 +1040,7 @@ namespace BiliAPI {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+		logLevel: Schema.number().required(),
 		userAgent: Schema.string(),
 		key: Schema.string()
 			.pattern(/^[0-9a-f]{32}$/)

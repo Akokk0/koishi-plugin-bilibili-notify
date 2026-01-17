@@ -1,5 +1,5 @@
 // biome-ignore assist/source/organizeImports: <import>
-import { type Awaitable, type Context, Service } from "koishi";
+import { type Awaitable, type Context, Schema, Service } from "koishi";
 import {
 	type MessageListener,
 	startListen,
@@ -19,9 +19,11 @@ class BLive extends Service {
 	// 定义类属性
 	private listenerRecord: Record<string, MessageListener> = {};
 
-	constructor(ctx: Context) {
+	constructor(ctx: Context, config: BLive.Config) {
 		// Extends super
 		super(ctx, "bilibili-notify-live");
+		// logger
+		this.logger.level = config.logLevel;
 	}
 
 	// 注册插件dispose逻辑
@@ -33,9 +35,7 @@ class BLive extends Service {
 	public async startLiveRoomListener(roomId: string, handler: MsgHandler) {
 		// 判断是否已存在连接
 		if (this.listenerRecord[roomId]) {
-			this.logger.warn(
-				`主人～女仆发现 [${roomId}] 直播间连接已经存在啦，不能重复创建哦 (>ω<)♡`,
-			);
+			this.logger.warn(`直播间 [${roomId}] 连接已存在，跳过创建`);
 			return;
 		}
 		// 获取cookieStr
@@ -47,9 +47,7 @@ class BLive extends Service {
 		].getMyselfInfo()) as MySelfInfoData;
 		// 判断是否获取成功
 		if (mySelfInfo.code !== 0) {
-			this.logger.warn(
-				`主人～女仆获取个人信息失败啦～无法创建 [${roomId}] 直播间连接呢～请主人帮女仆看看呀 (>ω<)♡`,
-			);
+			this.logger.warn(`获取个人信息失败，无法创建直播间 [${roomId}] 连接`);
 			return;
 		}
 		// 创建实例并保存到Record中
@@ -65,18 +63,13 @@ class BLive extends Service {
 				},
 			},
 		);
-		this.logger.info(
-			`主人～女仆成功建立了 [${roomId}] 直播间连接啦～乖乖完成任务呢 (>ω<)♡`,
-		);
+		this.logger.info(`直播间 [${roomId}] 连接已建立`);
 	}
 
 	public closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
 		if (!this.listenerRecord || !this.listenerRecord[roomId]?.closed) {
-			// 输出logger
-			this.logger.info(
-				`主人～女仆发现 ${roomId} 直播间连接不需要关闭哦 (>ω<)♡`,
-			);
+			this.logger.debug(`直播间 [${roomId}] 连接无需关闭`);
 		}
 		// 关闭直播间监听器
 		this.listenerRecord[roomId].close();
@@ -84,15 +77,12 @@ class BLive extends Service {
 		if (this.listenerRecord[roomId].closed) {
 			// 删除直播间监听器
 			delete this.listenerRecord[roomId];
-			// 输出logger
-			this.logger.info(`主人～女仆已经关闭了 ${roomId} 直播间连接啦 (>ω<)♡`);
+			this.logger.info(`直播间 [${roomId}] 连接已关闭`);
 			// 直接返回
 			return;
 		}
 		// 未关闭成功
-		this.logger.warn(
-			`主人呜呜 (；>_<) 女仆尝试关闭 ${roomId} 直播间连接失败啦～请主人帮女仆看看呀 (>ω<)♡`,
-		);
+		this.logger.error(`直播间 [${roomId}] 连接关闭失败`);
 	}
 
 	public clearListeners() {
@@ -104,6 +94,16 @@ class BLive extends Service {
 			delete this.listenerRecord[key];
 		}
 	}
+}
+
+namespace BLive {
+	export interface Config {
+		logLevel: number;
+	}
+
+	export const Config: Schema<Config> = Schema.object({
+		logLevel: Schema.number().required(),
+	});
 }
 
 export default BLive;

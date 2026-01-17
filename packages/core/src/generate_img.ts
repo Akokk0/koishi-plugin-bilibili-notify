@@ -1555,6 +1555,7 @@ class GenerateImg extends Service {
 
 namespace GenerateImg {
 	export interface Config {
+        logLevel: number;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -1575,6 +1576,7 @@ namespace GenerateImg {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+        logLevel: Schema.number().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

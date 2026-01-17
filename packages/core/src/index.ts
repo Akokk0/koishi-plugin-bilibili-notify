@@ -142,6 +142,7 @@ class ServerManager extends Service {
 		try {
 			// BA = BiliAPI
 			const ba = this.ctx.plugin(BiliAPI, {
+				logLevel: globalConfig.logLevel,
 				userAgent: globalConfig.userAgent,
 				key: globalConfig.key,
 				ai: globalConfig.ai,
@@ -149,6 +150,7 @@ class ServerManager extends Service {
 
 			// GI = GenerateImg
 			const gi = this.ctx.plugin(GenerateImg, {
+				logLevel: globalConfig.logLevel,
 				filter: globalConfig.filter,
 				removeBorder: globalConfig.removeBorder,
 				cardColorStart: globalConfig.cardColorStart,
@@ -163,6 +165,7 @@ class ServerManager extends Service {
 
 			// CR = ComRegister
 			const cr = this.ctx.plugin(ComRegister, {
+				logLevel: globalConfig.logLevel,
 				advancedSub: globalConfig.advancedSub,
 				subs: globalConfig.subs,
 				master: globalConfig.master,
@@ -179,12 +182,13 @@ class ServerManager extends Service {
 				dynamicCron: globalConfig.dynamicCron,
 				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
 				filter: globalConfig.filter,
-				dynamicDebugMode: globalConfig.dynamicDebugMode,
 				ai: globalConfig.ai,
 			});
 
 			// BL = BLive
-			const bl = this.ctx.plugin(BLive);
+			const bl = this.ctx.plugin(BLive, {
+				logLevel: globalConfig.logLevel,
+			});
 
 			// 添加服务
 			this.servers.push(ba);
