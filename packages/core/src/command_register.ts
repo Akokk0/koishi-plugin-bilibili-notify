@@ -658,13 +658,13 @@ class ComRegister {
 		for (const sub of Object.values(subs)) {
 			// 判断是否个性化推送消息
 			if (sub.customLiveMsg.enable) {
-				if (!sub.customLiveMsg.customLiveStart.trim()) {
+				if (sub.customLiveMsg.customLiveStart && !sub.customLiveMsg.customLiveStart.trim()) {
 					sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
 				}
-				if (!sub.customLiveMsg.customLiveEnd.trim()) {
+				if (sub.customLiveMsg.customLiveEnd && !sub.customLiveMsg.customLiveEnd.trim()) {
 					sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
 				}
-				if (!sub.customLiveMsg.customLive.trim()) {
+				if (sub.customLiveMsg.customLive && !sub.customLiveMsg.customLive.trim()) {
 					sub.customLiveMsg.customLive = this.config.customLive;
 				}
 			} else {
@@ -675,19 +675,19 @@ class ComRegister {
 			}
 			// 判断是否个性化舰长图片推送
 			if (sub.customGuardBuy.enable) {
-				if (!sub.customGuardBuy.guardBuyMsg.trim()) {
+				if (sub.customGuardBuy.guardBuyMsg && !sub.customGuardBuy.guardBuyMsg.trim()) {
 					sub.customGuardBuy.guardBuyMsg =
 						this.config.customGuardBuy.guardBuyMsg;
 				}
-				if (!sub.customGuardBuy.captainImgUrl.trim()) {
+				if (sub.customGuardBuy.captainImgUrl && !sub.customGuardBuy.captainImgUrl.trim()) {
 					sub.customGuardBuy.captainImgUrl =
 						this.config.customGuardBuy.captainImgUrl;
 				}
-				if (!sub.customGuardBuy.supervisorImgUrl.trim()) {
+				if (sub.customGuardBuy.supervisorImgUrl && !sub.customGuardBuy.supervisorImgUrl.trim()) {
 					sub.customGuardBuy.supervisorImgUrl =
 						this.config.customGuardBuy.supervisorImgUrl;
 				}
-				if (!sub.customGuardBuy.governorImgUrl.trim()) {
+				if (sub.customGuardBuy.governorImgUrl && !sub.customGuardBuy.governorImgUrl.trim()) {
 					sub.customGuardBuy.governorImgUrl =
 						this.config.customGuardBuy.governorImgUrl;
 				}
