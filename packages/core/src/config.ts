@@ -1,6 +1,6 @@
 import { Schema } from "koishi";
 
-export interface BAConfig {
+export interface BilibiliNotifyConfig {
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	require: {};
@@ -80,7 +80,7 @@ export interface BAConfig {
 	// TODO: improve type
 }
 
-export const BAConfigSchema: Schema<BAConfig> = Schema.object({
+export const BilibiliNotifyConfigSchema: Schema<BilibiliNotifyConfig> = Schema.object({
 	require: Schema.object({}).description(
 		"这里是主人的必填设置哟（；>_<）女仆会乖乖等主人填好再继续的～",
 	),
@@ -308,7 +308,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 						"总督图片链接，这是对应舰长阶级的图片链接～女仆会把它贴在推送里，让消息更好看(*´∀`)~♡",
 					),
 			}),
-			Schema.object({}) as Schema<Partial<BAConfig>>,
+			Schema.object({}) as Schema<Partial<BilibiliNotifyConfig>>,
 		]),
 	]),
 

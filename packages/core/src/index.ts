@@ -1,20 +1,25 @@
 // biome-ignore assist/source/organizeImports: <import>
 import { type Context, type ForkScope, type Schema, Service } from "koishi";
-import { type BAConfig, BAConfigSchema } from "./config";
+import {
+	type BilibiliNotifyConfig,
+	BilibiliNotifyConfigSchema,
+} from "./config";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-notifier";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-console";
 import { resolve } from "node:path";
 // import plugins
+import BilibiliNotifyGenerateImg from "./generate_img";
 import BilibiliNotifyDataServer from "./data_server";
-import ComRegister from "./command_register";
+import BilibiliNotifyDynamic from "./core/dynamic";
+import BilibiliNotifyCore from "./core/core";
+import BilibiliNotifyLive from "./core/live";
+import BilibiliNotifyAPI from "./api";
 import * as Database from "./database";
-// import Service
-import GenerateImg from "./generate_img";
-import BiliAPI from "./bili_api";
-import BLive from "./bili_live";
+
 import type { BiliDataServer, Subscriptions } from "./type";
+import BilibiliNotifyPush from "./core/push";
 
 export const inject = ["puppeteer", "database", "notifier", "console"];
 
@@ -51,7 +56,7 @@ export const usage = /* html */ `
 ---
 `;
 
-let globalConfig: BAConfig;
+let globalConfig: BilibiliNotifyConfig;
 
 declare module "koishi" {
 	interface Context {
@@ -59,9 +64,9 @@ declare module "koishi" {
 	}
 
 	interface Events {
+		"bilibili-notify/login-status-report"(data: BiliDataServer): void;
 		"bilibili-notify/advanced-sub"(subs: Subscriptions): void;
 		"bilibili-notify/ready-to-recive"(): void;
-		"bilibili-notify/login-status-report"(data: BiliDataServer): void;
 	}
 }
 
@@ -140,16 +145,16 @@ class ServerManager extends Service {
 		if (this.servers.length !== 0) return false;
 		// 注册插件
 		try {
-			// BA = BiliAPI
-			const ba = this.ctx.plugin(BiliAPI, {
+			// BA = BilibiliNotifyAPI
+			const ba = this.ctx.plugin(BilibiliNotifyAPI, {
 				logLevel: globalConfig.logLevel,
 				userAgent: globalConfig.userAgent,
 				key: globalConfig.key,
 				ai: globalConfig.ai,
 			});
 
-			// GI = GenerateImg
-			const gi = this.ctx.plugin(GenerateImg, {
+			// GI = BilibiliNotifyGenerateImg
+			const gi = this.ctx.plugin(BilibiliNotifyGenerateImg, {
 				logLevel: globalConfig.logLevel,
 				filter: globalConfig.filter,
 				removeBorder: globalConfig.removeBorder,
@@ -163,38 +168,43 @@ class ServerManager extends Service {
 				followerDisplay: globalConfig.followerDisplay,
 			});
 
-			// CR = ComRegister
-			const cr = this.ctx.plugin(ComRegister, {
+			// PS = BilibiliNotifyPush
+			const ps = this.ctx.plugin(BilibiliNotifyPush, {
+				master: globalConfig.master,
+			});
+
+			// DY = BilibiliNotifyDynamic
+			const dy = this.ctx.plugin(BilibiliNotifyDynamic, {
+				filter: globalConfig.filter,
+				dynamicUrl: globalConfig.dynamicUrl,
+				dynamicCron: globalConfig.dynamicCron,
+				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
+				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
+			});
+
+			// BL = BilibiliNotifyLive
+			const bl = this.ctx.plugin(BilibiliNotifyLive, {
+				logLevel: globalConfig.logLevel,
+				wordcloudStopWords: globalConfig.wordcloudStopWords,
+				ai: globalConfig.ai,
+				restartPush: globalConfig.restartPush,
+				pushTime: globalConfig.pushTime,
+			});
+
+			// CR = BilibiliNotifyCore
+			const cr = this.ctx.plugin(BilibiliNotifyCore, {
 				logLevel: globalConfig.logLevel,
 				advancedSub: globalConfig.advancedSub,
 				subs: globalConfig.subs,
-				master: globalConfig.master,
-				wordcloudStopWords: globalConfig.wordcloudStopWords,
 				liveSummary: globalConfig.liveSummary,
-				restartPush: globalConfig.restartPush,
-				pushTime: globalConfig.pushTime,
-				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
 				customLiveStart: globalConfig.customLiveStart,
 				customLive: globalConfig.customLive,
 				customLiveEnd: globalConfig.customLiveEnd,
 				customGuardBuyImg: globalConfig.customGuardBuy,
-				dynamicUrl: globalConfig.dynamicUrl,
-				dynamicCron: globalConfig.dynamicCron,
-				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
-				filter: globalConfig.filter,
-				ai: globalConfig.ai,
-			});
-
-			// BL = BLive
-			const bl = this.ctx.plugin(BLive, {
-				logLevel: globalConfig.logLevel,
 			});
 
 			// 添加服务
-			this.servers.push(ba);
-			this.servers.push(bl);
-			this.servers.push(gi);
-			this.servers.push(cr);
+			this.servers.push(ba, gi, ps, dy, bl, cr);
 		} catch (e) {
 			this.logger.error(
 				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
@@ -250,7 +260,7 @@ class ServerManager extends Service {
 	};
 }
 
-export function apply(ctx: Context, config: BAConfig) {
+export function apply(ctx: Context, config: BilibiliNotifyConfig) {
 	// 设置config
 	globalConfig = config;
 	// load database
@@ -273,4 +283,4 @@ export function apply(ctx: Context, config: BAConfig) {
 	});
 }
 
-export const Config: Schema<BAConfig> = BAConfigSchema;
+export const Config: Schema<BilibiliNotifyConfig> = BilibiliNotifyConfigSchema;

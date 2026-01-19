@@ -23,7 +23,7 @@ import OpenAI from "openai";
 
 declare module "koishi" {
 	interface Context {
-		"bilibili-notify-api": BiliAPI;
+		"bilibili-notify-api": BilibiliNotifyAPI;
 	}
 }
 
@@ -82,13 +82,12 @@ const GET_LIVE_ROOM_INFO_STREAM_KEY =
 const GET_LIVE_ROOMS_INFO =
 	"https://api.live.bilibili.com/room/v1/Room/get_status_info_by_uids";
 
-class BiliAPI extends Service {
+class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 	static inject = ["database", "notifier"];
 
 	jar: CookieJar;
 	client: AxiosInstance;
 	aiClient: OpenAI;
-	apiConfig: BiliAPI.Config;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	cacheable: any;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
@@ -120,12 +119,12 @@ class BiliAPI extends Service {
 		});
 	}
 
-	constructor(ctx: Context, config: BiliAPI.Config) {
+	constructor(ctx: Context, config: BilibiliNotifyAPI.Config) {
 		super(ctx, "bilibili-notify-api");
 		// logger
 		this.logger.level = config.logLevel;
 		// API配置
-		this.apiConfig = config;
+		this.config = config;
 	}
 
 	protected async start(): Promise<void> {
@@ -239,7 +238,7 @@ class BiliAPI extends Service {
 		const iv = crypto.randomBytes(16);
 		const cipher = crypto.createCipheriv(
 			"aes-256-cbc",
-			Buffer.from(this.apiConfig.key),
+			Buffer.from(this.config.key),
 			iv,
 		);
 		const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
@@ -252,7 +251,7 @@ class BiliAPI extends Service {
 		const encryptedText = Buffer.from(textParts.join(":"), "hex");
 		const decipher = crypto.createDecipheriv(
 			"aes-256-cbc",
-			Buffer.from(this.apiConfig.key),
+			Buffer.from(this.config.key),
 			iv,
 		);
 		const decrypted = Buffer.concat([
@@ -563,11 +562,11 @@ class BiliAPI extends Service {
 
 	async chatWithAI(content: string) {
 		return await this.aiClient.chat.completions.create({
-			model: this.apiConfig.ai.model,
+			model: this.config.ai.model,
 			messages: [
 				{
 					role: "system",
-					content: this.apiConfig.ai.persona,
+					content: this.config.ai.persona,
 				},
 				{
 					role: "user",
@@ -640,7 +639,7 @@ class BiliAPI extends Service {
 				headers: {
 					"Content-Type": "application/json",
 					"User-Agent":
-						this.apiConfig.userAgent ||
+						this.config.userAgent ||
 						"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
 					Origin: "https://www.bilibili.com",
 					Referer: "https://www.bilibili.com/",
@@ -658,10 +657,10 @@ class BiliAPI extends Service {
 	}
 
 	async createNewAIClient() {
-		if (this.apiConfig.ai.enable) {
+		if (this.config.ai.enable) {
 			this.aiClient = new OpenAI({
-				baseURL: this.apiConfig.ai.baseURL,
-				apiKey: this.apiConfig.ai.apiKey,
+				baseURL: this.config.ai.baseURL,
+				apiKey: this.config.ai.apiKey,
 			});
 
 			this.logger.info("AI 客户端创建成功");
@@ -1025,7 +1024,7 @@ class BiliAPI extends Service {
 	}
 }
 
-namespace BiliAPI {
+namespace BilibiliNotifyAPI {
 	export interface Config {
 		logLevel: number;
 		userAgent: string;
@@ -1055,4 +1054,4 @@ namespace BiliAPI {
 	});
 }
 
-export default BiliAPI;
+export default BilibiliNotifyAPI;

@@ -11,7 +11,7 @@ import { GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {
 	interface Context {
-		"bilibili-notify-generate-img": GenerateImg;
+		"bilibili-notify-generate-img": BilibiliNotifyGenerateImg;
 	}
 }
 
@@ -33,13 +33,12 @@ const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
 // 内容卡片类型
 const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
 
-class GenerateImg extends Service {
+class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
-	giConfig: GenerateImg.Config;
 
-	constructor(ctx: Context, config: GenerateImg.Config) {
+	constructor(ctx: Context, config: BilibiliNotifyGenerateImg.Config) {
 		super(ctx, "bilibili-notify-generate-img");
-		this.giConfig = config;
+		this.config = config;
 	}
 
 	numberToStr(num: number) {
@@ -80,6 +79,13 @@ class GenerateImg extends Service {
 		},
 	} as const;
 
+	private readonly BG_COLOR: Record<GuardLevel, [string, string]> = {
+		[GuardLevel.None]: ["#4ebcec", "#F9CCDF"],
+		[GuardLevel.Jianzhang]: ["#4ebcec", "#b494e5"],
+		[GuardLevel.Tidu]: ["#d8a0e6", "#b494e5"],
+		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
+	};
+
 	private generateCardStyle(
 		isLargeFont: boolean,
 		cardColorStart: string,
@@ -88,13 +94,15 @@ class GenerateImg extends Service {
 		cardBasePlateColor: string,
 		dynamicCardColor: string,
 	): string {
-		const style = isLargeFont ? this.CARD_STYLES.large : this.CARD_STYLES.normal;
+		const style = isLargeFont
+			? this.CARD_STYLES.large
+			: this.CARD_STYLES.normal;
 		return /* css */ `
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
             }
 
             html {
@@ -446,7 +454,7 @@ class GenerateImg extends Service {
         `;
 	}
 
-	async imgHandler(html: string) {
+	private async imgHandler(html: string) {
 		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
 		const page = await this.ctx.puppeteer.page();
 		await page.goto(htmlPath);
@@ -475,10 +483,10 @@ class GenerateImg extends Service {
 		liveData: LiveData,
 		liveStatus: number /*0未开播 1刚开播 2已开播 3停止直播*/,
 		{
-			cardColorStart = this.giConfig.cardColorStart,
-			cardColorEnd = this.giConfig.cardColorEnd,
-			cardBasePlateColor = this.giConfig.cardBasePlateColor,
-			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+			cardColorStart = this.config.cardColorStart,
+			cardColorEnd = this.config.cardColorEnd,
+			cardBasePlateColor = this.config.cardBasePlateColor,
+			cardBasePlateBorder = this.config.cardBasePlateBorder,
 		}: {
 			cardColorStart?: string;
 			cardColorEnd?: string;
@@ -501,7 +509,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
         
                     html {
@@ -597,7 +605,7 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div ${this.giConfig.removeBorder ? "" : 'class="base-plate"'}>
+                    <div ${this.config.removeBorder ? "" : 'class="base-plate"'}>
                         <div class="card">
                             <img src="${cover ? data.user_cover : data.keyframe}"
                             alt="封面">
@@ -611,7 +619,7 @@ class GenerateImg extends Service {
                                         <span class="broadcast-message">${username}${titleStatus}</span>
                                     </div>
                                 </div>
-                                ${this.giConfig.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
+                                ${this.config.hideDesc ? "" : `<p class="card-text">${data.description ? data.description : "这个主播很懒，什么简介都没写"}</p>`}
                                 <p class="card-link">
                                     <span>${liveStatus === 3 ? `本场直播点赞数：${this.numberToStr(+liveData.likedNum)}` : `人气：${this.numberToStr(data.online)}`}</span>
                                     <span>分区名称：${data.area_name}</span>
@@ -619,7 +627,7 @@ class GenerateImg extends Service {
                                 <p class="card-link">
                                     <span>${liveTime}</span>
                                     ${
-																			this.giConfig.followerDisplay
+																			this.config.followerDisplay
 																				? /* html */ `
                                         <span>
                                         ${
@@ -649,13 +657,6 @@ class GenerateImg extends Service {
 		});
 	}
 
-	static BG_COLOR: Record<GuardLevel, [string, string]> = {
-		[GuardLevel.None]: ["#4ebcec", "#F9CCDF"],
-		[GuardLevel.Jianzhang]: ["#4ebcec", "#b494e5"],
-		[GuardLevel.Tidu]: ["#d8a0e6", "#b494e5"],
-		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
-	};
-
 	async generateBoardingImg(
 		captainImgUrl: string,
 		{
@@ -675,7 +676,7 @@ class GenerateImg extends Service {
 		}: { masterAvatarUrl: string; masterName: string },
 	) {
 		// 判断舰长类型获取背景颜色
-		const bgColor = GenerateImg.BG_COLOR[guardLevel];
+		const bgColor = this.BG_COLOR[guardLevel];
 		// 判断Desc类型
 		const desc = {
 			[GuardLevel.Jianzhang]: () => {
@@ -700,7 +701,7 @@ class GenerateImg extends Service {
                         margin: 0;
                         padding: 0;
                         box-sizing: border-box;
-                        font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                        font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                     }
 
                     html {
@@ -877,16 +878,16 @@ class GenerateImg extends Service {
 			return accumulator + currentValue.text;
 		}, "");
 		// 关键字和正则屏蔽
-		if (this.giConfig.filter.enable) {
+		if (this.config.filter.enable) {
 			// 开启动态屏蔽功能
-			if (this.giConfig.filter.regex) {
+			if (this.config.filter.regex) {
 				// 正则屏蔽
-				const reg = new RegExp(this.giConfig.filter.regex);
+				const reg = new RegExp(this.config.filter.regex);
 				if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
 			}
 			if (
-				this.giConfig.filter.keywords.length !== 0 &&
-				this.giConfig.filter.keywords.some((keyword) =>
+				this.config.filter.keywords.length !== 0 &&
+				this.config.filter.keywords.some((keyword) =>
 					richText.includes(keyword),
 				)
 			) {
@@ -907,10 +908,10 @@ class GenerateImg extends Service {
 	async generateDynamicImg(
 		data: Dynamic,
 		{
-			cardColorStart = this.giConfig.cardColorStart,
-			cardColorEnd = this.giConfig.cardColorEnd,
-			cardBasePlateColor = this.giConfig.cardBasePlateColor,
-			cardBasePlateBorder = this.giConfig.cardBasePlateBorder,
+			cardColorStart = this.config.cardColorStart,
+			cardColorEnd = this.config.cardColorEnd,
+			cardBasePlateColor = this.config.cardBasePlateColor,
+			cardBasePlateBorder = this.config.cardBasePlateBorder,
 		}: {
 			cardColorStart?: string;
 			cardColorEnd?: string;
@@ -1021,7 +1022,7 @@ class GenerateImg extends Service {
 					// 转发动态
 					if (dynamic.type === DYNAMIC_TYPE_FORWARD) {
 						//转发动态屏蔽
-						if (this.giConfig.filter.enable && this.giConfig.filter.forward) {
+						if (this.config.filter.enable && this.config.filter.forward) {
 							throw new Error("已屏蔽转发动态");
 						}
 						// User info
@@ -1226,7 +1227,7 @@ class GenerateImg extends Service {
 					];
 				case DYNAMIC_TYPE_ARTICLE: {
 					//转发动态屏蔽
-					if (this.giConfig.filter.enable && this.giConfig.filter.article) {
+					if (this.config.filter.enable && this.config.filter.article) {
 						throw new Error("已屏蔽专栏动态");
 					}
 					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`];
@@ -1257,7 +1258,7 @@ class GenerateImg extends Service {
 
 		// 生成样式 - 统一使用 generateCardStyle 方法
 		const style = this.generateCardStyle(
-			this.giConfig.enableLargeFont,
+			this.config.enableLargeFont,
 			cardColorStart,
 			cardColorEnd,
 			cardBasePlateBorder,
@@ -1276,7 +1277,7 @@ class GenerateImg extends Service {
             </head>
             <body>
                 <div class="background">
-                    <div ${this.giConfig.removeBorder ? "" : 'class="base-plate"'}>
+                    <div ${this.config.removeBorder ? "" : 'class="base-plate"'}>
                         <div class="card">
                             <div class="card-body">
                                 <!-- 主播头像 -->
@@ -1383,7 +1384,7 @@ class GenerateImg extends Service {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: "${this.giConfig.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
                 }
 
                 html {
@@ -1553,9 +1554,9 @@ class GenerateImg extends Service {
 	}
 }
 
-namespace GenerateImg {
+namespace BilibiliNotifyGenerateImg {
 	export interface Config {
-        logLevel: number;
+		logLevel: number;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -1576,7 +1577,7 @@ namespace GenerateImg {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
-        logLevel: Schema.number().required(),
+		logLevel: Schema.number().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),
@@ -1597,4 +1598,4 @@ namespace GenerateImg {
 	});
 }
 
-export default GenerateImg;
+export default BilibiliNotifyGenerateImg;
