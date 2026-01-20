@@ -1,4 +1,12 @@
-import { type Bot, type Context, h, Schema, Service, Universal } from "koishi";
+import {
+	type Awaitable,
+	type Bot,
+	type Context,
+	h,
+	Schema,
+	Service,
+	Universal,
+} from "koishi";
 import { type PushArrMap, PushType, PushTypeMsg } from "../type";
 import { withRetry } from "../utils";
 
@@ -14,9 +22,15 @@ class BilibiliNotifyPush extends Service {
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifyPush.Config) {
 		super(ctx, "bilibili-notify-push");
+		// 配置
+		this.config = config;
+		// 设置日志级别
+		this.logger.level = config.logLevel;
+	}
+	protected start(): Awaitable<void> {
 		// 拿到私人机器人实例
 		this.privateBot = this.ctx.bots.find(
-			(bot) => bot.platform === config.master.platform,
+			(bot) => bot.platform === this.config.master.platform,
 		);
 		if (!this.privateBot) {
 			this.ctx.notifier.create({
@@ -388,6 +402,7 @@ class BilibiliNotifyPush extends Service {
 
 namespace BilibiliNotifyPush {
 	export interface Config {
+		logLevel: number;
 		master: {
 			enable: boolean;
 			platform: string;
@@ -397,6 +412,7 @@ namespace BilibiliNotifyPush {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+		logLevel: Schema.number().required(),
 		master: Schema.object({
 			enable: Schema.boolean(),
 			platform: Schema.string(),

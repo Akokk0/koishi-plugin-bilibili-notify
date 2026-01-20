@@ -32,7 +32,6 @@ import {
 	type MySelfInfoData,
 	type UserCardInfoData,
 } from "../type";
-import { DateTime } from "luxon";
 
 declare module "koishi" {
 	interface Context {
@@ -495,34 +494,12 @@ class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
 			// 返回
 			return;
 		}
-		// 初始化管理器
-		this.initManagerAfterLoadSub();
-		// 检查是否需要动态监测
-		this.checkIfDynamicDetectIsNeeded();
+		// 启动动态监测
+		this.ctx["bilibili-notify-dynamic"].startDynamicDetector(this.subManager);
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// 初始化完毕
 		this.logger.info("插件初始化完成");
-	}
-
-	checkIfDynamicDetectIsNeeded() {
-		// 检查是否有订阅对象需要动态监测
-		if (this.ctx["bilibili-notify-dynamic"].dynamicTimelineManager.size > 0) {
-			// 启动动态监测
-			this.ctx["bilibili-notify-dynamic"].startDynamicDetector();
-		}
-	}
-
-	initManagerAfterLoadSub() {
-		for (const [uid, sub] of this.subManager) {
-			// 判断是否订阅动态
-			if (sub.dynamic) {
-				this.ctx["bilibili-notify-dynamic"].dynamicTimelineManager.set(
-					uid,
-					Math.floor(DateTime.now().toSeconds()),
-				);
-			}
-		}
 	}
 
 	configSubsToSubscription(sub: BilibiliNotifyCore.Config["subs"]) {
@@ -1002,7 +979,6 @@ namespace BilibiliNotifyCore {
 		customLiveStart: Schema.string().required(),
 		customLive: Schema.string(),
 		customLiveEnd: Schema.string().required(),
-
 		customGuardBuy: Schema.object({
 			enable: Schema.boolean()
 				.default(false)

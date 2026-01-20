@@ -5,6 +5,7 @@ import {
 	type AllDynamicInfo,
 	type DynamicTimelineManager,
 	PushType,
+	type SubManager,
 } from "../type";
 import { type Awaitable, type Context, h, Schema, Service } from "koishi";
 import { CronJob } from "cron";
@@ -23,14 +24,18 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		"bilibili-notify-push",
 	];
 	// 动态检测销毁函数
-	dynamicJob: CronJob;
+	private dynamicJob: CronJob;
+	// 动态订阅管理器
+	private dynamicSubManager: SubManager;
 	// 动态时间线管理器
-	dynamicTimelineManager: DynamicTimelineManager;
+	private dynamicTimelineManager: DynamicTimelineManager;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifyDynamic.Config) {
 		super(ctx, "bilibili-notify-dynamic");
 		// 配置
 		this.config = config;
+		// 设置日志级别
+		this.logger.level = config.logLevel;
 	}
 	protected start(): Awaitable<void> {
 		// 初始化动态时间线管理器
@@ -44,12 +49,34 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		}
 	}
 	// 启动函数
-	startDynamicDetector() {
+	startDynamicDetector(subManager: SubManager) {
 		// 判断是否已经存在动态检测任务
 		if (this.dynamicJob) {
 			this.logger.warn("动态检测任务已存在，跳过创建新的任务");
 			return;
 		}
+		// 判断是否有订阅对象
+		if (subManager.size === 0) {
+			this.logger.warn("没有订阅对象，跳过创建动态检测任务");
+			return;
+		}
+		// 只保留需要动态检测的订阅对象
+		const dynamicSubManager: SubManager = new Map();
+		// 判断哪些订阅对象需要动态检测
+		for (const [uid, sub] of subManager) {
+			// 判断是否需要动态检测
+			if (sub.dynamic) {
+				// 初始化动态时间线管理器
+				this.dynamicTimelineManager.set(
+					uid,
+					Math.floor(DateTime.now().toSeconds()),
+				);
+				// 记录需要动态检测的订阅对象
+				dynamicSubManager.set(uid, sub);
+			}
+		}
+		// 记录订阅管理器
+		this.dynamicSubManager = dynamicSubManager;
 		// 创建新的动态检测任务
 		this.dynamicJob = new CronJob(
 			this.config.dynamicCron,
@@ -161,7 +188,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						// logger
 						this.logger.debug("该动态需要推送");
 						// 获取订阅对象
-						const sub = this.ctx["bilibili-notify-push"].subManager.get(uid);
+						const sub = this.dynamicSubManager.get(uid);
 						// logger
 						this.logger.debug("开始渲染推送卡片");
 						// 推送该条动态
@@ -316,6 +343,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 
 namespace BilibiliNotifyDynamic {
 	export interface Config {
+		logLevel: number;
 		filter: {
 			enable: boolean;
 			notify: boolean;
@@ -329,6 +357,7 @@ namespace BilibiliNotifyDynamic {
 	}
 
 	export const Config: Schema<Config> = Schema.object({
+		logLevel: Schema.number().required(),
 		filter: Schema.object({
 			enable: Schema.boolean(),
 			notify: Schema.boolean(),

@@ -12,14 +12,17 @@ import { resolve } from "node:path";
 // import plugins
 import BilibiliNotifyGenerateImg from "./generate_img";
 import BilibiliNotifyDataServer from "./data_server";
-import BilibiliNotifyDynamic from "./core/dynamic";
-import BilibiliNotifyCore from "./core/core";
-import BilibiliNotifyLive from "./core/live";
+import {
+	BilibiliNotifyCore,
+	BilibiliNotifyDynamic,
+	BilibiliNotifyLive,
+	BilibiliNotifyPush,
+} from "./core";
+
 import BilibiliNotifyAPI from "./api";
 import * as Database from "./database";
 
 import type { BiliDataServer, Subscriptions } from "./type";
-import BilibiliNotifyPush from "./core/push";
 
 export const inject = ["puppeteer", "database", "notifier", "console"];
 
@@ -170,11 +173,13 @@ class ServerManager extends Service {
 
 			// PS = BilibiliNotifyPush
 			const ps = this.ctx.plugin(BilibiliNotifyPush, {
+				logLevel: globalConfig.logLevel,
 				master: globalConfig.master,
 			});
 
 			// DY = BilibiliNotifyDynamic
 			const dy = this.ctx.plugin(BilibiliNotifyDynamic, {
+				logLevel: globalConfig.logLevel,
 				filter: globalConfig.filter,
 				dynamicUrl: globalConfig.dynamicUrl,
 				dynamicCron: globalConfig.dynamicCron,
