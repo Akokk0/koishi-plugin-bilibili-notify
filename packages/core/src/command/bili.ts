@@ -1,12 +1,13 @@
 // biome-ignore assist/source/organizeImports: <import types only>
-import { type Context, h } from "koishi";
+import { h } from "koishi";
 import type { LiveUsers } from "../type";
 import { withRetry } from "../utils";
 import { GuardLevel } from "blive-message-listener";
 import BilibiliNotifyLive from "../core/live";
+import type { BilibiliNotifySub } from "../core";
 
-export default function (ctx: Context) {
-	const biliCom = ctx.command("bili", "bili-notify插件相关指令", {
+export default function (this: BilibiliNotifySub) {
+	const biliCom = this.ctx.command("bili", "bili-notify插件相关指令", {
 		permissions: ["authority:3"],
 	});
 
@@ -25,7 +26,7 @@ export default function (ctx: Context) {
 		.example("bili private 向管理员账号发送一条测试消息")
 		.action(async ({ session }) => {
 			// 发送消息
-			await this.sendPrivateMsg("测试消息");
+			await this.ctx["bilibili-notify-push"].sendPrivateMsg("测试消息");
 			// 发送提示
 			await session.send(
 				"已发送测试消息。如果未收到，可能是机器人不支持发送私聊消息或配置信息有误",
@@ -40,7 +41,9 @@ export default function (ctx: Context) {
 			// 获取liveUsers
 			const {
 				data: { live_users },
-			} = (await ctx["bilibili-notify-api"].getTheUserWhoIsLiveStreaming()) as {
+			} = (await this.ctx[
+				"bilibili-notify-api"
+			].getTheUserWhoIsLiveStreaming()) as {
 				data: { live_users: LiveUsers };
 			};
 			// 定义当前正在直播且订阅的UP主列表
@@ -284,7 +287,7 @@ export default function (ctx: Context) {
 		if (userInfoCode !== -352 || !userInfoData.v_voucher)
 			return "不满足验证条件，无需执行。如果提示风控，请尝试重启插件";
 		// 开始进行风控验证
-		const { data } = await ctx["bilibili-notify-api"].v_voucherCaptcha(
+		const { data } = await this.ctx["bilibili-notify-api"].v_voucherCaptcha(
 			userInfoData.v_voucher,
 		);
 		// 判断是否能进行风控验证
@@ -308,7 +311,7 @@ export default function (ctx: Context) {
 		// seccode
 		const seccode = `${validate}|jordan`;
 		// 验证结果
-		const { data: validateCaptchaData } = await ctx[
+		const { data: validateCaptchaData } = await this.ctx[
 			"bilibili-notify-api"
 		].validateCaptcha(data.geetest.challenge, data.token, validate, seccode);
 		// 判断验证是否成功
@@ -316,7 +319,7 @@ export default function (ctx: Context) {
 		// Sleep
 		await this.ctx.sleep(10 * 1000);
 		// 再次请求
-		const { code: validCode, data: validData } = await ctx[
+		const { code: validCode, data: validData } = await this.ctx[
 			"bilibili-notify-api"
 		].getUserInfo("114514", validateCaptchaData.grisk_id);
 		// 再次验证

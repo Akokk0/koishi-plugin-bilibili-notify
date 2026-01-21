@@ -48,6 +48,10 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 			this.logger.info("动态检测任务已停止");
 		}
 	}
+	// 获取动态检测状态
+	get isActive() {
+		return this.dynamicJob?.isActive ?? false;
+	}
 	// 启动函数
 	startDynamicDetector(subManager: SubManager) {
 		// 判断是否已经存在动态检测任务

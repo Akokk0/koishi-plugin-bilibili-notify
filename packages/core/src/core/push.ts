@@ -10,6 +10,12 @@ import {
 import { type PushArrMap, PushType, PushTypeMsg } from "../type";
 import { withRetry } from "../utils";
 
+declare module "koishi" {
+	interface Context {
+		"bilibili-notify-push": BilibiliNotifyPush;
+	}
+}
+
 class BilibiliNotifyPush extends Service {
 	// 机器人实例
 	privateBot: Bot<Context>;

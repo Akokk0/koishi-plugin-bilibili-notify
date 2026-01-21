@@ -1,7 +1,7 @@
-import type { Context } from "koishi";
+import type { BilibiliNotifySub } from "../core";
 
-export default function (ctx: Context) {
-	const statusCom = ctx.command("status", "插件状态相关指令", {
+export default function (this: BilibiliNotifySub) {
+	const statusCom = this.ctx.command("status", "插件状态相关指令", {
 		permissions: ["authority:5"],
 	});
 
@@ -10,7 +10,7 @@ export default function (ctx: Context) {
 		.usage("查看动态监测运行状态")
 		.example("status dyn")
 		.action(() => {
-			if (this.dynamicJob?.isActive) {
+			if (this.ctx["bilibili-notify-dynamic"].isActive) {
 				return "动态监测正在运行";
 			}
 			return "动态监测未运行";
@@ -31,7 +31,7 @@ export default function (ctx: Context) {
 		.example("status bot 查询当前拥有的机器人信息")
 		.action(() => {
 			this.logger.debug("开始输出BOT信息");
-			for (const bot of ctx.bots) {
+			for (const bot of this.ctx.bots) {
 				this.logger.debug("--------------------------------");
 				this.logger.debug(`平台：${bot.platform}`);
 				this.logger.debug(`名称：${bot.user.name}`);

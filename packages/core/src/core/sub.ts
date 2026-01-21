@@ -35,11 +35,11 @@ import {
 
 declare module "koishi" {
 	interface Context {
-		"bilibili-notify-core": BilibiliNotifyCore;
+		"bilibili-notify-core": BilibiliNotifySub;
 	}
 }
 
-class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
+class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	// 必须服务
 	static inject = [
 		"database",
@@ -60,11 +60,10 @@ class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// recive subs times
 	reciveSubTimes = 0;
-	// GroupInfo
 	// biome-ignore lint/suspicious/noExplicitAny: <data>
 	groupInfo: any | null = null;
 	// 构造函数
-	constructor(ctx: Context, config: BilibiliNotifyCore.Config) {
+	constructor(ctx: Context, config: BilibiliNotifySub.Config) {
 		super(ctx, "bilibili-notify-core");
 		// 设置config
 		this.config = config;
@@ -278,8 +277,8 @@ class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
 
 	registerCommands() {
 		// 注册指令
-		biliCommands(this.ctx);
-		statusCommands(this.ctx);
+		biliCommands.call(this);
+		statusCommands.call(this);
 	}
 
 	registeringForEvents() {
@@ -502,7 +501,7 @@ class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
 		this.logger.info("插件初始化完成");
 	}
 
-	configSubsToSubscription(sub: BilibiliNotifyCore.Config["subs"]) {
+	configSubsToSubscription(sub: BilibiliNotifySub.Config["subs"]) {
 		const subs: Subscriptions = {};
 		// 补充完整订阅配置
 		sub.forEach((s) => {
@@ -917,7 +916,7 @@ class BilibiliNotifyCore extends Service<BilibiliNotifyCore.Config> {
 	}
 }
 
-namespace BilibiliNotifyCore {
+namespace BilibiliNotifySub {
 	export interface Config {
 		logLevel: number;
 		advancedSub: boolean;
@@ -991,4 +990,4 @@ namespace BilibiliNotifyCore {
 	});
 }
 
-export default BilibiliNotifyCore;
+export default BilibiliNotifySub;

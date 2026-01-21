@@ -1,5 +1,5 @@
 // biome-ignore assist/source/organizeImports: <import>
-import { type Context, type ForkScope, type Schema, Service } from "koishi";
+import type { Context, Schema } from "koishi";
 import {
 	type BilibiliNotifyConfig,
 	BilibiliNotifyConfigSchema,
@@ -10,19 +10,12 @@ import {} from "@koishijs/plugin-notifier";
 import {} from "@koishijs/plugin-console";
 import { resolve } from "node:path";
 // import plugins
-import BilibiliNotifyGenerateImg from "./generate_img";
 import BilibiliNotifyDataServer from "./data_server";
-import {
-	BilibiliNotifyCore,
-	BilibiliNotifyDynamic,
-	BilibiliNotifyLive,
-	BilibiliNotifyPush,
-} from "./core";
 
-import BilibiliNotifyAPI from "./api";
 import * as Database from "./database";
 
 import type { BiliDataServer, Subscriptions } from "./type";
+import BilibiliNotifyServerManager from "./server_manager";
 
 export const inject = ["puppeteer", "database", "notifier", "console"];
 
@@ -59,13 +52,7 @@ export const usage = /* html */ `
 ---
 `;
 
-let globalConfig: BilibiliNotifyConfig;
-
 declare module "koishi" {
-	interface Context {
-		"bilibili-notify": ServerManager;
-	}
-
 	interface Events {
 		"bilibili-notify/login-status-report"(data: BiliDataServer): void;
 		"bilibili-notify/advanced-sub"(subs: Subscriptions): void;
@@ -88,190 +75,11 @@ declare module "@koishijs/plugin-console" {
 	}
 }
 
-class ServerManager extends Service {
-	// 服务
-	servers: ForkScope[] = [];
-
-	constructor(ctx: Context) {
-		super(ctx, "bilibili-notify");
-
-		// 插件运行相关指令
-		const sysCom = ctx.command("bn", "bilibili-notify 插件运行相关指令", {
-			permissions: ["authority:5"],
-		});
-
-		sysCom
-			.subcommand(".restart", "重启插件")
-			.usage("重启插件")
-			.example("bn restart")
-			.action(async () => {
-				if (await this.restartPlugin()) {
-					return "主人～女仆成功重启插件啦～乖乖继续为主人服务呢 (>ω<)♡";
-				}
-				return "主人呜呜 (；>_<) 女仆重启插件失败啦～请主人检查一下再试哦 (>ω<)♡";
-			});
-
-		sysCom
-			.subcommand(".stop", "停止插件")
-			.usage("停止插件")
-			.example("bn stop")
-			.action(async () => {
-				if (await this.disposePlugin()) {
-					return "主人～女仆已经停止插件啦～休息一下先 (>ω<)♡";
-				}
-				return "主人呜呜 (；>_<) 女仆停止插件失败啦～请主人检查一下再试哦 (>ω<)♡";
-			});
-
-		sysCom
-			.subcommand(".start", "启动插件")
-			.usage("启动插件")
-			.example("bn start")
-			.action(async () => {
-				if (await this.registerPlugin()) {
-					return "主人～女仆成功启动插件啦～准备好乖乖为主人工作呢 (>ω<)♡";
-				}
-				return "主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡";
-			});
-	}
-
-	protected start(): void | Promise<void> {
-		// 注册插件
-		if (!this.registerPlugin()) {
-			this.logger.error(
-				"主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡",
-			);
-		}
-	}
-
-	registerPlugin = () => {
-		// 如果已经有服务则返回false
-		if (this.servers.length !== 0) return false;
-		// 注册插件
-		try {
-			// BA = BilibiliNotifyAPI
-			const ba = this.ctx.plugin(BilibiliNotifyAPI, {
-				logLevel: globalConfig.logLevel,
-				userAgent: globalConfig.userAgent,
-				key: globalConfig.key,
-				ai: globalConfig.ai,
-			});
-
-			// GI = BilibiliNotifyGenerateImg
-			const gi = this.ctx.plugin(BilibiliNotifyGenerateImg, {
-				logLevel: globalConfig.logLevel,
-				filter: globalConfig.filter,
-				removeBorder: globalConfig.removeBorder,
-				cardColorStart: globalConfig.cardColorStart,
-				cardColorEnd: globalConfig.cardColorEnd,
-				cardBasePlateColor: globalConfig.cardBasePlateColor,
-				cardBasePlateBorder: globalConfig.cardBasePlateBorder,
-				hideDesc: globalConfig.hideDesc,
-				enableLargeFont: globalConfig.enableLargeFont,
-				font: globalConfig.font,
-				followerDisplay: globalConfig.followerDisplay,
-			});
-
-			// PS = BilibiliNotifyPush
-			const ps = this.ctx.plugin(BilibiliNotifyPush, {
-				logLevel: globalConfig.logLevel,
-				master: globalConfig.master,
-			});
-
-			// DY = BilibiliNotifyDynamic
-			const dy = this.ctx.plugin(BilibiliNotifyDynamic, {
-				logLevel: globalConfig.logLevel,
-				filter: globalConfig.filter,
-				dynamicUrl: globalConfig.dynamicUrl,
-				dynamicCron: globalConfig.dynamicCron,
-				pushImgsInDynamic: globalConfig.pushImgsInDynamic,
-				dynamicVideoUrlToBV: globalConfig.dynamicVideoUrlToBV,
-			});
-
-			// BL = BilibiliNotifyLive
-			const bl = this.ctx.plugin(BilibiliNotifyLive, {
-				logLevel: globalConfig.logLevel,
-				wordcloudStopWords: globalConfig.wordcloudStopWords,
-				ai: globalConfig.ai,
-				restartPush: globalConfig.restartPush,
-				pushTime: globalConfig.pushTime,
-			});
-
-			// CR = BilibiliNotifyCore
-			const cr = this.ctx.plugin(BilibiliNotifyCore, {
-				logLevel: globalConfig.logLevel,
-				advancedSub: globalConfig.advancedSub,
-				subs: globalConfig.subs,
-				liveSummary: globalConfig.liveSummary,
-				customLiveStart: globalConfig.customLiveStart,
-				customLive: globalConfig.customLive,
-				customLiveEnd: globalConfig.customLiveEnd,
-				customGuardBuyImg: globalConfig.customGuardBuy,
-			});
-
-			// 添加服务
-			this.servers.push(ba, gi, ps, dy, bl, cr);
-		} catch (e) {
-			this.logger.error(
-				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
-			);
-			return false;
-		}
-		// 成功返回true
-		return true;
-	};
-
-	disposePlugin = async () => {
-		// 如果没有服务则返回false
-		if (this.servers.length === 0) return false;
-		// 遍历服务
-		await new Promise((resolve) => {
-			for (const fork of this.servers) {
-				fork.dispose();
-			}
-			// 清空服务
-			this.servers = [];
-			resolve("ok");
-		});
-		// 成功返回true
-		return true;
-	};
-
-	restartPlugin = async (): Promise<boolean> => {
-		// 如果没有服务则返回false
-		if (this.servers.length === 0) {
-			// logger
-			this.logger.warn(
-				"主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡",
-			);
-			// 返回
-			return false;
-		}
-		// 停用插件
-		await this.disposePlugin();
-		// 隔一秒启动插件
-		return new Promise((resolve) => {
-			this.ctx.setTimeout(() => {
-				try {
-					this.registerPlugin();
-				} catch (e) {
-					this.logger.error(
-						`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
-					);
-					resolve(false);
-				}
-				resolve(true);
-			}, 1000);
-		});
-	};
-}
-
 export function apply(ctx: Context, config: BilibiliNotifyConfig) {
-	// 设置config
-	globalConfig = config;
 	// load database
 	ctx.plugin(Database);
 	// Register ServerManager
-	ctx.plugin(ServerManager);
+	ctx.plugin(BilibiliNotifyServerManager, config);
 	// load DataServer
 	ctx.plugin(BilibiliNotifyDataServer);
 	// 添加控制台
