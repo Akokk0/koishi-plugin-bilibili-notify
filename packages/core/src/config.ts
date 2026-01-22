@@ -1,6 +1,6 @@
 import { Schema } from "koishi";
 
-export interface BAConfig {
+export interface BilibiliNotifyConfig {
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	require: {};
@@ -26,6 +26,7 @@ export interface BAConfig {
 	// TODO: improve type
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	basicSettings: {};
+	logLevel: number;
 	userAgent: string;
 	ai: {
 		enable: boolean;
@@ -77,12 +78,9 @@ export interface BAConfig {
 	// biome-ignore lint/complexity/noBannedTypes: <obj>
 	filter: {};
 	// TODO: improve type
-	// biome-ignore lint/complexity/noBannedTypes: <obj>
-	debug: {};
-	dynamicDebugMode: boolean;
 }
 
-export const BAConfigSchema: Schema<BAConfig> = Schema.object({
+export const BilibiliNotifyConfigSchema: Schema<BilibiliNotifyConfig> = Schema.object({
 	require: Schema.object({}).description(
 		"这里是主人的必填设置哟（；>_<）女仆会乖乖等主人填好再继续的～",
 	),
@@ -129,6 +127,15 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 	basicSettings: Schema.object({}).description(
 		"这是主人最基本的设置区域哒～女仆会乖乖等主人安排 (*´∀`)~♡",
 	),
+
+	logLevel: Schema.number()
+		.min(1)
+		.max(3)
+		.step(1)
+		.default(1)
+		.description(
+			"这里可以设置日志等级喔～3 是最详细的调试信息，1 是只显示错误信息。主人可以根据需要选择合适的等级，让女仆更好地为您服务 (๑•̀ㅂ•́)و✧",
+		),
 
 	userAgent: Schema.string().description(
 		"这里可以设置请求头的 User-Agent 哦～如果请求出现了 -352 的奇怪错误，主人可以试着在这里换一个看看 (；>_<)UA 获取方法可以参考说明里的链接喔～ https://blog.csdn.net/qq_44503987/article/details/104929111",
@@ -301,7 +308,7 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 						"总督图片链接，这是对应舰长阶级的图片链接～女仆会把它贴在推送里，让消息更好看(*´∀`)~♡",
 					),
 			}),
-			Schema.object({}) as Schema<Partial<BAConfig>>,
+			Schema.object({}) as Schema<Partial<BilibiliNotifyConfig>>,
 		]),
 	]),
 
@@ -421,15 +428,5 @@ export const BAConfigSchema: Schema<BAConfig> = Schema.object({
 			}),
 			Schema.object({}),
 		]),
-	]),
-
-	debug: Schema.object({}).description(
-		"这里是调试功能区域～如果主人需要排查问题，女仆会乖乖协助 (；>_<)",
-	),
-
-	dynamicDebugMode: Schema.boolean()
-		.default(false)
-		.description(
-			"开启后会在控制台输出详细的动态调试信息～主人需要的话女仆会毫不保留全都告诉您！",
-		),
+	])
 });

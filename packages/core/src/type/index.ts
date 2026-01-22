@@ -455,7 +455,7 @@ export type DynamicTimelineManager = Map<string, number>;
 
 export type LiveAPIManager = Map<string, LiveAPIStatus>;
 
-export type LiveWSManager = Map<string, () => void>;
+export type LiveManager = Map<string, () => void>;
 
 type LiveRoomInfoDataFrame = {
 	name: string;
