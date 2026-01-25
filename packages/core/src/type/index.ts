@@ -78,6 +78,8 @@ export type SubItem = {
 	customCardStyle: CustomCardStyle;
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
+	customSpecialDanmakuUsers: CustomSpecialDanmakuUsers;
+	customSpecialUsersEnterTheRoom: CustomSpecialUsersEnterTheRoom;
 };
 
 export type SubManager = Map<string, SubItem>;
@@ -392,6 +394,8 @@ export type PushArrMap = Map<
 		wordcloudArr?: Array<string>;
 		superchatArr?: Array<string>;
 		liveSummaryArr?: Array<string>;
+		spacialDanmakuArr?: Array<string>;
+		spacialUserEnterTheRoomArr?: Array<string>;
 	}
 >;
 

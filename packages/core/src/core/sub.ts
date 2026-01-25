@@ -31,6 +31,7 @@ import {
 	BiliLoginStatus,
 	type MySelfInfoData,
 	type UserCardInfoData,
+	type Channel,
 } from "../type";
 
 declare module "koishi" {
@@ -144,19 +145,19 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			// 判断是否个性化推送消息
 			if (sub.customLiveMsg.enable) {
 				if (
-					sub.customLiveMsg.customLiveStart &&
+					!sub.customLiveMsg.customLiveStart ||
 					!sub.customLiveMsg.customLiveStart.trim()
 				) {
 					sub.customLiveMsg.customLiveStart = this.config.customLiveStart;
 				}
 				if (
-					sub.customLiveMsg.customLiveEnd &&
+					!sub.customLiveMsg.customLiveEnd ||
 					!sub.customLiveMsg.customLiveEnd.trim()
 				) {
 					sub.customLiveMsg.customLiveEnd = this.config.customLiveEnd;
 				}
 				if (
-					sub.customLiveMsg.customLive &&
+					!sub.customLiveMsg.customLive ||
 					!sub.customLiveMsg.customLive.trim()
 				) {
 					sub.customLiveMsg.customLive = this.config.customLive;
@@ -170,28 +171,28 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			// 判断是否个性化舰长图片推送
 			if (sub.customGuardBuy.enable) {
 				if (
-					sub.customGuardBuy.guardBuyMsg &&
+					!sub.customGuardBuy.guardBuyMsg ||
 					!sub.customGuardBuy.guardBuyMsg.trim()
 				) {
 					sub.customGuardBuy.guardBuyMsg =
 						this.config.customGuardBuy.guardBuyMsg;
 				}
 				if (
-					sub.customGuardBuy.captainImgUrl &&
+					!sub.customGuardBuy.captainImgUrl ||
 					!sub.customGuardBuy.captainImgUrl.trim()
 				) {
 					sub.customGuardBuy.captainImgUrl =
 						this.config.customGuardBuy.captainImgUrl;
 				}
 				if (
-					sub.customGuardBuy.supervisorImgUrl &&
+					!sub.customGuardBuy.supervisorImgUrl ||
 					!sub.customGuardBuy.supervisorImgUrl.trim()
 				) {
 					sub.customGuardBuy.supervisorImgUrl =
 						this.config.customGuardBuy.supervisorImgUrl;
 				}
 				if (
-					sub.customGuardBuy.governorImgUrl &&
+					!sub.customGuardBuy.governorImgUrl ||
 					!sub.customGuardBuy.governorImgUrl.trim()
 				) {
 					sub.customGuardBuy.governorImgUrl =
@@ -199,7 +200,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				}
 			} else {
 				if (this.config.customGuardBuy.enable) {
-					sub.customGuardBuy.enable = true;
+					sub.customGuardBuy.enable = false;
 					sub.customGuardBuy.guardBuyMsg =
 						this.config.customGuardBuy.guardBuyMsg;
 					sub.customGuardBuy.captainImgUrl =
@@ -234,25 +235,25 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			const liveSummaryArr: Array<string> = [];
 			const spacialDanmakuArr: Array<string> = [];
 			const spacialUserEnterTheRoomArr: Array<string> = [];
+			// 定义条件
+			const conditions: [keyof Channel, Array<string>][] = [
+				["dynamic", dynamicArr],
+				["dynamicAtAll", dynamicAtAllArr],
+				["live", liveArr],
+				["liveAtAll", liveAtAllArr],
+				["liveGuardBuy", liveGuardBuyArr],
+				["superchat", superchatArr],
+				["wordcloud", wordcloudArr],
+				["liveSummary", liveSummaryArr],
+				["spacialDanmaku", spacialDanmakuArr],
+				["spacialUserEnterTheRoom", spacialUserEnterTheRoomArr],
+			];
 			// 遍历target
 			for (const platform of sub.target) {
 				// 遍历channelArr
 				for (const channel of platform.channelArr) {
 					// 构建目标
 					const target = `${platform.platform}:${channel.channelId}`;
-					// 定义条件
-					const conditions: [keyof typeof channel, Array<string>][] = [
-						["dynamic", dynamicArr],
-						["dynamicAtAll", dynamicAtAllArr],
-						["live", liveArr],
-						["liveAtAll", liveAtAllArr],
-						["liveGuardBuy", liveGuardBuyArr],
-						["superchat", superchatArr],
-						["wordcloud", wordcloudArr],
-						["liveSummary", liveSummaryArr],
-						["spacialDanmaku", spacialDanmakuArr],
-						["spacialUserEnterTheRoom", spacialUserEnterTheRoomArr],
-					];
 					// 判断
 					for (const [key, arr] of conditions) {
 						if (channel[key]) arr.push(target);
@@ -269,6 +270,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				liveGuardBuyArr,
 				superchatArr,
 				wordcloudArr,
+				spacialDanmakuArr,
+				spacialUserEnterTheRoomArr,
 			});
 		}
 		// 得到PushArrMap，并设置到bilibili-notify-push
@@ -837,6 +840,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				customCardStyle: sub.customCardStyle,
 				customLiveMsg: sub.customLiveMsg,
 				customLiveSummary: sub.customLiveSummary,
+				customSpecialDanmakuUsers: sub.customSpecialDanmakuUsers,
+				customSpecialUsersEnterTheRoom: sub.customSpecialUsersEnterTheRoom,
 			});
 			// 判断是否有直播间号
 			if (sub.live && !sub.roomid) {

@@ -285,7 +285,13 @@ class BilibiliNotifyPush extends Service {
 			(type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) ||
 			(type === PushType.Superchat && record.superchatArr?.length > 0) ||
 			(type === PushType.WordCloudAndLiveSummary &&
-				(record.wordcloudArr?.length > 0 || record.liveSummaryArr?.length > 0));
+				(record.wordcloudArr?.length > 0 ||
+					record.liveSummaryArr?.length > 0)) ||
+			(type === PushType.UserDanmakuMsg &&
+				record.spacialDanmakuArr?.length > 0) ||
+			(type === PushType.UserActions &&
+				record.spacialUserEnterTheRoomArr?.length > 0);
+		// 如果没有推送目标则直接结束
 
 		if (!hasTargets) return; // 没有需要推送的对象，直接结束
 
@@ -293,17 +299,14 @@ class BilibiliNotifyPush extends Service {
 		this.logger.info(`推送对象: ${uid}, 推送类型: ${PushTypeMsg[type]}`);
 
 		// 推送 @全体（开播）
-		if (
-			type === PushType.StartBroadcasting &&
-			record.liveAtAllArr?.length > 0
-		) {
+		if (type === PushType.StartBroadcasting) {
 			this.logger.debug(`推送给 @全体，对象列表：${record.liveAtAllArr}`);
 			const atAllArr = structuredClone(record.liveAtAllArr);
 			await withRetry(() => this.pushMessage(atAllArr, h.at("all")), 1);
 		}
 
 		// 推送动态
-		if (type === PushType.Dynamic && record.dynamicArr?.length > 0) {
+		if (type === PushType.Dynamic) {
 			if (record.dynamicAtAllArr?.length > 0) {
 				this.logger.debug(
 					`推送动态给 @全体，对象列表：${record.dynamicAtAllArr}`,
@@ -323,10 +326,7 @@ class BilibiliNotifyPush extends Service {
 		}
 
 		// 推送直播
-		if (
-			(type === PushType.Live || type === PushType.StartBroadcasting) &&
-			record.liveArr?.length > 0
-		) {
+		if (type === PushType.Live || type === PushType.StartBroadcasting) {
 			this.logger.debug(`推送直播，对象列表：${record.liveArr}`);
 			const liveArr = structuredClone(record.liveArr);
 			await withRetry(
@@ -336,7 +336,7 @@ class BilibiliNotifyPush extends Service {
 		}
 
 		// 推送直播守护购买
-		if (type === PushType.LiveGuardBuy && record.liveGuardBuyArr?.length > 0) {
+		if (type === PushType.LiveGuardBuy) {
 			this.logger.debug(
 				`推送直播守护购买消息，对象列表：${record.liveGuardBuyArr}`,
 			);
@@ -348,7 +348,7 @@ class BilibiliNotifyPush extends Service {
 		}
 
 		// 推送SC
-		if (type === PushType.Superchat && record.superchatArr?.length > 0) {
+		if (type === PushType.Superchat) {
 			this.logger.debug(`推送 SC 消息，对象列表：${record.superchatArr}`);
 			const superchatArr = structuredClone(record.superchatArr);
 			await withRetry(
@@ -402,6 +402,31 @@ class BilibiliNotifyPush extends Service {
 					1,
 				);
 			}
+		}
+
+		if (type === PushType.UserDanmakuMsg) {
+			this.logger.debug(
+				`推送用户弹幕消息，对象列表：${record.spacialDanmakuArr}`,
+			);
+			const spacialDanmakuArr = structuredClone(record.spacialDanmakuArr);
+			await withRetry(
+				() => this.pushMessage(spacialDanmakuArr, h("message", content)),
+				1,
+			);
+		}
+
+		if (type === PushType.UserActions) {
+			this.logger.debug(
+				`推送用户进入直播间消息，对象列表：${record.spacialUserEnterTheRoomArr}`,
+			);
+			const spacialUserEnterTheRoomArr = structuredClone(
+				record.spacialUserEnterTheRoomArr,
+			);
+			await withRetry(
+				() =>
+					this.pushMessage(spacialUserEnterTheRoomArr, h("message", content)),
+				1,
+			);
 		}
 	}
 }
