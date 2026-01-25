@@ -232,6 +232,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			const superchatArr: Array<string> = [];
 			const wordcloudArr: Array<string> = [];
 			const liveSummaryArr: Array<string> = [];
+			const spacialDanmakuArr: Array<string> = [];
+			const spacialUserEnterTheRoomArr: Array<string> = [];
 			// 遍历target
 			for (const platform of sub.target) {
 				// 遍历channelArr
@@ -239,7 +241,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 					// 构建目标
 					const target = `${platform.platform}:${channel.channelId}`;
 					// 定义条件
-					const conditions: [keyof typeof channel, typeof dynamicArr][] = [
+					const conditions: [keyof typeof channel, Array<string>][] = [
 						["dynamic", dynamicArr],
 						["dynamicAtAll", dynamicAtAllArr],
 						["live", liveArr],
@@ -248,6 +250,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 						["superchat", superchatArr],
 						["wordcloud", wordcloudArr],
 						["liveSummary", liveSummaryArr],
+						["spacialDanmaku", spacialDanmakuArr],
+						["spacialUserEnterTheRoom", spacialUserEnterTheRoomArr],
 					];
 					// 判断
 					for (const [key, arr] of conditions) {
@@ -267,7 +271,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				wordcloudArr,
 			});
 		}
-		// TODO 得到PushArrMap，并设置到bilibili-notify-push
+		// 得到PushArrMap，并设置到bilibili-notify-push
 		this.ctx["bilibili-notify-push"].pushArrMap = pushArrMap;
 		this.ctx["bilibili-notify-push"].pushArrMapInitializing = true;
 		// logger
@@ -516,6 +520,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				superchat: s.superchat,
 				wordcloud: s.wordcloud,
 				liveSummary: s.liveSummary,
+				spacialDanmaku: false,
+				spacialUserEnterTheRoom: false,
 			}));
 			// 组装Target
 			const target: Target = [{ channelArr, platform: s.platform }];
@@ -534,6 +540,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				customLiveMsg: { enable: false },
 				customLiveSummary: { enable: false },
 				customGuardBuy: { enable: false },
+				customSpecialDanmakuUsers: { enable: false },
+				customSpecialUsersEnterTheRoom: { enable: false },
 			};
 		});
 		// 返回subs

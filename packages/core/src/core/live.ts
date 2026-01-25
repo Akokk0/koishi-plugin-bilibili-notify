@@ -564,6 +564,25 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 			onIncomeDanmu: ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
 				this.addUserToDanmakuMaker(body.user.uname, danmakuSenderRecord);
+				// 判断是否开启特定用户弹幕监测
+				if (
+					sub.customSpecialDanmakuUsers.enable &&
+					sub.customSpecialDanmakuUsers.specialDanmakuUsers?.includes(
+						body.user.uid.toString(),
+					)
+				) {
+					const msgTemplate = sub.customSpecialDanmakuUsers.msgTemplate
+						.replace("-mastername", masterInfo.username)
+						.replace("-uname", body.user.uname)
+						.replace("-msg", body.content);
+					// 推送
+					const content = h("message", [h.text(msgTemplate)]);
+					this.ctx["bilibili-notify-push"].broadcastToTargets(
+						sub.uid,
+						content,
+						PushType.UserDanmakuMsg,
+					);
+				}
 			},
 
 			onIncomeSuperChat: ({ body }) => {
@@ -847,8 +866,36 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 			},
 		};
 
+		const userAction: MsgHandler = {
+			onUserAction: ({ body }) => {
+				// 判断是否有特别关注用户进入直播间
+				if (
+					body.action === "enter" &&
+					sub.customSpecialUsersEnterTheRoom.specialUsersEnterTheRoom?.includes(
+						body.user.toString(),
+					)
+				) {
+					const msgTemplate = sub.customSpecialUsersEnterTheRoom.msgTemplate
+						.replace("-mastername", masterInfo.username)
+						.replace("-uname", body.user.uname);
+					// 推送
+					const content = h("message", [h.text(msgTemplate)]);
+					this.ctx["bilibili-notify-push"].broadcastToTargets(
+						sub.uid,
+						content,
+						PushType.UserActions,
+					);
+				}
+			},
+		};
+
+		const finalMsgHandler: MsgHandler = {
+			...handler,
+			...(sub.customSpecialUsersEnterTheRoom.enable ? userAction : {}),
+		};
+
 		// 启动直播间弹幕监测
-		await this.startLiveRoomListener(sub.roomid, handler);
+		await this.startLiveRoomListener(sub.roomid, finalMsgHandler);
 		// 第一次启动获取信息并判信息是否获取成功
 		if (
 			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) &&

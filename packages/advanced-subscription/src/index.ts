@@ -12,18 +12,12 @@ export interface Config {
 export const Config: Schema<Config> = Schema.object({
 	subs: Schema.dict(
 		Schema.object({
-			uid: Schema.string()
-				.required()
-				.description("要订阅的UP主的UID"),
+			uid: Schema.string().required().description("要订阅的UP主的UID"),
 			roomid: Schema.string().description(
 				"直播间号，留空则自动查询（可能触发风控）",
 			),
-			dynamic: Schema.boolean()
-				.default(false)
-				.description("是否订阅动态通知"),
-			live: Schema.boolean()
-				.default(false)
-				.description("是否订阅直播开播通知"),
+			dynamic: Schema.boolean().default(false).description("是否订阅动态通知"),
+			live: Schema.boolean().default(false).description("是否订阅直播开播通知"),
 			liveEnd: Schema.boolean()
 				.default(true)
 				.description("是否订阅直播下播通知"),
@@ -36,33 +30,29 @@ export const Config: Schema<Config> = Schema.object({
 
 					channelArr: Schema.array(
 						Schema.object({
-							channelId: Schema.string()
-								.required()
-								.description("频道或群组号"),
-							dynamic: Schema.boolean()
-								.default(true)
-								.description("动态通知"),
+							channelId: Schema.string().required().description("频道或群组号"),
+							dynamic: Schema.boolean().default(true).description("动态通知"),
 							dynamicAtAll: Schema.boolean()
 								.default(false)
 								.description("动态@所有人"),
-							live: Schema.boolean()
-								.default(true)
-								.description("直播通知"),
+							live: Schema.boolean().default(true).description("直播通知"),
 							liveAtAll: Schema.boolean()
 								.default(true)
 								.description("开播@所有人"),
 							liveGuardBuy: Schema.boolean()
 								.default(false)
 								.description("上舰通知"),
-							superchat: Schema.boolean()
-								.default(false)
-								.description("SC通知"),
-							wordcloud: Schema.boolean()
-								.default(true)
-								.description("弹幕词云"),
+							superchat: Schema.boolean().default(false).description("SC通知"),
+							wordcloud: Schema.boolean().default(true).description("弹幕词云"),
 							liveSummary: Schema.boolean()
 								.default(true)
 								.description("直播总结"),
+							spacialDanmaku: Schema.boolean()
+								.default(true)
+								.description("特别关注弹幕"),
+							spacialUserEnterTheRoom: Schema.boolean()
+								.default(true)
+								.description("特别关注进入直播间"),
 						}),
 					)
 						.role("table")
@@ -94,7 +84,9 @@ export const Config: Schema<Config> = Schema.object({
 								"你们的弹幕，我们都记录在案！🕵️‍♀️",
 							])
 							.role("table")
-							.description("直播总结模板，支持变量：-dmc（弹幕数）、-mdn（观看人数）、-dca（弹幕总数）、-un1~5（弹幕排行用户）、-dc1~5（弹幕排行数量）"),
+							.description(
+								"直播总结模板，支持变量：-dmc（弹幕数）、-mdn（观看人数）、-dca（弹幕总数）、-un1~5（弹幕排行用户）、-dc1~5（弹幕排行数量）",
+							),
 					}),
 					Schema.object({}),
 				]),
@@ -178,6 +170,54 @@ export const Config: Schema<Config> = Schema.object({
 								"https://s1.hdslb.com/bfs/static/blive/live-pay-mono/relation/relation/assets/governor-DpDXKEdA.png",
 							)
 							.description("总督图片链接"),
+					}),
+					Schema.object({}) as Schema<Partial<Config>>,
+				]),
+			]),
+
+			customSpecialDanmakuUsers: Schema.intersect([
+				Schema.object({
+					enable: Schema.boolean()
+						.default(false)
+						.description("是否启用特别关注弹幕用户"),
+				}),
+				Schema.union([
+					Schema.object({
+						enable: Schema.const(true).required(),
+						specialDanmakuUsers: Schema.array(String)
+							.role("table")
+							.description("特别关注弹幕用户列表(请填写UID)，每个UID单独一行"),
+						msgTemplate: Schema.string()
+							.default("【-mastername的直播间】⭐ 特别关注弹幕 -uname: -msg")
+							.description(
+								"特别关注弹幕消息模板，支持变量：-mastername（主播名字）、-uname（用户昵称）、-msg（弹幕内容）",
+							),
+					}),
+					Schema.object({}) as Schema<Partial<Config>>,
+				]),
+			]),
+
+			customSpecialUsersEnterTheRoom: Schema.intersect([
+				Schema.object({
+					enable: Schema.boolean()
+						.default(false)
+						.description("是否启用特别关注进入直播间用户"),
+				}),
+				Schema.union([
+					Schema.object({
+						enable: Schema.const(true).required(),
+						specialUsersEnterTheRoom: Schema.array(String)
+							.role("table")
+							.description(
+								"特别关注进入直播间用户列表(请填写UID)，每个UID单独一行",
+							),
+						msgTemplate: Schema.string()
+							.default(
+								"【-mastername的直播间】🌟 特别关注用户 -uname 进入了直播间",
+							)
+							.description(
+								"特别关注进入直播间消息模板，支持变量：-mastername（主播名字）、-uname（用户昵称）",
+							),
 					}),
 					Schema.object({}) as Schema<Partial<Config>>,
 				]),
