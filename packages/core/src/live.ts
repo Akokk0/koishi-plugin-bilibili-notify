@@ -17,12 +17,14 @@ import {
 	PushType,
 	type Subscription,
 	type UserInfoInLiveData,
-} from "../type";
-import { withRetry, replaceButKeep } from "../utils";
+} from "./type";
+import { withRetry, replaceButKeep } from "./utils";
 import { DateTime } from "luxon";
+import protobuf from "protobufjs";
 import { Jieba } from "@node-rs/jieba";
 import { dict } from "@node-rs/jieba/dict";
-import definedStopWords from "../stop_words";
+import definedStopWords from "./stop_words";
+import { resolve } from "node:path";
 
 declare module "koishi" {
 	interface Context {
@@ -284,6 +286,33 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		danmakuMakerRecord: Record<string, number>,
 	) {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
+	}
+
+	private async decodeBase64PB(base64: string) {
+		// 1. 转二进制
+		const buffer = Uint8Array.from(Buffer.from(base64, "base64"));
+
+		// 2. 加载 proto（protobufjs 会自动处理 import）
+		const protoPath = resolve(__dirname, "proto/interact_word.proto");
+
+		const root = await protobuf.load(protoPath);
+
+		// 3. 查找消息类型
+		const InteractWord = root.lookupType(
+			"bilibili.live.xuserreward.v1.InteractWord",
+		);
+
+		// 4. 解码
+		const message = InteractWord.decode(buffer);
+
+		// 5. 转成普通对象（可选）
+		const object = InteractWord.toObject(message, {
+			longs: String, // int64 转成字符串
+			enums: String, // enum 转成字符串
+			defaults: true, // 补全默认值
+		});
+
+		return object;
 	}
 
 	public async liveDetectWithListener(sub: Subscription) {
@@ -867,25 +896,29 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		};
 
 		const userAction: MsgHandler = {
-			onUserAction: ({ body }) => {
-				// 判断是否有特别关注用户进入直播间
-				if (
-					body.action === "enter" &&
-					sub.customSpecialUsersEnterTheRoom.specialUsersEnterTheRoom?.includes(
-						body.user.toString(),
-					)
-				) {
-					const msgTemplate = sub.customSpecialUsersEnterTheRoom.msgTemplate
-						.replace("-mastername", masterInfo.username)
-						.replace("-uname", body.user.uname);
-					// 推送
-					const content = h("message", [h.text(msgTemplate)]);
-					this.ctx["bilibili-notify-push"].broadcastToTargets(
-						sub.uid,
-						content,
-						PushType.UserActions,
-					);
-				}
+			raw: {
+				INTERACT_WORD_V2: async (msg) => {
+					// 监听所有 cmd 消息
+					const data = await this.decodeBase64PB(msg.data.pb);
+					// 判断是否有特别关注用户进入直播间
+					if (
+						data.msgType === "1" &&
+						sub.customSpecialUsersEnterTheRoom.specialUsersEnterTheRoom?.includes(
+							data.uid,
+						)
+					) {
+						const msgTemplate = sub.customSpecialUsersEnterTheRoom.msgTemplate
+							.replace("-mastername", masterInfo.username)
+							.replace("-uname", data.uname);
+						// 推送
+						const content = h("message", [h.text(msgTemplate)]);
+						this.ctx["bilibili-notify-push"].broadcastToTargets(
+							sub.uid,
+							content,
+							PushType.UserActions,
+						);
+					}
+				},
 			},
 		};
 

@@ -5,8 +5,8 @@ import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { withRetry } from "../utils";
-import type { Dynamic, LiveData, RichTextNode } from "../type";
+import { withRetry } from "./utils";
+import type { Dynamic, LiveData, RichTextNode } from "./type";
 import { GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {
@@ -455,9 +455,9 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 	}
 
 	private async imgHandler(html: string) {
-		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
+		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
-		await page.goto(htmlPath);
+		await page.goto(htmlPath.toString());
 		await page.setContent(html, { waitUntil: "networkidle0" });
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
