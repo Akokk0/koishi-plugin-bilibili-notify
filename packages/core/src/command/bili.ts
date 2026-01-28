@@ -3,7 +3,7 @@ import { h } from "koishi";
 import type { LiveUsers } from "../type";
 import { withRetry } from "../utils";
 import { GuardLevel } from "blive-message-listener";
-import BilibiliNotifyLive from "../live";
+import { BilibiliNotifyLive } from "../core";
 import type { BilibiliNotifySub } from "../core";
 
 export default function (this: BilibiliNotifySub) {

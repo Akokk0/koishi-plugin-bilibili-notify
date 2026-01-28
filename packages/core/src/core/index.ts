@@ -2,3 +2,4 @@
 export { default as BilibiliNotifySub } from "./sub";
 export { default as BilibiliNotifyPush } from "./push";
 export { default as BilibiliNotifyDynamic } from "./dynamic";
+export { default as BilibiliNotifyLive } from "./live";
