@@ -867,30 +867,6 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		};
 
 		const userAction: MsgHandler = {
-			/* raw: {
-				INTERACT_WORD_V2: async (msg) => {
-					// 监听所有 cmd 消息
-					const data = await this.decodeBase64PB(msg.data.pb);
-					// 判断是否有特别关注用户进入直播间
-					if (
-						data.msgType === "1" &&
-						sub.customSpecialUsersEnterTheRoom.specialUsersEnterTheRoom?.includes(
-							data.uid,
-						)
-					) {
-						const msgTemplate = sub.customSpecialUsersEnterTheRoom.msgTemplate
-							.replace("-mastername", masterInfo.username)
-							.replace("-uname", data.uname);
-						// 推送
-						const content = h("message", [h.text(msgTemplate)]);
-						this.ctx["bilibili-notify-push"].broadcastToTargets(
-							sub.uid,
-							content,
-							PushType.UserActions,
-						);
-					}
-				},
-			}, */
 			onUserAction: async ({ body }) => {
 				// 监听用户进入直播间事件
 				if (
