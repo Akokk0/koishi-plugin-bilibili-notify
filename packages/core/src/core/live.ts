@@ -585,18 +585,47 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 				}
 			},
 
-			onIncomeSuperChat: ({ body }) => {
+			onIncomeSuperChat: async ({ body }) => {
 				this.segmentDanmaku(body.content, danmakuWeightRecord);
 				this.addUserToDanmakuMaker(body.user.uname, danmakuSenderRecord);
+				// 获取用户信息
+				const data = await this.ctx["bilibili-notify-api"].getUserInfoInLive(
+					body.user.uid.toString(),
+					sub.uid,
+				);
+				// 判断是否获取成功
+				if (data.code !== 0) {
+					// 获取失败，通过文字发送通知
+					const content = h("message", [
+						h.text(
+							`【${masterInfo.username}的直播间】${body.user.uname}的SC:${body.content}（${body.price}元）`,
+						),
+					]);
+					// 推送
+					return this.ctx["bilibili-notify-push"].broadcastToTargets(
+						sub.uid,
+						content,
+						PushType.Superchat,
+					);
+				}
+				// 解析用户信息
+				const userInfo: UserInfoInLiveData = data.data;
+				// 生成图片
+				const buffer = await this.ctx[
+					"bilibili-notify-generate-img"
+				].generateSCImg({
+					senderFace: userInfo.face,
+					senderName: userInfo.uname,
+					masterName: masterInfo.username,
+					masterAvatarUrl: masterInfo.userface,
+					text: body.content,
+					price: body.price,
+				});
 				// 推送
-				const content = h("message", [
-					h.text(
-						`【${masterInfo.username}的直播间】${body.user.uname}的SC：${body.content}（${body.price}元）`,
-					),
-				]);
+				const image = h.image(buffer, "image/jpeg");
 				this.ctx["bilibili-notify-push"].broadcastToTargets(
 					sub.uid,
-					content,
+					image,
 					PushType.Superchat,
 				);
 			},

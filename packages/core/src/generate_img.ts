@@ -86,6 +86,35 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
 	};
 
+	// 充电等级枚举
+	// SC(Super Chat 醒目留言)等级配置
+	private readonly SC_LEVEL = {
+		Level1: { battery: 300, duration: "60秒", price: 30 },
+		Level2: { battery: 500, duration: "2分钟", price: 50 },
+		Level3: { battery: 1000, duration: "5分钟", price: 100 },
+		Level4: { battery: 5000, duration: "30分钟", price: 500 },
+		Level5: { battery: 10000, duration: "1小时", price: 1000 },
+		Level6: { battery: 20000, duration: "2小时", price: 2000 },
+	} as const;
+
+	private readonly SC_COLOR = [
+		["#a8e6cf", "#88d8b0"], // Level1 - 清新绿
+		["#74b9ff", "#0984e3"], // Level2 - 天空蓝
+		["#a29bfe", "#6c5ce7"], // Level3 - 梦幻紫
+		["#fd79a8", "#e84393"], // Level4 - 热情粉
+		["#fdcb6e", "#e17055"], // Level5 - 荣耀金
+		["#ff7675", "#d63031"], // Level6 - 传说红
+	] as const;
+
+	private getSCLevel(battery: number): number {
+		if (battery >= 20000) return 5;
+		if (battery >= 10000) return 4;
+		if (battery >= 5000) return 3;
+		if (battery >= 1000) return 2;
+		if (battery >= 500) return 1;
+		return 0;
+	}
+
 	private generateCardStyle(
 		isLargeFont: boolean,
 		cardColorStart: string,
@@ -867,6 +896,234 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		return await withRetry(() => this.imgHandler(html)).catch((e) => {
 			// 已尝试三次
 			throw new Error(`生成图片失败！错误: ${e.toString()}`);
+		});
+	}
+
+	async generateSCImg({
+		senderFace,
+		senderName,
+		masterName,
+		text,
+		price,
+		masterAvatarUrl,
+	}: {
+		senderFace: string;
+		senderName: string;
+		masterName: string;
+		text: string;
+		price: number;
+		masterAvatarUrl?: string;
+	}) {
+		// 1元=10电池
+		const battery = price * 10;
+		const levelIndex = this.getSCLevel(battery);
+		const bgColor = this.SC_COLOR[levelIndex];
+		const levelInfo = Object.values(this.SC_LEVEL)[levelIndex];
+
+		// 定义html - 竖向布局
+		const html = /* html */ `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>醒目留言通知</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
+
+                    html {
+                        width: 280px;
+                        height: auto;
+                    }
+
+                    .bg {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 280px;
+                        height: auto;
+                        padding: 15px 0;
+                        background: linear-gradient(to right bottom, ${bgColor[0]}, ${bgColor[1]});
+                    }
+
+                    .baseplate {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        border-radius: 10px;
+                        width: 260px;
+                        height: auto;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        background-color: rgba(255, 255, 255, 0.65);
+                        backdrop-filter: blur(10px);
+                        padding: 20px 15px;
+                    }
+
+                    .price-section {
+                        text-align: center;
+                        margin-bottom: 15px;
+                    }
+
+                    .price-amount {
+                        font-size: 36px;
+                        font-weight: bold;
+                        background: linear-gradient(135deg, ${bgColor[0]}, ${bgColor[1]});
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    }
+
+                    .duration-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        margin-top: 5px;
+                        padding: 4px 10px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 12px;
+                        color: white;
+                        font-size: 12px;
+                        font-weight: bold;
+                        border: solid 2px white;
+                    }
+
+                    .divider {
+                        width: 100%;
+                        height: 1px;
+                        background: linear-gradient(to right, transparent, ${bgColor[0]}, transparent);
+                        margin: 12px 0;
+                    }
+
+                    .avatar-section {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 12px;
+                    }
+
+                    .avatar {
+                        width: 70px;
+                        height: 70px;
+                        border-radius: 50%;
+                        overflow: hidden;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                    }
+
+                    .avatar img {
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                    }
+
+                    .name-badge {
+                        padding: 5px 14px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 15px;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 14px;
+                        border: solid 2px white;
+                    }
+
+                    .target-info {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                        font-size: 12px;
+                        color: #666;
+                    }
+
+                    .target-info span:first-child {
+                        margin-right: 3px;
+                    }
+
+                    .target-group {
+                        display: flex;
+                        align-items: center;
+                        gap: 2px;
+                    }
+
+                    .target-avatar {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        background: url("${masterAvatarUrl || ""}") no-repeat center;
+                        background-size: cover;
+                        border: 1px solid rgba(0, 0, 0, 0.1);
+                    }
+
+                    .content-section {
+                        width: 100%;
+                        text-align: center;
+                    }
+
+                    .content {
+                        padding: 10px 12px;
+                        background-color: rgba(255, 255, 255, 0.5);
+                        border-radius: 8px;
+                    }
+
+                    .content-text {
+                        font-size: 13px;
+                        color: #333;
+                        line-height: 1.6;
+                        word-wrap: break-word;
+                        white-space: pre-wrap;
+                    }
+
+                    .empty-text {
+                        font-size: 13px;
+                        color: #999;
+                        font-style: italic;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="bg">
+                    <div class="baseplate">
+                        <div class="price-section">
+                            <div class="price-amount">¥${price}</div>
+                            <div class="duration-badge">
+                                <span>⏱</span>
+                                <span>${levelInfo.duration}</span>
+                            </div>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="avatar-section">
+                            <div class="avatar">
+                                <img src="${senderFace}" alt="发送者头像">
+                            </div>
+                            <div class="name-badge">${senderName}</div>
+                            <div class="target-info">
+                                <span>SC to</span>
+                                <div class="target-group">
+                                    ${masterAvatarUrl ? `<div class="target-avatar"></div>` : ""}
+                                    <span>${masterName}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${text?.trim() ? `
+                        <div class="content-section">
+                            <div class="content">
+                                <div class="content-text">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>
+                            </div>
+                        </div>
+                        ` : ""}
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成SC图片失败！错误: ${e.toString()}`);
 		});
 	}
 
