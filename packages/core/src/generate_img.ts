@@ -32,6 +32,7 @@ const DYNAMIC_TYPE_LIVE_RCMD = "DYNAMIC_TYPE_LIVE_RCMD";
 const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
 // 内容卡片类型
 const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
+const ADDITIONAL_TYPE_GOODS = "ADDITIONAL_TYPE_GOODS";
 
 class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
@@ -434,6 +435,12 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 background-color: #F6F7F8;
             }
 
+            .up-recommand {
+                margin-top: 10px;
+                font-size: 14px;
+                color: #9499A0;
+            }
+
             .card-reserve .reserve-title {
                 font-size: 14px;
                 color: #18191C;
@@ -479,6 +486,85 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 justify-content: center;
                 color: #FFF;
                 background-color: #00A0D8;
+            }
+
+            .card .goods-header {
+                font-size: 14px;
+                color: #18191C;
+                margin-top: 10px;
+                margin-bottom: 8px;
+            }
+
+            .card .goods-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .card .goods-item {
+                display: flex;
+                align-items: center;
+                padding: 10px;
+                background-color: #fff;
+                border-radius: 8px;
+                border: 1px solid #e5e7e9;
+                gap: 12px;
+            }
+
+            .card .goods-cover {
+                width: 80px;
+                height: 80px;
+                flex-shrink: 0;
+                border-radius: 6px;
+                overflow: hidden;
+                background-color: #f0f0f0;
+            }
+
+            .card .goods-cover img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .card .goods-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-width: 0;
+            }
+
+            .card .goods-name {
+                font-size: 14px;
+                color: #18191C;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+                line-height: 1.4;
+            }
+
+            .card .goods-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 6px;
+            }
+
+            .card .goods-price {
+                font-size: 16px;
+                color: #FF6699;
+                font-weight: bold;
+            }
+
+            .card .goods-button {
+                border: none;
+                padding: 5px 14px;
+                background-color: #00AEEC;
+                color: #fff;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
             }
         `;
 	}
@@ -1107,13 +1193,17 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                                 </div>
                             </div>
                         </div>
-                        ${text?.trim() ? `
+                        ${
+													text?.trim()
+														? `
                         <div class="content-section">
                             <div class="content">
                                 <div class="content-text">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>
                             </div>
                         </div>
-                        ` : ""}
+                        `
+														: ""
+												}
                     </div>
                 </div>
             </body>
@@ -1127,7 +1217,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		});
 	}
 
-	richTextParser(rt: RichTextNode, title?: string) {
+	richTextParser(rt: RichTextNode, title?: string, isArticle = false) {
 		const richText = rt.reduce((accumulator, currentValue) => {
 			if (currentValue.emoji) {
 				return /* html */ `${accumulator}<img style="width:17px; height:17px;" src="${currentValue.emoji.icon_url}"/>`;
@@ -1151,13 +1241,40 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 				throw new Error("出现关键词，屏蔽该动态");
 			}
 		}
-		// 查找\n
-		const text = richText.replace(/\n/g, "<br>");
+		// 按换行符分割并限制行数
+		const lines = richText.split("\n");
+		const maxDisplayLines = 9;
+		let displayText = "";
+		let isTruncated = false;
+
+		// 计算实际显示行数
+		// 专栏：每行文本后有一个空白行，所以 n 行文本实际显示为 2n - 1 行
+		// 普通动态：n 行文本实际显示为 n 行
+		let maxOriginalLines: number;
+		if (isArticle) {
+			// 专栏：2n - 1 ≤ 9 => n ≤ 5
+			maxOriginalLines = Math.floor((maxDisplayLines + 1) / 2);
+		} else {
+			// 普通动态：n ≤ 9
+			maxOriginalLines = maxDisplayLines;
+		}
+
+		if (lines.length > maxOriginalLines) {
+			// 超过限制，只取前 maxOriginalLines 行并添加省略号
+			displayText = lines.slice(0, maxOriginalLines).join("\n");
+			isTruncated = true;
+		} else {
+			displayText = richText;
+		}
+
+		// 查找\n - 专栏使用双换行增加行间距
+		const text = displayText.replace(/\n/g, isArticle ? "<br><br>" : "<br>");
 		// 拼接字符串
 		return /* html */ `
             <div class="card-details">
                 ${title ? `<h1 class="dyn-title">${title}</h1>` : ""}
                 ${text}
+                ${isTruncated ? '<span style="color: #999;">...（全文过长，已省略）</span>' : ""}
             </div>
         `;
 	}
@@ -1209,13 +1326,15 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 			// 定义forward类型返回值
 			let forwardInfo: string;
 			// 最基本的图文处理
-			const basicDynamic = () => {
+			const basicDynamic = (isArticle = false) => {
 				// 获取动态内容
 				const module_dynamic = dynamic.modules.module_dynamic;
 				// 判断是否有desc
 				if (module_dynamic?.desc?.rich_text_nodes) {
 					const content = this.richTextParser(
 						module_dynamic.desc.rich_text_nodes,
+						undefined,
+						isArticle,
 					);
 					main += content;
 				}
@@ -1224,6 +1343,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					const content = this.richTextParser(
 						module_dynamic.major.opus.summary.rich_text_nodes,
 						module_dynamic.major.opus.title,
+						isArticle,
 					);
 					main += content;
 				}
@@ -1395,6 +1515,86 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                                     </div>
                                 </div>
                                 `;
+								break;
+							}
+							case ADDITIONAL_TYPE_GOODS: {
+								// 商品信息
+								const goods = additional.goods;
+								const isSingle = goods.items.length === 1;
+
+								if (isSingle) {
+									// 只有一个商品，显示完整信息
+									const item = goods.items[0];
+									const buttonText = item.jump_desc || "去购买";
+									main += /* html */ `
+                                        <div class="up-recommand">
+                                            <svg style="width: 12px; height: 12px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 12 12" width="12" height="12">
+                                                <path d="M3.771995 3.875C3.310205 3.875 2.92461 4.22713 2.882805 4.68702L2.48186 9.0974C2.441275 9.54385 2.73032 9.90275 3.1231 9.95275C3.81039 10.0402 4.788965 10.125 6 10.125C7.21105 10.125 8.18965 10.0402 8.87695 9.95275C9.2697 9.90275 9.55875 9.54385 9.51815 9.0974L9.11725 4.68702C9.0754 4.22713 8.68985 3.875 8.22805 3.875L5.75 3.875C5.47385 3.875 5.25 3.65114 5.25 3.375C5.25 3.09886 5.47385 2.875 5.75 2.875L8.22805 2.875C9.20705 2.875 10.0245 3.621515 10.1131 4.596485L10.51405 9.0069C10.5986 9.93655 9.9811 10.8203 9.0032 10.94475C8.27845 11.037 7.2575 11.125 6 11.125C4.7425 11.125 3.721565 11.037 2.996845 10.94475C2.01891 10.8203 1.40145 9.93655 1.485965 9.0069L1.88691 4.596485C1.975545 3.621515 2.793 2.875 3.771995 2.875L4.17857 2.875C4.454715 2.875 4.67857 3.09886 4.67857 3.375C4.67857 3.65114 4.454715 3.875 4.17857 3.875L3.771995 3.875z" fill="currentColor"></path>
+                                                <path d="M6 1.875C5.3787 1.875 4.875015 2.37868 4.875015 3L4.875015 4.125C4.875015 4.40114 4.65116 4.625 4.375015 4.625C4.098875 4.625 3.875015 4.40114 3.875015 4.125L3.875015 3C3.875015 1.826395 4.82641 0.875 6 0.875C7.1736 0.875 8.125 1.826395 8.125 3C8.125 3.27614 7.90115 3.5 7.625 3.5C7.34885 3.5 7.125 3.27614 7.125 3C7.125 2.37868 6.62135 1.875 6 1.875z" fill="currentColor"></path>
+                                                <path d="M5.00095 5.8755C5.00095 6.2209 4.720935 6.50095 4.375495 6.50095C4.03005 6.50095 3.750015 6.2209 3.750015 5.8755C3.750015 5.53005 4.03005 5.25 4.375495 5.25C4.720935 5.25 5.00095 5.53005 5.00095 5.8755z" fill="currentColor"></path>
+                                                <path d="M8.251 5.8755C8.251 6.22095 7.97095 6.501 7.6255 6.501C7.28005 6.501 7 6.22095 7 5.8755C7 5.53005 7.28005 5.25 7.6255 5.25C7.97095 5.25 8.251 5.53005 8.251 5.8755z" fill="currentColor"></path>
+                                            </svg>
+                                            ${goods.head_text}
+                                        </div>
+                                        <div class="card-reserve">
+                                            <div class="reserve-main">
+                                                <div class="reserve-desc" style="display: flex; gap: 10px; align-items: center;">
+                                                    <div style="width: 80px; height: 80px; flex-shrink: 0; border-radius: 6px; overflow: hidden;">
+                                                        <img src="${item.cover}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    </div>
+                                                    <div style="flex: 1; min-width: 0;">
+                                                        <div style="font-size: 14px; color: #18191C; margin-bottom: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;">
+                                                            ${item.name}
+                                                        </div>
+                                                        <div style="font-size: 16px; color: #FF6699; font-weight: bold;">
+                                                            ${item.price}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="reserve-button">
+                                                <button class="reserve-button-ing">${buttonText}</button>
+                                            </div>
+                                        </div>
+                                    `;
+								} else {
+									// 多个商品，只显示图片和名称
+									const itemsHtml = goods.items
+										.slice(0, 3)
+										.map(
+											(item: { cover: string; name: string }) => /* html */ `
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                            <div style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 4px; overflow: hidden;">
+                                                <img src="${item.cover}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                            </div>
+                                            <div style="flex: 1; min-width: 0; font-size: 12px; color: #18191C; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;">
+                                                ${item.name}
+                                            </div>
+                                        </div>
+                                    `,
+										)
+										.join("");
+
+									main += /* html */ `
+                                        <div class="up-recommand">
+                                            <svg style="width: 12px; height: 12px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 12 12" width="12" height="12">
+                                                <path d="M3.771995 3.875C3.310205 3.875 2.92461 4.22713 2.882805 4.68702L2.48186 9.0974C2.441275 9.54385 2.73032 9.90275 3.1231 9.95275C3.81039 10.0402 4.788965 10.125 6 10.125C7.21105 10.125 8.18965 10.0402 8.87695 9.95275C9.2697 9.90275 9.55875 9.54385 9.51815 9.0974L9.11725 4.68702C9.0754 4.22713 8.68985 3.875 8.22805 3.875L5.75 3.875C5.47385 3.875 5.25 3.65114 5.25 3.375C5.25 3.09886 5.47385 2.875 5.75 2.875L8.22805 2.875C9.20705 2.875 10.0245 3.621515 10.1131 4.596485L10.51405 9.0069C10.5986 9.93655 9.9811 10.8203 9.0032 10.94475C8.27845 11.037 7.2575 11.125 6 11.125C4.7425 11.125 3.721565 11.037 2.996845 10.94475C2.01891 10.8203 1.40145 9.93655 1.485965 9.0069L1.88691 4.596485C1.975545 3.621515 2.793 2.875 3.771995 2.875L4.17857 2.875C4.454715 2.875 4.67857 3.09886 4.67857 3.375C4.67857 3.65114 4.454715 3.875 4.17857 3.875L3.771995 3.875z" fill="currentColor"></path>
+                                                <path d="M6 1.875C5.3787 1.875 4.875015 2.37868 4.875015 3L4.875015 4.125C4.875015 4.40114 4.65116 4.625 4.375015 4.625C4.098875 4.625 3.875015 4.40114 3.875015 4.125L3.875015 3C3.875015 1.826395 4.82641 0.875 6 0.875C7.1736 0.875 8.125 1.826395 8.125 3C8.125 3.27614 7.90115 3.5 7.625 3.5C7.34885 3.5 7.125 3.27614 7.125 3C7.125 2.37868 6.62135 1.875 6 1.875z" fill="currentColor"></path>
+                                                <path d="M5.00095 5.8755C5.00095 6.2209 4.720935 6.50095 4.375495 6.50095C4.03005 6.50095 3.750015 6.2209 3.750015 5.8755C3.750015 5.53005 4.03005 5.25 4.375495 5.25C4.720935 5.25 5.00095 5.53005 5.00095 5.8755z" fill="currentColor"></path>
+                                                <path d="M8.251 5.8755C8.251 6.22095 7.97095 6.501 7.6255 6.501C7.28005 6.501 7 6.22095 7 5.8755C7 5.53005 7.28005 5.25 7.6255 5.25C7.97095 5.25 8.251 5.53005 8.251 5.8755z" fill="currentColor"></path>
+                                            </svg>
+                                            ${goods.head_text}
+                                        </div>
+                                        <div class="card-reserve">
+                                            <div class="reserve-main">
+                                                <div class="reserve-desc">
+                                                    ${itemsHtml}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+								}
+								break;
 							}
 						}
 					}
@@ -1487,7 +1687,15 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					if (this.config.filter.enable && this.config.filter.article) {
 						throw new Error("已屏蔽专栏动态");
 					}
-					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`];
+					// 投稿新专栏 - 直接使用 basicDynamic 渲染（opus 格式）
+					basicDynamic(true);
+					// 是否转发动态
+					if (forward) {
+						forwardInfo = "投稿了专栏";
+					} else {
+						pubTime = `${pubTime} · 投稿了专栏`;
+					}
+					break;
 				}
 				case DYNAMIC_TYPE_MUSIC:
 					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`];
