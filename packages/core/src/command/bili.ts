@@ -417,4 +417,11 @@ export default function (this: BilibiliNotifySub) {
 
 		await session.send(h.image(buffer, "image/jpeg"));
 	});
+
+	biliCom.subcommand(".nc").action(async ({ session }) => {
+		const buffer =
+			await this.ctx["bilibili-notify-generate-img"].generateLiveImgTest();
+
+		await session.send(h.image(buffer, "image/jpeg"));
+	});
 }

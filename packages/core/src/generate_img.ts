@@ -2017,6 +2017,392 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		const seconds = `0${date.getSeconds()}`.slice(-2);
 		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
 	}
+
+    async generateLiveImgTest() {
+
+        const html = /* html */`
+            <!DOCTYPE html>
+            <html lang="zh-CN">
+
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>直播通知</title>
+                <style>
+                    @import url("https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Unbounded:wght@300;500;700&display=swap");
+
+                    :root {
+                        --bili: #fb7299;
+                        --bili-light: #ff85a6;
+                        --bili-dark: #e85d87;
+                        --text: #fff5f8;
+                        --muted: rgba(255, 245, 248, 0.85);
+                        --accent: #fb7299;
+                        --accent-2: #ff85a6;
+                        --success: #7bd9a8;
+                    }
+
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+
+                    html {
+                        width: 950px;
+                        height: 750px;
+                    }
+
+                    body {
+                        font-family: "Unbounded", "ZCOOL XiaoWei", -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+                        background: #000000;
+                        min-height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* 静态背景 - 来自第一个HTML */
+                    body::before {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background:
+                            radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+                            radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+                            radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+                        filter: blur(80px);
+                        opacity: 0.7;
+                    }
+
+                    .wrap {
+                        width: min(980px, 92vw);
+                        position: relative;
+                        z-index: 1;
+                    }
+
+                    .card {
+                        position: relative;
+                        border-radius: 32px;
+                        overflow: hidden;
+                        /* 使用第一个HTML的卡片背景样式 */
+                        background: rgba(255, 255, 255, 0.05);
+                        backdrop-filter: blur(40px) saturate(180%);
+                        -webkit-backdrop-filter: blur(40px) saturate(180%);
+                        border: 1px solid rgba(255, 255, 255, 0.18);
+                        box-shadow:
+                            0 8px 32px rgba(0, 0, 0, 0.4),
+                            0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+                            0 0 80px rgba(139, 92, 246, 0.2);
+                        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    }
+
+                    .card::before {
+                        content: "";
+                        position: absolute;
+                        inset: 0;
+                        background:
+                            linear-gradient(120deg, rgba(255, 255, 255, 0.1), transparent 40%),
+                            linear-gradient(180deg, rgba(0, 0, 0, 0.05), transparent 45%);
+                        pointer-events: none;
+                        opacity: 0.7;
+                    }
+
+                    .hero {
+                        position: relative;
+                        height: 420px;
+                        background: transparent;
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        padding: 28px;
+                    }
+
+                    .hero .cover {
+                        position: absolute;
+                        inset: 0;
+                        width: 100%;
+                        height: 100%;
+                        object-fit: cover;
+                        z-index: 0;
+                        mask-image: linear-gradient(180deg,
+                                rgba(0, 0, 0, 1) 0%,
+                                rgba(0, 0, 0, 1) 70%,
+                                rgba(0, 0, 0, 0.75) 80%,
+                                rgba(0, 0, 0, 0.4) 90%,
+                                rgba(0, 0, 0, 0) 100%);
+                        -webkit-mask-image: linear-gradient(180deg,
+                                rgba(0, 0, 0, 1) 0%,
+                                rgba(0, 0, 0, 1) 70%,
+                                rgba(0, 0, 0, 0.75) 80%,
+                                rgba(0, 0, 0, 0.4) 90%,
+                                rgba(0, 0, 0, 0) 100%);
+                    }
+
+                    .hero::before {
+                        content: "";
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(180deg,
+                                rgba(0, 0, 0, 0) 0%,
+                                rgba(0, 0, 0, 0.1) 85%,
+                                rgba(0, 0, 0, 0.3) 95%,
+                                rgba(0, 0, 0, 0.4) 100%);
+                        pointer-events: none;
+                        z-index: 1;
+                    }
+
+                    .hero::after {
+                        content: "";
+                        position: absolute;
+                        inset: auto 0 -1px 0;
+                        height: 80px;
+                        background: linear-gradient(180deg,
+                                rgba(255, 255, 255, 0) 0%,
+                                rgba(255, 255, 255, 0.03) 100%);
+                        z-index: 1;
+                    }
+
+                    .profile {
+                        display: flex;
+                        gap: 16px;
+                        align-items: center;
+                        z-index: 2;
+                    }
+
+                    .avatar {
+                        width: 68px;
+                        height: 68px;
+                        border-radius: 50%;
+                        border: 2px solid rgba(255, 255, 255, 0.35);
+                        background:
+                            url("https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=200&q=80") center/cover no-repeat;
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+                    }
+
+                    .name {
+                        font-size: 28px;
+                        font-weight: 700;
+                        letter-spacing: 1px;
+                        color: var(--text);
+                    }
+
+                    .meta {
+                        margin-top: 6px;
+                        color: var(--muted);
+                        font-size: 14px;
+                    }
+
+                    .stats {
+                        display: flex;
+                        gap: 28px;
+                        z-index: 2;
+                        align-items: center;
+                        font-size: 15px;
+                        color: var(--muted);
+                    }
+
+                    .stat {
+                        text-align: center;
+                    }
+
+                    .stat strong {
+                        display: block;
+                        font-size: 18px;
+                        color: var(--text);
+                        margin-top: 6px;
+                    }
+
+                    .live-badge {
+                        position: absolute;
+                        top: 28px;
+                        right: 28px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 14px;
+                        background: rgba(251, 114, 153, 0.3);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border-radius: 999px;
+                        font-weight: 600;
+                        font-size: 12px;
+                        letter-spacing: 1px;
+                        text-transform: uppercase;
+                        z-index: 2;
+                        box-shadow: 0 10px 24px rgba(251, 114, 153, 0.35);
+                        border: 1px solid rgba(251, 114, 153, 0.45);
+                    }
+
+                    .live-dot {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 50%;
+                        background: red;
+                        box-shadow: 0 0 12px rgba(255, 179, 199, 0.9);
+                    }
+
+                    .content {
+                        padding: 12px 32px 20px;
+                        position: relative;
+                        z-index: 1;
+                        background: rgba(255, 255, 255, 0.03);
+                    }
+
+                    .title {
+                        font-size: clamp(22px, 3vw, 28px);
+                        line-height: 1.4;
+                        margin: 0 0 12px;
+                        text-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+                        color: var(--text);
+                    }
+
+                    .tags {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        margin-bottom: 20px;
+                    }
+
+                    .tag {
+                        padding: 6px 12px;
+                        border-radius: 999px;
+                        background: rgba(255, 255, 255, 0.1);
+                        backdrop-filter: blur(10px);
+                        -webkit-backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        color: #ffd4e0;
+                        font-size: 12px;
+                        letter-spacing: 0.6px;
+                    }
+
+                    .now {
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        padding: 14px 16px;
+                        border-radius: 16px;
+                        background: rgba(255, 255, 255, 0.06);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                    }
+
+                    .now img {
+                        width: 46px;
+                        height: 46px;
+                        border-radius: 12px;
+                        object-fit: cover;
+                    }
+
+                    .now h4 {
+                        margin: 0;
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text);
+                    }
+
+                    .now p {
+                        margin: 4px 0 0;
+                        font-size: 12px;
+                        color: var(--muted);
+                    }
+
+                    .footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 18px 32px 26px;
+                        color: var(--muted);
+                        font-size: 12px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.06);
+                    }
+
+                    .footer span {
+                        display: inline-flex;
+                        gap: 6px;
+                        align-items: center;
+                    }
+
+                    .footer strong {
+                        color: var(--accent);
+                    }
+
+                    @media (max-width: 720px) {
+                        .hero {
+                            height: 340px;
+                            padding: 20px;
+                        }
+
+                        .stats {
+                            gap: 16px;
+                            font-size: 12px;
+                        }
+
+                        .stat strong {
+                            font-size: 14px;
+                        }
+
+                        .content,
+                        .footer {
+                            padding-left: 20px;
+                            padding-right: 20px;
+                        }
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="wrap">
+                    <article class="card">
+                        <section class="hero">
+                            <img class="cover" id="cover-img" alt=""
+                                src="https://p8.itc.cn/images01/20200723/b48a6c775c944f7d89043ab8e0154197.jpeg"
+                                referrerpolicy="no-referrer">
+                            <div class="profile">
+                                <div class="avatar" aria-hidden="true"></div>
+                                <div>
+                                    <div class="name">籽岷</div>
+                                    <div class="meta">515.3万 粉丝</div>
+                                </div>
+                            </div>
+                            <div class="live-badge">
+                                <span class="live-dot"></span>
+                                正在直播
+                            </div>
+                        </section>
+
+                        <section class="content">
+                            <h2 class="title">AI游戏大玩家</h2>
+                            <div class="tags">
+                                <span class="tag">#明日方舟：终末地</span>
+                                <span class="tag">人气：26.4万</span>
+                                <span class="tag">累计观看人数：11.0万</span>
+                            </div>
+                            <div class="now">
+                                <div>
+                                    <h4>为人民服务 AI游戏大玩家</h4>
+                                    <p>直播时长 · 4:33 已直播</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <footer class="footer">
+                            <span>插件状态 <strong>Bilibili-Notify</strong> · v3.10.0-alpha.0</span>
+                            <span>⚡ POWERED BY KOISHI</span>
+                        </footer>
+                    </article>
+                </div>
+            </body>
+
+            </html>
+        `
+        
+        return await this.imgHandler(html);
+    }
 }
 
 namespace BilibiliNotifyGenerateImg {
