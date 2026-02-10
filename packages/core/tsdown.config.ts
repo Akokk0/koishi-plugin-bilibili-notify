@@ -11,6 +11,7 @@ export default defineConfig({
 		{ from: "src/page", to: "lib" },
 		{ from: "src/img", to: "lib" },
 		{ from: "src/static", to: "lib" },
+		{ from: "src/core/proto", to: "lib" },
 	],
 	exports: true,
 	external: [/^node:/, /^[^./]/],

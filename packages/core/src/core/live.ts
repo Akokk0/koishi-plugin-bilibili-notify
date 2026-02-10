@@ -23,6 +23,8 @@ import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
 import { dict } from "@node-rs/jieba/dict";
 import definedStopWords from "../stop_words";
+import { resolve } from "node:path";
+import protobuf from "protobufjs";
 
 declare module "koishi" {
 	interface Context {
@@ -284,6 +286,41 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		danmakuMakerRecord: Record<string, number>,
 	) {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
+	}
+
+	private interactWord: protobuf.Type;
+
+	private async decodeBase64PB(base64: string) {
+		// 1. 转二进制
+		const buffer = Uint8Array.from(Buffer.from(base64, "base64"));
+
+		// 判断是否加载过proto文件
+		if (!this.interactWord) {
+			// 2. 加载 proto（protobufjs 会自动处理 import）
+			const protoPath = resolve(__dirname, "./proto/interact_word.proto");
+
+			const root = await protobuf.load(protoPath);
+
+			// 3. 查找消息类型
+			const interactWord = root.lookupType(
+				"bilibili.live.xuserreward.v1.InteractWord",
+			);
+
+			// 保存到类属性中
+			this.interactWord = interactWord;
+		}
+
+		// 4. 解码
+		const message = this.interactWord.decode(buffer);
+
+		// 5. 转成普通对象（可选）
+		const object = this.interactWord.toObject(message, {
+			longs: String, // int64 转成字符串
+			enums: String, // enum 转成字符串
+			defaults: true, // 补全默认值
+		});
+
+		return object;
 	}
 
 	public async liveDetectWithListener(sub: Subscription) {
@@ -896,7 +933,31 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		};
 
 		const userAction: MsgHandler = {
-			onUserAction: async ({ body }) => {
+			raw: {
+				INTERACT_WORD_V2: async (msg) => {
+					// 监听所有 cmd 消息
+					const data = await this.decodeBase64PB(msg.data.pb);
+					// 判断是否有特别关注用户进入直播间
+					if (
+						data.msgType === "1" &&
+						sub.customSpecialUsersEnterTheRoom.specialUsersEnterTheRoom?.includes(
+							data.uid,
+						)
+					) {
+						const msgTemplate = sub.customSpecialUsersEnterTheRoom.msgTemplate
+							.replace("-mastername", masterInfo.username)
+							.replace("-uname", data.uname);
+						// 推送
+						const content = h("message", [h.text(msgTemplate)]);
+						this.ctx["bilibili-notify-push"].broadcastToTargets(
+							sub.uid,
+							content,
+							PushType.UserActions,
+						);
+					}
+				},
+			},
+			/* onUserAction: async ({ body }) => {
 				// 监听用户进入直播间事件
 				if (
 					body.action === "enter" &&
@@ -915,16 +976,14 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						PushType.UserActions,
 					);
 				}
-			},
-		};
-
-		const finalMsgHandler: MsgHandler = {
-			...handler,
-			...(sub.customSpecialUsersEnterTheRoom.enable ? userAction : {}),
+			}, */
 		};
 
 		// 启动直播间弹幕监测
-		await this.startLiveRoomListener(sub.roomid, finalMsgHandler);
+		await this.startLiveRoomListener(sub.roomid, {
+			...handler,
+			...(sub.customSpecialUsersEnterTheRoom.enable ? userAction : {}), // 判断是否需要开启用户进入直播间监听
+		});
 		// 第一次启动获取信息并判信息是否获取成功
 		if (
 			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) &&
