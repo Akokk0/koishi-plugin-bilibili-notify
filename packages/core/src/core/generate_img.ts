@@ -5,8 +5,8 @@ import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { withRetry } from "./utils";
-import type { Dynamic, LiveData, RichTextNode } from "./type";
+import { withRetry } from "../utils";
+import type { Dynamic, LiveData, RichTextNode } from "../type";
 import { GuardLevel } from "blive-message-listener";
 
 declare module "koishi" {

@@ -8,9 +8,9 @@ export default defineConfig({
 	clean: true,
 	outDir: "lib",
 	copy: [
-		{ from: "src/page", to: "lib" },
-		{ from: "src/img", to: "lib" },
-		{ from: "src/static", to: "lib" },
+		{ from: "src/core/page", to: "lib" },
+		{ from: "src/core/img", to: "lib" },
+		{ from: "src/core/static", to: "lib" },
 		{ from: "src/core/proto", to: "lib" },
 	],
 	exports: true,

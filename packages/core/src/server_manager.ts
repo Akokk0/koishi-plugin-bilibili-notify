@@ -5,9 +5,9 @@ import {
 	BilibiliNotifySub,
 	BilibiliNotifyDynamic,
 	BilibiliNotifyPush,
-	BilibiliNotifyLive
+	BilibiliNotifyLive,
+	BilibiliNotifyGenerateImg,
 } from "./core";
-import BilibiliNotifyGenerateImg from "./generate_img";
 import BilibiliNotifyAPI from "./api";
 import type { BilibiliNotifyConfig } from "./config";
 
