@@ -933,7 +933,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		};
 
 		const userAction: MsgHandler = {
-			raw: {
+			/* raw: {
 				INTERACT_WORD_V2: async (msg) => {
 					// 监听所有 cmd 消息
 					const data = await this.decodeBase64PB(msg.data.pb);
@@ -956,8 +956,8 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						);
 					}
 				},
-			},
-			/* onUserAction: async ({ body }) => {
+			}, */
+			onUserAction: async ({ body }) => {
 				// 监听用户进入直播间事件
 				if (
 					body.action === "enter" &&
@@ -976,7 +976,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						PushType.UserActions,
 					);
 				}
-			}, */
+			},
 		};
 
 		// 启动直播间弹幕监测
