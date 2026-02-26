@@ -32,6 +32,7 @@ const DYNAMIC_TYPE_LIVE_RCMD = "DYNAMIC_TYPE_LIVE_RCMD";
 const DYNAMIC_TYPE_UGC_SEASON = "DYNAMIC_TYPE_UGC_SEASON";
 // 内容卡片类型
 const ADDITIONAL_TYPE_RESERVE = "ADDITIONAL_TYPE_RESERVE";
+const ADDITIONAL_TYPE_GOODS = "ADDITIONAL_TYPE_GOODS";
 
 class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
@@ -85,6 +86,35 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		[GuardLevel.Tidu]: ["#d8a0e6", "#b494e5"],
 		[GuardLevel.Zongdu]: ["#f2a053", "#ef5f5f"],
 	};
+
+	// 充电等级枚举
+	// SC(Super Chat 醒目留言)等级配置
+	private readonly SC_LEVEL = {
+		Level1: { battery: 300, duration: "60秒", price: 30 },
+		Level2: { battery: 500, duration: "2分钟", price: 50 },
+		Level3: { battery: 1000, duration: "5分钟", price: 100 },
+		Level4: { battery: 5000, duration: "30分钟", price: 500 },
+		Level5: { battery: 10000, duration: "1小时", price: 1000 },
+		Level6: { battery: 20000, duration: "2小时", price: 2000 },
+	} as const;
+
+	private readonly SC_COLOR = [
+		["#a8e6cf", "#88d8b0"], // Level1 - 清新绿
+		["#74b9ff", "#0984e3"], // Level2 - 天空蓝
+		["#a29bfe", "#6c5ce7"], // Level3 - 梦幻紫
+		["#fd79a8", "#e84393"], // Level4 - 热情粉
+		["#fdcb6e", "#e17055"], // Level5 - 荣耀金
+		["#ff7675", "#d63031"], // Level6 - 传说红
+	] as const;
+
+	private getSCLevel(battery: number): number {
+		if (battery >= 20000) return 5;
+		if (battery >= 10000) return 4;
+		if (battery >= 5000) return 3;
+		if (battery >= 1000) return 2;
+		if (battery >= 500) return 1;
+		return 0;
+	}
 
 	private generateCardStyle(
 		isLargeFont: boolean,
@@ -405,6 +435,12 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 background-color: #F6F7F8;
             }
 
+            .up-recommand {
+                margin-top: 10px;
+                font-size: 14px;
+                color: #9499A0;
+            }
+
             .card-reserve .reserve-title {
                 font-size: 14px;
                 color: #18191C;
@@ -451,13 +487,92 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 color: #FFF;
                 background-color: #00A0D8;
             }
+
+            .card .goods-header {
+                font-size: 14px;
+                color: #18191C;
+                margin-top: 10px;
+                margin-bottom: 8px;
+            }
+
+            .card .goods-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .card .goods-item {
+                display: flex;
+                align-items: center;
+                padding: 10px;
+                background-color: #fff;
+                border-radius: 8px;
+                border: 1px solid #e5e7e9;
+                gap: 12px;
+            }
+
+            .card .goods-cover {
+                width: 80px;
+                height: 80px;
+                flex-shrink: 0;
+                border-radius: 6px;
+                overflow: hidden;
+                background-color: #f0f0f0;
+            }
+
+            .card .goods-cover img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+
+            .card .goods-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-width: 0;
+            }
+
+            .card .goods-name {
+                font-size: 14px;
+                color: #18191C;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+                line-height: 1.4;
+            }
+
+            .card .goods-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 6px;
+            }
+
+            .card .goods-price {
+                font-size: 16px;
+                color: #FF6699;
+                font-weight: bold;
+            }
+
+            .card .goods-button {
+                border: none;
+                padding: 5px 14px;
+                background-color: #00AEEC;
+                color: #fff;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+            }
         `;
 	}
 
 	private async imgHandler(html: string) {
-		const htmlPath = `file://${__dirname.replaceAll("\\", "/")}/page/0.html`;
+		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
-		await page.goto(htmlPath);
+		await page.goto(htmlPath.toString());
 		await page.setContent(html, { waitUntil: "networkidle0" });
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
@@ -870,7 +985,239 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		});
 	}
 
-	richTextParser(rt: RichTextNode, title?: string) {
+	async generateSCImg({
+		senderFace,
+		senderName,
+		masterName,
+		text,
+		price,
+		masterAvatarUrl,
+	}: {
+		senderFace: string;
+		senderName: string;
+		masterName: string;
+		text: string;
+		price: number;
+		masterAvatarUrl?: string;
+	}) {
+		// 1元=10电池
+		const battery = price * 10;
+		const levelIndex = this.getSCLevel(battery);
+		const bgColor = this.SC_COLOR[levelIndex];
+		const levelInfo = Object.values(this.SC_LEVEL)[levelIndex];
+
+		// 定义html - 竖向布局
+		const html = /* html */ `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>醒目留言通知</title>
+                <style>
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        font-family: "${this.config.font}", "Microsoft YaHei", "Source Han Sans", "Noto Sans CJK", sans-serif;
+                    }
+
+                    html {
+                        width: 280px;
+                        height: auto;
+                    }
+
+                    .bg {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 280px;
+                        height: auto;
+                        padding: 15px 0;
+                        background: linear-gradient(to right bottom, ${bgColor[0]}, ${bgColor[1]});
+                    }
+
+                    .baseplate {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        border-radius: 10px;
+                        width: 260px;
+                        height: auto;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                        background-color: rgba(255, 255, 255, 0.65);
+                        backdrop-filter: blur(10px);
+                        padding: 20px 15px;
+                    }
+
+                    .price-section {
+                        text-align: center;
+                        margin-bottom: 15px;
+                    }
+
+                    .price-amount {
+                        font-size: 36px;
+                        font-weight: bold;
+                        background: linear-gradient(135deg, ${bgColor[0]}, ${bgColor[1]});
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    }
+
+                    .duration-badge {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        margin-top: 5px;
+                        padding: 4px 10px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 12px;
+                        color: white;
+                        font-size: 12px;
+                        font-weight: bold;
+                        border: solid 2px white;
+                    }
+
+                    .divider {
+                        width: 100%;
+                        height: 1px;
+                        background: linear-gradient(to right, transparent, ${bgColor[0]}, transparent);
+                        margin: 12px 0;
+                    }
+
+                    .avatar-section {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 8px;
+                        margin-bottom: 12px;
+                    }
+
+                    .avatar {
+                        width: 70px;
+                        height: 70px;
+                        border-radius: 50%;
+                        overflow: hidden;
+                        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+                    }
+
+                    .avatar img {
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 50%;
+                        border: 3px solid white;
+                    }
+
+                    .name-badge {
+                        padding: 5px 14px;
+                        background-color: ${bgColor[0]};
+                        border-radius: 15px;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 14px;
+                        border: solid 2px white;
+                    }
+
+                    .target-info {
+                        display: flex;
+                        align-items: center;
+                        gap: 5px;
+                        font-size: 12px;
+                        color: #666;
+                    }
+
+                    .target-info span:first-child {
+                        margin-right: 3px;
+                    }
+
+                    .target-group {
+                        display: flex;
+                        align-items: center;
+                        gap: 2px;
+                    }
+
+                    .target-avatar {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 50%;
+                        background: url("${masterAvatarUrl || ""}") no-repeat center;
+                        background-size: cover;
+                        border: 1px solid rgba(0, 0, 0, 0.1);
+                    }
+
+                    .content-section {
+                        width: 100%;
+                        text-align: center;
+                    }
+
+                    .content {
+                        padding: 10px 12px;
+                        background-color: rgba(255, 255, 255, 0.5);
+                        border-radius: 8px;
+                    }
+
+                    .content-text {
+                        font-size: 13px;
+                        color: #333;
+                        line-height: 1.6;
+                        word-wrap: break-word;
+                        white-space: pre-wrap;
+                    }
+
+                    .empty-text {
+                        font-size: 13px;
+                        color: #999;
+                        font-style: italic;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="bg">
+                    <div class="baseplate">
+                        <div class="price-section">
+                            <div class="price-amount">¥${price}</div>
+                            <div class="duration-badge">
+                                <span>⏱</span>
+                                <span>${levelInfo.duration}</span>
+                            </div>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="avatar-section">
+                            <div class="avatar">
+                                <img src="${senderFace}" alt="发送者头像">
+                            </div>
+                            <div class="name-badge">${senderName}</div>
+                            <div class="target-info">
+                                <span>SC to</span>
+                                <div class="target-group">
+                                    ${masterAvatarUrl ? `<div class="target-avatar"></div>` : ""}
+                                    <span>${masterName}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${
+													text?.trim()
+														? `
+                        <div class="content-section">
+                            <div class="content">
+                                <div class="content-text">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>
+                            </div>
+                        </div>
+                        `
+														: ""
+												}
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+		// 多次尝试生成图片
+		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+			// 已尝试三次
+			throw new Error(`生成SC图片失败！错误: ${e.toString()}`);
+		});
+	}
+
+	richTextParser(rt: RichTextNode, title?: string, isArticle = false) {
 		const richText = rt.reduce((accumulator, currentValue) => {
 			if (currentValue.emoji) {
 				return /* html */ `${accumulator}<img style="width:17px; height:17px;" src="${currentValue.emoji.icon_url}"/>`;
@@ -894,13 +1241,40 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 				throw new Error("出现关键词，屏蔽该动态");
 			}
 		}
-		// 查找\n
-		const text = richText.replace(/\n/g, "<br>");
+		// 按换行符分割并限制行数
+		const lines = richText.split("\n");
+		const maxDisplayLines = 9;
+		let displayText = "";
+		let isTruncated = false;
+
+		// 计算实际显示行数
+		// 专栏：每行文本后有一个空白行，所以 n 行文本实际显示为 2n - 1 行
+		// 普通动态：n 行文本实际显示为 n 行
+		let maxOriginalLines: number;
+		if (isArticle) {
+			// 专栏：2n - 1 ≤ 9 => n ≤ 5
+			maxOriginalLines = Math.floor((maxDisplayLines + 1) / 2);
+		} else {
+			// 普通动态：n ≤ 9
+			maxOriginalLines = maxDisplayLines;
+		}
+
+		if (lines.length > maxOriginalLines) {
+			// 超过限制，只取前 maxOriginalLines 行并添加省略号
+			displayText = lines.slice(0, maxOriginalLines).join("\n");
+			isTruncated = true;
+		} else {
+			displayText = richText;
+		}
+
+		// 查找\n - 专栏使用双换行增加行间距
+		const text = displayText.replace(/\n/g, isArticle ? "<br><br>" : "<br>");
 		// 拼接字符串
 		return /* html */ `
             <div class="card-details">
                 ${title ? `<h1 class="dyn-title">${title}</h1>` : ""}
                 ${text}
+                ${isTruncated ? '<span style="color: #999;">...（全文过长，已省略）</span>' : ""}
             </div>
         `;
 	}
@@ -952,13 +1326,15 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 			// 定义forward类型返回值
 			let forwardInfo: string;
 			// 最基本的图文处理
-			const basicDynamic = () => {
+			const basicDynamic = (isArticle = false) => {
 				// 获取动态内容
 				const module_dynamic = dynamic.modules.module_dynamic;
 				// 判断是否有desc
 				if (module_dynamic?.desc?.rich_text_nodes) {
 					const content = this.richTextParser(
 						module_dynamic.desc.rich_text_nodes,
+						undefined,
+						isArticle,
 					);
 					main += content;
 				}
@@ -967,6 +1343,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					const content = this.richTextParser(
 						module_dynamic.major.opus.summary.rich_text_nodes,
 						module_dynamic.major.opus.title,
+						isArticle,
 					);
 					main += content;
 				}
@@ -1138,6 +1515,86 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                                     </div>
                                 </div>
                                 `;
+								break;
+							}
+							case ADDITIONAL_TYPE_GOODS: {
+								// 商品信息
+								const goods = additional.goods;
+								const isSingle = goods.items.length === 1;
+
+								if (isSingle) {
+									// 只有一个商品，显示完整信息
+									const item = goods.items[0];
+									const buttonText = item.jump_desc || "去购买";
+									main += /* html */ `
+                                        <div class="up-recommand">
+                                            <svg style="width: 12px; height: 12px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 12 12" width="12" height="12">
+                                                <path d="M3.771995 3.875C3.310205 3.875 2.92461 4.22713 2.882805 4.68702L2.48186 9.0974C2.441275 9.54385 2.73032 9.90275 3.1231 9.95275C3.81039 10.0402 4.788965 10.125 6 10.125C7.21105 10.125 8.18965 10.0402 8.87695 9.95275C9.2697 9.90275 9.55875 9.54385 9.51815 9.0974L9.11725 4.68702C9.0754 4.22713 8.68985 3.875 8.22805 3.875L5.75 3.875C5.47385 3.875 5.25 3.65114 5.25 3.375C5.25 3.09886 5.47385 2.875 5.75 2.875L8.22805 2.875C9.20705 2.875 10.0245 3.621515 10.1131 4.596485L10.51405 9.0069C10.5986 9.93655 9.9811 10.8203 9.0032 10.94475C8.27845 11.037 7.2575 11.125 6 11.125C4.7425 11.125 3.721565 11.037 2.996845 10.94475C2.01891 10.8203 1.40145 9.93655 1.485965 9.0069L1.88691 4.596485C1.975545 3.621515 2.793 2.875 3.771995 2.875L4.17857 2.875C4.454715 2.875 4.67857 3.09886 4.67857 3.375C4.67857 3.65114 4.454715 3.875 4.17857 3.875L3.771995 3.875z" fill="currentColor"></path>
+                                                <path d="M6 1.875C5.3787 1.875 4.875015 2.37868 4.875015 3L4.875015 4.125C4.875015 4.40114 4.65116 4.625 4.375015 4.625C4.098875 4.625 3.875015 4.40114 3.875015 4.125L3.875015 3C3.875015 1.826395 4.82641 0.875 6 0.875C7.1736 0.875 8.125 1.826395 8.125 3C8.125 3.27614 7.90115 3.5 7.625 3.5C7.34885 3.5 7.125 3.27614 7.125 3C7.125 2.37868 6.62135 1.875 6 1.875z" fill="currentColor"></path>
+                                                <path d="M5.00095 5.8755C5.00095 6.2209 4.720935 6.50095 4.375495 6.50095C4.03005 6.50095 3.750015 6.2209 3.750015 5.8755C3.750015 5.53005 4.03005 5.25 4.375495 5.25C4.720935 5.25 5.00095 5.53005 5.00095 5.8755z" fill="currentColor"></path>
+                                                <path d="M8.251 5.8755C8.251 6.22095 7.97095 6.501 7.6255 6.501C7.28005 6.501 7 6.22095 7 5.8755C7 5.53005 7.28005 5.25 7.6255 5.25C7.97095 5.25 8.251 5.53005 8.251 5.8755z" fill="currentColor"></path>
+                                            </svg>
+                                            ${goods.head_text}
+                                        </div>
+                                        <div class="card-reserve">
+                                            <div class="reserve-main">
+                                                <div class="reserve-desc" style="display: flex; gap: 10px; align-items: center;">
+                                                    <div style="width: 80px; height: 80px; flex-shrink: 0; border-radius: 6px; overflow: hidden;">
+                                                        <img src="${item.cover}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                                    </div>
+                                                    <div style="flex: 1; min-width: 0;">
+                                                        <div style="font-size: 14px; color: #18191C; margin-bottom: 6px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;">
+                                                            ${item.name}
+                                                        </div>
+                                                        <div style="font-size: 16px; color: #FF6699; font-weight: bold;">
+                                                            ${item.price}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="reserve-button">
+                                                <button class="reserve-button-ing">${buttonText}</button>
+                                            </div>
+                                        </div>
+                                    `;
+								} else {
+									// 多个商品，只显示图片和名称
+									const itemsHtml = goods.items
+										.slice(0, 3)
+										.map(
+											(item: { cover: string; name: string }) => /* html */ `
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                            <div style="width: 50px; height: 50px; flex-shrink: 0; border-radius: 4px; overflow: hidden;">
+                                                <img src="${item.cover}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                            </div>
+                                            <div style="flex: 1; min-width: 0; font-size: 12px; color: #18191C; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;">
+                                                ${item.name}
+                                            </div>
+                                        </div>
+                                    `,
+										)
+										.join("");
+
+									main += /* html */ `
+                                        <div class="up-recommand">
+                                            <svg style="width: 12px; height: 12px;" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 12 12" width="12" height="12">
+                                                <path d="M3.771995 3.875C3.310205 3.875 2.92461 4.22713 2.882805 4.68702L2.48186 9.0974C2.441275 9.54385 2.73032 9.90275 3.1231 9.95275C3.81039 10.0402 4.788965 10.125 6 10.125C7.21105 10.125 8.18965 10.0402 8.87695 9.95275C9.2697 9.90275 9.55875 9.54385 9.51815 9.0974L9.11725 4.68702C9.0754 4.22713 8.68985 3.875 8.22805 3.875L5.75 3.875C5.47385 3.875 5.25 3.65114 5.25 3.375C5.25 3.09886 5.47385 2.875 5.75 2.875L8.22805 2.875C9.20705 2.875 10.0245 3.621515 10.1131 4.596485L10.51405 9.0069C10.5986 9.93655 9.9811 10.8203 9.0032 10.94475C8.27845 11.037 7.2575 11.125 6 11.125C4.7425 11.125 3.721565 11.037 2.996845 10.94475C2.01891 10.8203 1.40145 9.93655 1.485965 9.0069L1.88691 4.596485C1.975545 3.621515 2.793 2.875 3.771995 2.875L4.17857 2.875C4.454715 2.875 4.67857 3.09886 4.67857 3.375C4.67857 3.65114 4.454715 3.875 4.17857 3.875L3.771995 3.875z" fill="currentColor"></path>
+                                                <path d="M6 1.875C5.3787 1.875 4.875015 2.37868 4.875015 3L4.875015 4.125C4.875015 4.40114 4.65116 4.625 4.375015 4.625C4.098875 4.625 3.875015 4.40114 3.875015 4.125L3.875015 3C3.875015 1.826395 4.82641 0.875 6 0.875C7.1736 0.875 8.125 1.826395 8.125 3C8.125 3.27614 7.90115 3.5 7.625 3.5C7.34885 3.5 7.125 3.27614 7.125 3C7.125 2.37868 6.62135 1.875 6 1.875z" fill="currentColor"></path>
+                                                <path d="M5.00095 5.8755C5.00095 6.2209 4.720935 6.50095 4.375495 6.50095C4.03005 6.50095 3.750015 6.2209 3.750015 5.8755C3.750015 5.53005 4.03005 5.25 4.375495 5.25C4.720935 5.25 5.00095 5.53005 5.00095 5.8755z" fill="currentColor"></path>
+                                                <path d="M8.251 5.8755C8.251 6.22095 7.97095 6.501 7.6255 6.501C7.28005 6.501 7 6.22095 7 5.8755C7 5.53005 7.28005 5.25 7.6255 5.25C7.97095 5.25 8.251 5.53005 8.251 5.8755z" fill="currentColor"></path>
+                                            </svg>
+                                            ${goods.head_text}
+                                        </div>
+                                        <div class="card-reserve">
+                                            <div class="reserve-main">
+                                                <div class="reserve-desc">
+                                                    ${itemsHtml}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+								}
+								break;
 							}
 						}
 					}
@@ -1230,7 +1687,15 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					if (this.config.filter.enable && this.config.filter.article) {
 						throw new Error("已屏蔽专栏动态");
 					}
-					return [`${upName}投稿了新专栏，我暂时无法渲染，请自行查看`];
+					// 投稿新专栏 - 直接使用 basicDynamic 渲染（opus 格式）
+					basicDynamic(true);
+					// 是否转发动态
+					if (forward) {
+						forwardInfo = "投稿了专栏";
+					} else {
+						pubTime = `${pubTime} · 投稿了专栏`;
+					}
+					break;
 				}
 				case DYNAMIC_TYPE_MUSIC:
 					return [`${upName}发行了新歌，我暂时无法渲染，请自行查看`];
@@ -1552,6 +2017,392 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		const seconds = `0${date.getSeconds()}`.slice(-2);
 		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
 	}
+
+    async generateLiveImgTest() {
+
+        const html = /* html */`
+            <!DOCTYPE html>
+            <html lang="zh-CN">
+
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>直播通知</title>
+                <style>
+                    @import url("https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Unbounded:wght@300;500;700&display=swap");
+
+                    :root {
+                        --bili: #fb7299;
+                        --bili-light: #ff85a6;
+                        --bili-dark: #e85d87;
+                        --text: #fff5f8;
+                        --muted: rgba(255, 245, 248, 0.85);
+                        --accent: #fb7299;
+                        --accent-2: #ff85a6;
+                        --success: #7bd9a8;
+                    }
+
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+
+                    html {
+                        width: 950px;
+                        height: 750px;
+                    }
+
+                    body {
+                        font-family: "Unbounded", "ZCOOL XiaoWei", -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+                        background: #000000;
+                        min-height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                        position: relative;
+                        overflow: hidden;
+                    }
+
+                    /* 静态背景 - 来自第一个HTML */
+                    body::before {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background:
+                            radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+                            radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+                            radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+                        filter: blur(80px);
+                        opacity: 0.7;
+                    }
+
+                    .wrap {
+                        width: min(980px, 92vw);
+                        position: relative;
+                        z-index: 1;
+                    }
+
+                    .card {
+                        position: relative;
+                        border-radius: 32px;
+                        overflow: hidden;
+                        /* 使用第一个HTML的卡片背景样式 */
+                        background: rgba(255, 255, 255, 0.05);
+                        backdrop-filter: blur(40px) saturate(180%);
+                        -webkit-backdrop-filter: blur(40px) saturate(180%);
+                        border: 1px solid rgba(255, 255, 255, 0.18);
+                        box-shadow:
+                            0 8px 32px rgba(0, 0, 0, 0.4),
+                            0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+                            0 0 80px rgba(139, 92, 246, 0.2);
+                        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    }
+
+                    .card::before {
+                        content: "";
+                        position: absolute;
+                        inset: 0;
+                        background:
+                            linear-gradient(120deg, rgba(255, 255, 255, 0.1), transparent 40%),
+                            linear-gradient(180deg, rgba(0, 0, 0, 0.05), transparent 45%);
+                        pointer-events: none;
+                        opacity: 0.7;
+                    }
+
+                    .hero {
+                        position: relative;
+                        height: 420px;
+                        background: transparent;
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        padding: 28px;
+                    }
+
+                    .hero .cover {
+                        position: absolute;
+                        inset: 0;
+                        width: 100%;
+                        height: 100%;
+                        object-fit: cover;
+                        z-index: 0;
+                        mask-image: linear-gradient(180deg,
+                                rgba(0, 0, 0, 1) 0%,
+                                rgba(0, 0, 0, 1) 70%,
+                                rgba(0, 0, 0, 0.75) 80%,
+                                rgba(0, 0, 0, 0.4) 90%,
+                                rgba(0, 0, 0, 0) 100%);
+                        -webkit-mask-image: linear-gradient(180deg,
+                                rgba(0, 0, 0, 1) 0%,
+                                rgba(0, 0, 0, 1) 70%,
+                                rgba(0, 0, 0, 0.75) 80%,
+                                rgba(0, 0, 0, 0.4) 90%,
+                                rgba(0, 0, 0, 0) 100%);
+                    }
+
+                    .hero::before {
+                        content: "";
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(180deg,
+                                rgba(0, 0, 0, 0) 0%,
+                                rgba(0, 0, 0, 0.1) 85%,
+                                rgba(0, 0, 0, 0.3) 95%,
+                                rgba(0, 0, 0, 0.4) 100%);
+                        pointer-events: none;
+                        z-index: 1;
+                    }
+
+                    .hero::after {
+                        content: "";
+                        position: absolute;
+                        inset: auto 0 -1px 0;
+                        height: 80px;
+                        background: linear-gradient(180deg,
+                                rgba(255, 255, 255, 0) 0%,
+                                rgba(255, 255, 255, 0.03) 100%);
+                        z-index: 1;
+                    }
+
+                    .profile {
+                        display: flex;
+                        gap: 16px;
+                        align-items: center;
+                        z-index: 2;
+                    }
+
+                    .avatar {
+                        width: 68px;
+                        height: 68px;
+                        border-radius: 50%;
+                        border: 2px solid rgba(255, 255, 255, 0.35);
+                        background:
+                            url("https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=200&q=80") center/cover no-repeat;
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+                    }
+
+                    .name {
+                        font-size: 28px;
+                        font-weight: 700;
+                        letter-spacing: 1px;
+                        color: var(--text);
+                    }
+
+                    .meta {
+                        margin-top: 6px;
+                        color: var(--muted);
+                        font-size: 14px;
+                    }
+
+                    .stats {
+                        display: flex;
+                        gap: 28px;
+                        z-index: 2;
+                        align-items: center;
+                        font-size: 15px;
+                        color: var(--muted);
+                    }
+
+                    .stat {
+                        text-align: center;
+                    }
+
+                    .stat strong {
+                        display: block;
+                        font-size: 18px;
+                        color: var(--text);
+                        margin-top: 6px;
+                    }
+
+                    .live-badge {
+                        position: absolute;
+                        top: 28px;
+                        right: 28px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 8px 14px;
+                        background: rgba(251, 114, 153, 0.3);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border-radius: 999px;
+                        font-weight: 600;
+                        font-size: 12px;
+                        letter-spacing: 1px;
+                        text-transform: uppercase;
+                        z-index: 2;
+                        box-shadow: 0 10px 24px rgba(251, 114, 153, 0.35);
+                        border: 1px solid rgba(251, 114, 153, 0.45);
+                    }
+
+                    .live-dot {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 50%;
+                        background: red;
+                        box-shadow: 0 0 12px rgba(255, 179, 199, 0.9);
+                    }
+
+                    .content {
+                        padding: 12px 32px 20px;
+                        position: relative;
+                        z-index: 1;
+                        background: rgba(255, 255, 255, 0.03);
+                    }
+
+                    .title {
+                        font-size: clamp(22px, 3vw, 28px);
+                        line-height: 1.4;
+                        margin: 0 0 12px;
+                        text-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+                        color: var(--text);
+                    }
+
+                    .tags {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        margin-bottom: 20px;
+                    }
+
+                    .tag {
+                        padding: 6px 12px;
+                        border-radius: 999px;
+                        background: rgba(255, 255, 255, 0.1);
+                        backdrop-filter: blur(10px);
+                        -webkit-backdrop-filter: blur(10px);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        color: #ffd4e0;
+                        font-size: 12px;
+                        letter-spacing: 0.6px;
+                    }
+
+                    .now {
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        padding: 14px 16px;
+                        border-radius: 16px;
+                        background: rgba(255, 255, 255, 0.06);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                    }
+
+                    .now img {
+                        width: 46px;
+                        height: 46px;
+                        border-radius: 12px;
+                        object-fit: cover;
+                    }
+
+                    .now h4 {
+                        margin: 0;
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--text);
+                    }
+
+                    .now p {
+                        margin: 4px 0 0;
+                        font-size: 12px;
+                        color: var(--muted);
+                    }
+
+                    .footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 18px 32px 26px;
+                        color: var(--muted);
+                        font-size: 12px;
+                        border-top: 1px solid rgba(255, 255, 255, 0.06);
+                    }
+
+                    .footer span {
+                        display: inline-flex;
+                        gap: 6px;
+                        align-items: center;
+                    }
+
+                    .footer strong {
+                        color: var(--accent);
+                    }
+
+                    @media (max-width: 720px) {
+                        .hero {
+                            height: 340px;
+                            padding: 20px;
+                        }
+
+                        .stats {
+                            gap: 16px;
+                            font-size: 12px;
+                        }
+
+                        .stat strong {
+                            font-size: 14px;
+                        }
+
+                        .content,
+                        .footer {
+                            padding-left: 20px;
+                            padding-right: 20px;
+                        }
+                    }
+                </style>
+            </head>
+
+            <body>
+                <div class="wrap">
+                    <article class="card">
+                        <section class="hero">
+                            <img class="cover" id="cover-img" alt=""
+                                src="https://p8.itc.cn/images01/20200723/b48a6c775c944f7d89043ab8e0154197.jpeg"
+                                referrerpolicy="no-referrer">
+                            <div class="profile">
+                                <div class="avatar" aria-hidden="true"></div>
+                                <div>
+                                    <div class="name">籽岷</div>
+                                    <div class="meta">515.3万 粉丝</div>
+                                </div>
+                            </div>
+                            <div class="live-badge">
+                                <span class="live-dot"></span>
+                                正在直播
+                            </div>
+                        </section>
+
+                        <section class="content">
+                            <h2 class="title">AI游戏大玩家</h2>
+                            <div class="tags">
+                                <span class="tag">#明日方舟：终末地</span>
+                                <span class="tag">人气：26.4万</span>
+                                <span class="tag">累计观看人数：11.0万</span>
+                            </div>
+                            <div class="now">
+                                <div>
+                                    <h4>为人民服务 AI游戏大玩家</h4>
+                                    <p>直播时长 · 4:33 已直播</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <footer class="footer">
+                            <span>插件状态 <strong>Bilibili-Notify</strong> · v3.10.0-alpha.0</span>
+                            <span>⚡ POWERED BY KOISHI</span>
+                        </footer>
+                    </article>
+                </div>
+            </body>
+
+            </html>
+        `
+        
+        return await this.imgHandler(html);
+    }
 }
 
 namespace BilibiliNotifyGenerateImg {

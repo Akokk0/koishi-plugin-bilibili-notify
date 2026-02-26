@@ -4,8 +4,8 @@ import { type Context, type ForkScope, Service } from "koishi";
 import {
 	BilibiliNotifySub,
 	BilibiliNotifyDynamic,
-	BilibiliNotifyLive,
 	BilibiliNotifyPush,
+	BilibiliNotifyLive,
 	BilibiliNotifyGenerateImg,
 } from "./core";
 import BilibiliNotifyAPI from "./api";

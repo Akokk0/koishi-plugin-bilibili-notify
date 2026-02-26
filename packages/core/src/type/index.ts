@@ -16,6 +16,8 @@ export type Channel = {
 	superchat: boolean;
 	wordcloud: boolean;
 	liveSummary: boolean;
+	spacialDanmaku: boolean;
+	spacialUserEnterTheRoom: boolean;
 };
 
 export type ChannelArr = Array<Channel>;
@@ -55,6 +57,18 @@ export type CustomLiveSummary = {
 	liveSummary?: Array<string> | string;
 };
 
+export type CustomSpecialDanmakuUsers = {
+	enable: boolean;
+	specialDanmakuUsers?: Array<string>;
+	msgTemplate?: string;
+};
+
+export type CustomSpecialUsersEnterTheRoom = {
+	enable: boolean;
+	specialUsersEnterTheRoom?: Array<string>;
+	msgTemplate?: string;
+};
+
 export type SubItem = {
 	uname: string;
 	roomId: string;
@@ -64,6 +78,8 @@ export type SubItem = {
 	customCardStyle: CustomCardStyle;
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
+	customSpecialDanmakuUsers: CustomSpecialDanmakuUsers;
+	customSpecialUsersEnterTheRoom: CustomSpecialUsersEnterTheRoom;
 };
 
 export type SubManager = Map<string, SubItem>;
@@ -323,6 +339,8 @@ export enum PushType {
 	LiveGuardBuy = 4,
 	WordCloudAndLiveSummary = 5,
 	Superchat = 6,
+	UserDanmakuMsg = 7,
+	UserActions = 8,
 }
 
 export const PushTypeMsg = {
@@ -333,6 +351,8 @@ export const PushTypeMsg = {
 	[PushType.LiveGuardBuy]: "上舰推送",
 	[PushType.WordCloudAndLiveSummary]: "弹幕词云和直播总结推送",
 	[PushType.Superchat]: "SC推送",
+	[PushType.UserDanmakuMsg]: "用户弹幕推送",
+	[PushType.UserActions]: "用户行为推送",
 };
 
 export type Result = {
@@ -374,6 +394,8 @@ export type PushArrMap = Map<
 		wordcloudArr?: Array<string>;
 		superchatArr?: Array<string>;
 		liveSummaryArr?: Array<string>;
+		spacialDanmakuArr?: Array<string>;
+		spacialUserEnterTheRoomArr?: Array<string>;
 	}
 >;
 
@@ -447,6 +469,8 @@ export type Subscription = {
 	customLiveMsg: CustomLiveMsg;
 	customLiveSummary: CustomLiveSummary;
 	customGuardBuy: CustomGuardBuy;
+	customSpecialDanmakuUsers: CustomSpecialDanmakuUsers;
+	customSpecialUsersEnterTheRoom: CustomSpecialUsersEnterTheRoom;
 };
 
 export type Subscriptions = Record<string, Subscription>;
@@ -575,13 +599,13 @@ export type UserInfoInLiveData = {
 
 export enum BiliLoginStatus {
 	NOT_LOGIN,
-    LOADING_LOGIN_INFO,
-    LOGIN_QR,
-    LOGGING_QR,
-    LOGGING_IN,
-    LOGGED_IN,
-    LOGIN_SUCCESS,
-    LOGIN_FAILED,
+	LOADING_LOGIN_INFO,
+	LOGIN_QR,
+	LOGGING_QR,
+	LOGGING_IN,
+	LOGGED_IN,
+	LOGIN_SUCCESS,
+	LOGIN_FAILED,
 }
 
 export type BiliDataServer = {
@@ -658,15 +682,15 @@ export type UserCardInfoData = {
 				vipStatusWarn: string;
 				theme_type: number;
 			};
-		},
+		};
 		space: {
 			s_img: string;
 			l_img: string;
-		}
+		};
 		following: boolean;
 		archive_count: number;
 		article_count: number;
 		follower: number;
-		like_num: number
-	}
-}
+		like_num: number;
+	};
+};
