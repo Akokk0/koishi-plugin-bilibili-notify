@@ -23,8 +23,6 @@ import { DateTime } from "luxon";
 import { Jieba } from "@node-rs/jieba";
 import { dict } from "@node-rs/jieba/dict";
 import definedStopWords from "../stop_words";
-import { resolve } from "node:path";
-import protobuf from "protobufjs";
 
 declare module "koishi" {
 	interface Context {
@@ -122,8 +120,9 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 
 	private closeListener(roomId: string) {
 		// 判断直播间监听器是否关闭
-		if (!this.listenerRecord || !this.listenerRecord[roomId]?.closed) {
+		if (!this.listenerRecord[roomId] || this.listenerRecord[roomId].closed) {
 			this.logger.debug(`直播间 [${roomId}] 连接无需关闭`);
+			return;
 		}
 		// 关闭直播间监听器
 		this.listenerRecord[roomId].close();
@@ -286,41 +285,6 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		danmakuMakerRecord: Record<string, number>,
 	) {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
-	}
-
-	private interactWord: protobuf.Type;
-
-	private async decodeBase64PB(base64: string) {
-		// 1. 转二进制
-		const buffer = Uint8Array.from(Buffer.from(base64, "base64"));
-
-		// 判断是否加载过proto文件
-		if (!this.interactWord) {
-			// 2. 加载 proto（protobufjs 会自动处理 import）
-			const protoPath = resolve(__dirname, "./proto/interact_word.proto");
-
-			const root = await protobuf.load(protoPath);
-
-			// 3. 查找消息类型
-			const interactWord = root.lookupType(
-				"bilibili.live.xuserreward.v1.InteractWord",
-			);
-
-			// 保存到类属性中
-			this.interactWord = interactWord;
-		}
-
-		// 4. 解码
-		const message = this.interactWord.decode(buffer);
-
-		// 5. 转成普通对象（可选）
-		const object = this.interactWord.toObject(message, {
-			longs: String, // int64 转成字符串
-			enums: String, // enum 转成字符串
-			defaults: true, // 补全默认值
-		});
-
-		return object;
 	}
 
 	public async liveDetectWithListener(sub: Subscription) {

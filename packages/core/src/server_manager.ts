@@ -32,6 +32,8 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 	}
 
 	protected start(): void | Promise<void> {
+		// logger
+		this.logger.info("正在启动中...");
 		// 注册插件
 		if (!this.registerPlugin()) {
 			this.logger.error(

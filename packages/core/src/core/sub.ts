@@ -36,7 +36,7 @@ import {
 
 declare module "koishi" {
 	interface Context {
-		"bilibili-notify-core": BilibiliNotifySub;
+		"bilibili-notify-sub": BilibiliNotifySub;
 	}
 }
 
@@ -65,7 +65,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	groupInfo: any | null = null;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifySub.Config) {
-		super(ctx, "bilibili-notify-core");
+		super(ctx, "bilibili-notify-sub");
 		// 设置config
 		this.config = config;
 		// 设置日志等级
@@ -73,8 +73,6 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	}
 
 	protected async start(): Promise<void> {
-		// logger
-		this.logger.info("正在初始化插件");
 		// 注册指令
 		this.registerCommands();
 		// 注册事件
@@ -445,7 +443,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				async (subs: Subscriptions) => {
 					if (Object.keys(subs).length === 0) {
 						// logger
-						this.logger.info("初始化完毕，但未添加任何订阅");
+						this.logger.info("订阅加载完毕，但未添加任何订阅");
 						// 返回
 						return;
 					}
@@ -482,7 +480,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		const groupInfoResult = await this.getGroupInfo();
 		// 判断是否获取成功
 		if (groupInfoResult.code !== 0) {
-			this.logger.error("获取分组信息失败，插件初始化失败");
+			this.logger.error("获取分组信息失败，订阅加载失败");
 			return;
 		}
 		// 赋值给成员变量
@@ -495,7 +493,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			this.logger.error(`加载订阅对象失败：${message}`);
 			// 发送私聊消息
 			await this.ctx["bilibili-notify-push"].sendPrivateMsg(
-				"加载订阅对象失败，插件初始化失败",
+				"加载订阅对象失败，订阅初始化失败",
 			);
 			// 返回
 			return;
@@ -505,7 +503,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// 初始化完毕
-		this.logger.info("插件初始化完成");
+		this.logger.info("订阅加载完成！bilibili-notify 已启动！");
 	}
 
 	configSubsToSubscription(sub: BilibiliNotifySub.Config["subs"]) {

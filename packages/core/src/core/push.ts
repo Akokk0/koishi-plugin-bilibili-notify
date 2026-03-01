@@ -60,8 +60,12 @@ class BilibiliNotifyPush extends Service {
 	async sendPrivateMsg(content: string) {
 		// 判断是否开启私聊推送功能
 		if (this.config.master.enable) {
+			if (!this.privateBot) {
+				this.logger.warn("未找到管理员机器人实例，暂时无法推送");
+				return;
+			}
 			// 判断私人机器人是否具备推送条件
-			if (this.privateBot?.status !== Universal.Status.ONLINE) {
+			if (this.privateBot.status !== Universal.Status.ONLINE) {
 				// 不具备推送条件 logger
 				this.logger.warn(
 					`${this.privateBot.platform} 机器人未初始化，暂时无法推送`,
@@ -241,7 +245,10 @@ class BilibiliNotifyPush extends Service {
 					// logger
 					this.logger.error(`发送消息失败：${e}`);
 					// 判断是否还有其他机器人
-					if (bots.length > 1) await sendMessageByBot(channelId, botIndex++);
+					const nextBotIndex = botIndex + 1;
+					if (nextBotIndex < bots.length) {
+						await sendMessageByBot(channelId, nextBotIndex);
+					}
 				}
 			};
 			// 发送消息

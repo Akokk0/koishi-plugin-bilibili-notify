@@ -40,7 +40,6 @@
     "md5": "^2.3.0",
     "openai": "^6.22.0",
     "p-retry": "^7.1.1",
-    "protobufjs": "^8.0.0",
     "qrcode": "^1.5.4",
     "tough-cookie": "^6.0.0"
   },
