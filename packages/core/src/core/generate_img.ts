@@ -3,6 +3,7 @@ import { type Context, Schema, Service } from "koishi";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
+import { JSDOM } from "jsdom";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "../utils";
@@ -36,10 +37,30 @@ const ADDITIONAL_TYPE_GOODS = "ADDITIONAL_TYPE_GOODS";
 
 class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
+	private readonly imageDataUrlCache = new Map<
+		string,
+		{ dataUrl: string; updatedAt: number }
+	>();
+	private clearImageCacheTimer?: () => void;
+	private readonly IMAGE_CACHE_TTL_MS = 30 * 60 * 1000;
+	private readonly IMAGE_CACHE_MAX_SIZE = 300;
 
 	constructor(ctx: Context, config: BilibiliNotifyGenerateImg.Config) {
 		super(ctx, "bilibili-notify-generate-img");
 		this.config = config;
+	}
+
+	protected start() {
+		this.clearImageCacheTimer = this.ctx.setInterval(
+			() => this.pruneImageCache(),
+			5 * 60 * 1000,
+		);
+	}
+
+	protected stop() {
+		this.clearImageCacheTimer?.();
+		this.clearImageCacheTimer = undefined;
+		this.imageDataUrlCache.clear();
 	}
 
 	numberToStr(num: number) {
@@ -566,14 +587,153 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 font-size: 12px;
                 cursor: pointer;
             }
-        `;
+		`;
+	}
+
+	private isRemoteHttpUrl(url?: string | null): url is string {
+		return Boolean(url && /^https?:\/\//i.test(url));
+	}
+
+	private getMimeTypeFromUrl(url: string) {
+		const lower = url.toLowerCase();
+		if (lower.endsWith(".png")) return "image/png";
+		if (lower.endsWith(".webp")) return "image/webp";
+		if (lower.endsWith(".gif")) return "image/gif";
+		if (lower.endsWith(".bmp")) return "image/bmp";
+		if (lower.endsWith(".svg")) return "image/svg+xml";
+		return "image/jpeg";
+	}
+
+	private pruneImageCache() {
+		const now = Date.now();
+		for (const [url, cached] of this.imageDataUrlCache.entries()) {
+			if (now - cached.updatedAt > this.IMAGE_CACHE_TTL_MS) {
+				this.imageDataUrlCache.delete(url);
+			}
+		}
+
+		if (this.imageDataUrlCache.size <= this.IMAGE_CACHE_MAX_SIZE) return;
+
+		const sorted = Array.from(this.imageDataUrlCache.entries()).sort(
+			(a, b) => a[1].updatedAt - b[1].updatedAt,
+		);
+		const overflow = this.imageDataUrlCache.size - this.IMAGE_CACHE_MAX_SIZE;
+		for (let i = 0; i < overflow; i++) {
+			this.imageDataUrlCache.delete(sorted[i][0]);
+		}
+	}
+
+	private async fetchImageAsDataUrl(url: string) {
+		const cached = this.imageDataUrlCache.get(url);
+		if (cached) {
+			cached.updatedAt = Date.now();
+			return cached.dataUrl;
+		}
+
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 10_000);
+
+		try {
+			const response = await fetch(url, {
+				signal: controller.signal,
+				headers: {
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+					Referer: "https://www.bilibili.com/",
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status} ${response.statusText}`);
+			}
+
+			const contentType =
+				response.headers.get("content-type")?.split(";")[0]?.trim() ||
+				this.getMimeTypeFromUrl(url);
+			const buffer = Buffer.from(await response.arrayBuffer());
+			const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
+			this.imageDataUrlCache.set(url, { dataUrl, updatedAt: Date.now() });
+			this.pruneImageCache();
+			return dataUrl;
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	private async inlineRemoteImages(html: string) {
+		const dom = new JSDOM(html);
+		const { document } = dom.window;
+		const imageElements = Array.from(document.querySelectorAll("img"));
+		const pending: Promise<void>[] = [];
+
+		for (const img of imageElements) {
+			const src = img.getAttribute("src");
+			if (!this.isRemoteHttpUrl(src)) continue;
+			pending.push(
+				this.fetchImageAsDataUrl(src)
+					.then((dataUrl) => img.setAttribute("src", dataUrl))
+					.catch((error) => {
+						this.logger.warn(`图片预取失败，将保留原URL: ${src} (${error})`);
+					}),
+			);
+		}
+
+		await Promise.all(pending);
+
+		const cssUrlMap = new Map<string, string>();
+		const cssUrlRegex = /url\((['"]?)(https?:\/\/[^'")]+)\1\)/gi;
+		const cssBlocks: string[] = [];
+		for (const styleEl of Array.from(document.querySelectorAll("style"))) {
+			cssBlocks.push(styleEl.textContent || "");
+		}
+		for (const styleAttrEl of Array.from(document.querySelectorAll("[style]"))) {
+			cssBlocks.push(styleAttrEl.getAttribute("style") || "");
+		}
+
+		const cssUrls = new Set<string>();
+		for (const block of cssBlocks) {
+			for (const matched of block.matchAll(cssUrlRegex)) {
+				const url = matched[2];
+				if (this.isRemoteHttpUrl(url)) cssUrls.add(url);
+			}
+		}
+
+		await Promise.all(
+			Array.from(cssUrls).map(async (url) => {
+				try {
+					cssUrlMap.set(url, await this.fetchImageAsDataUrl(url));
+				} catch (error) {
+					this.logger.warn(`CSS图片预取失败，将保留原URL: ${url} (${error})`);
+				}
+			}),
+		);
+
+		if (cssUrlMap.size > 0) {
+			for (const styleEl of Array.from(document.querySelectorAll("style"))) {
+				let css = styleEl.textContent || "";
+				for (const [url, dataUrl] of cssUrlMap.entries()) {
+					css = css.replaceAll(url, dataUrl);
+				}
+				styleEl.textContent = css;
+			}
+			for (const styleAttrEl of Array.from(document.querySelectorAll("[style]"))) {
+				let styleValue = styleAttrEl.getAttribute("style") || "";
+				for (const [url, dataUrl] of cssUrlMap.entries()) {
+					styleValue = styleValue.replaceAll(url, dataUrl);
+				}
+				styleAttrEl.setAttribute("style", styleValue);
+			}
+		}
+
+		return dom.serialize();
 	}
 
 	private async imgHandler(html: string) {
 		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
+		const inlinedHtml = await this.inlineRemoteImages(html);
 		await page.goto(htmlPath.toString());
-		await page.setContent(html, { waitUntil: "networkidle0" });
+		await page.setContent(inlinedHtml, { waitUntil: "networkidle0" });
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
 		const buffer = await page.screenshot({
