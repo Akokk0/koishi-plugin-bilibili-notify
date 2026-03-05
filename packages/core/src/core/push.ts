@@ -19,6 +19,8 @@ declare module "koishi" {
 class BilibiliNotifyPush extends Service {
 	// 机器人实例
 	privateBot: Bot<Context>;
+	// 服务是否已销毁
+	private disposed = false;
 	// 重启次数
 	rebootCount: number = 0;
 	// 推送对象信息是否初始化完毕
@@ -34,6 +36,7 @@ class BilibiliNotifyPush extends Service {
 		this.logger.level = config.logLevel;
 	}
 	protected start(): Awaitable<void> {
+		this.disposed = false;
 		// 拿到私人机器人实例
 		this.privateBot = this.ctx.bots.find(
 			(bot) => bot.platform === this.config.master.platform,
@@ -43,6 +46,20 @@ class BilibiliNotifyPush extends Service {
 				content: "未配置管理员账号，无法推送插件运行状态，请尽快配置",
 			});
 		}
+	}
+
+	protected stop(): Awaitable<void> {
+		this.disposed = true;
+	}
+
+	private async safeSleep(ms: number) {
+		if (this.disposed) return;
+		await new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	private isInactiveContextError(error: unknown) {
+		if (!(error instanceof Error)) return false;
+		return error.message.includes("cannot create effect on inactive context");
 	}
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	getBot(pf: string, selfId?: string): Bot<Context, any> {
@@ -151,11 +168,13 @@ class BilibiliNotifyPush extends Service {
 		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 	) {
+		if (this.disposed) return;
 		withRetry(async () => await bot.sendMessage(channelId, content), 1).catch(
 			async (e: Error) => {
+				if (this.disposed) return;
 				if (e.message === "this._request is not a function") {
 					// 2S之后重新发送消息
-					this.ctx.setTimeout(async () => {
+					setTimeout(async () => {
 						await this.sendMessageWithRetry(bot, channelId, content);
 					}, 2000);
 					// 返回
@@ -203,6 +222,7 @@ class BilibiliNotifyPush extends Service {
 				botIndex = 0,
 				retry = 3000,
 			) => {
+				if (this.disposed) return;
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
 					this.logger.warn(`${platform} 没有配置对应机器人，无法推送`);
@@ -228,20 +248,21 @@ class BilibiliNotifyPush extends Service {
 						`${platform} 机器人未初始化，${retry / 1000} 秒后重试`,
 					);
 					// 等待
-					await this.ctx.sleep(retry);
+					await this.safeSleep(retry);
 					// 重试(指数退避)
 					await sendMessageByBot(channelId, botIndex, retry * 2);
 					// 返回
 					return;
 				}
 				// 发送消息
+				let sent = false;
 				try {
 					await bots[botIndex].sendMessage(channelId, content);
 					// 消息成功发送+1
 					num++;
-					// 延迟发送
-					await this.ctx.sleep(500);
+					sent = true;
 				} catch (e) {
+					if (this.isInactiveContextError(e) || this.disposed) return;
 					// logger
 					this.logger.error(`发送消息失败：${e}`);
 					// 判断是否还有其他机器人
@@ -249,6 +270,11 @@ class BilibiliNotifyPush extends Service {
 					if (nextBotIndex < bots.length) {
 						await sendMessageByBot(channelId, nextBotIndex);
 					}
+					return;
+				}
+				// 发送成功后再做节流等待，避免等待报错触发重复发送
+				if (sent) {
+					await this.safeSleep(500);
 				}
 			};
 			// 发送消息
@@ -266,13 +292,15 @@ class BilibiliNotifyPush extends Service {
 		content: any,
 		type: PushType,
 	) {
+		if (this.disposed) return;
 		// 判断pushArrMap是否初始化完毕
 		if (!this.pushArrMapInitializing) {
 			this.logger.warn(
 				`推送对象信息尚未初始化完毕，等待5秒钟后重试推送，推送对象: ${uid}, 推送类型: ${PushTypeMsg[type]}`,
 			);
 			// 等待5秒钟
-			await this.ctx.sleep(5000);
+			await this.safeSleep(5000);
+			if (this.disposed) return;
 			// 递归调用
 			return this.broadcastToTargets(uid, content, type);
 		}
