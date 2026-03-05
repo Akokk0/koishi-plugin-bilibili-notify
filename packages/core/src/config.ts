@@ -426,6 +426,15 @@ export const BilibiliNotifyConfigSchema: Schema<BilibiliNotifyConfig> =
 						.description(
 							"是否屏蔽专栏动态～女仆会按照主人的喜好来处理 (๑•̀ㅂ•́)و✧",
 						),
+					whitelistEnable: Schema.boolean()
+						.default(false)
+						.description("是否启用白名单过滤（仅推送匹配白名单规则的动态）"),
+					whitelistRegex: Schema.string().description(
+						"白名单正则表达式，命中时允许推送该动态",
+					),
+					whitelistKeywords: Schema.array(String).description(
+						"白名单关键词，命中任意关键词时允许推送该动态",
+					),
 				}),
 				Schema.object({}),
 			]),

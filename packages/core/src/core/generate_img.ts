@@ -1384,23 +1384,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 			}
 			return accumulator + currentValue.text;
 		}, "");
-		// 关键字和正则屏蔽
-		if (this.config.filter.enable) {
-			// 开启动态屏蔽功能
-			if (this.config.filter.regex) {
-				// 正则屏蔽
-				const reg = new RegExp(this.config.filter.regex);
-				if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
-			}
-			if (
-				this.config.filter.keywords.length !== 0 &&
-				this.config.filter.keywords.some((keyword) =>
-					richText.includes(keyword),
-				)
-			) {
-				throw new Error("出现关键词，屏蔽该动态");
-			}
-		}
 		// 按换行符分割并限制行数
 		const lines = richText.split("\n");
 		const maxDisplayLines = 9;
@@ -1558,10 +1541,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					basicDynamic();
 					// 转发动态
 					if (dynamic.type === DYNAMIC_TYPE_FORWARD) {
-						//转发动态屏蔽
-						if (this.config.filter.enable && this.config.filter.forward) {
-							throw new Error("已屏蔽转发动态");
-						}
 						// User info
 						const forward_module_author = dynamic.orig.modules.module_author;
 						const forwardUserAvatarUrl = forward_module_author.face;
@@ -1843,10 +1822,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 						`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`,
 					];
 				case DYNAMIC_TYPE_ARTICLE: {
-					//转发动态屏蔽
-					if (this.config.filter.enable && this.config.filter.article) {
-						throw new Error("已屏蔽专栏动态");
-					}
 					// 投稿新专栏 - 直接使用 basicDynamic 渲染（opus 格式）
 					basicDynamic(true);
 					// 是否转发动态
@@ -2568,14 +2543,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 namespace BilibiliNotifyGenerateImg {
 	export interface Config {
 		logLevel: number;
-		filter: {
-			enable: boolean;
-			notify: boolean;
-			regex: string;
-			keywords: Array<string>;
-			forward: boolean;
-			article: boolean;
-		};
 		removeBorder: boolean;
 		cardColorStart: string;
 		cardColorEnd: string;
@@ -2589,14 +2556,6 @@ namespace BilibiliNotifyGenerateImg {
 
 	export const Config: Schema<Config> = Schema.object({
 		logLevel: Schema.number().required(),
-		filter: Schema.object({
-			enable: Schema.boolean(),
-			notify: Schema.boolean(),
-			regex: Schema.string(),
-			keywords: Schema.array(String),
-			forward: Schema.boolean(),
-			article: Schema.boolean(),
-		}),
 		removeBorder: Schema.boolean(),
 		cardColorStart: Schema.string(),
 		cardColorEnd: Schema.string(),

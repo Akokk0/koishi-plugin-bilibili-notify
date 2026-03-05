@@ -9,6 +9,7 @@ import {
 } from "../type";
 import { type Awaitable, type Context, h, Schema, Service } from "koishi";
 import { CronJob } from "cron";
+import { DynamicFilterReason, filterDynamic } from "./dynamic_filter";
 
 declare module "koishi" {
 	interface Context {
@@ -193,6 +194,28 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						this.logger.debug("该动态需要推送");
 						// 获取订阅对象
 						const sub = this.dynamicSubManager.get(uid);
+						const filterResult = filterDynamic(item, this.config.filter);
+						if (filterResult.blocked) {
+							if (this.config.filter.notify) {
+								const notifyMessageByReason: Record<DynamicFilterReason, string> =
+									{
+										[DynamicFilterReason.BlacklistKeyword]:
+											`${name}发布了一条含有屏蔽关键字的动态`,
+										[DynamicFilterReason.BlacklistForward]:
+											`${name}转发了一条动态，已屏蔽`,
+										[DynamicFilterReason.BlacklistArticle]:
+											`${name}投稿了一条专栏，已屏蔽`,
+										[DynamicFilterReason.WhitelistUnmatched]:
+											`${name}发布了一条不在白名单范围内的动态，已屏蔽`,
+									};
+								await this.ctx["bilibili-notify-push"].broadcastToTargets(
+									uid,
+									h("message", notifyMessageByReason[filterResult.reason]),
+									PushType.Dynamic,
+								);
+							}
+							continue;
+						}
 						// logger
 						this.logger.debug("开始渲染推送卡片");
 						// 推送该条动态
@@ -207,37 +230,6 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						}, 1).catch(async (e) => {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
-							if (e.message === "出现关键词，屏蔽该动态") {
-								// 如果需要发送才发送
-								if (this.config.filter.notify) {
-									await this.ctx["bilibili-notify-push"].broadcastToTargets(
-										uid,
-										h("message", `${name}发布了一条含有屏蔽关键字的动态`),
-										PushType.Dynamic,
-									);
-								}
-								return;
-							}
-							if (e.message === "已屏蔽转发动态") {
-								if (this.config.filter.notify) {
-									await this.ctx["bilibili-notify-push"].broadcastToTargets(
-										uid,
-										h("message", `${name}转发了一条动态，已屏蔽`),
-										PushType.Dynamic,
-									);
-								}
-								return;
-							}
-							if (e.message === "已屏蔽专栏动态") {
-								if (this.config.filter.notify) {
-									await this.ctx["bilibili-notify-push"].broadcastToTargets(
-										uid,
-										h("message", `${name}投稿了一条专栏，已屏蔽`),
-										PushType.Dynamic,
-									);
-								}
-								return;
-							}
 							// 未知错误
 							this.logger.error(`生成动态图片失败：${e.message}`);
 							// 发送私聊消息并重启服务
@@ -353,6 +345,11 @@ namespace BilibiliNotifyDynamic {
 			notify: boolean;
 			regex: string;
 			keywords: Array<string>;
+			forward: boolean;
+			article: boolean;
+			whitelistEnable: boolean;
+			whitelistRegex: string;
+			whitelistKeywords: Array<string>;
 		};
 		dynamicUrl: boolean;
 		dynamicCron: string;
@@ -367,6 +364,11 @@ namespace BilibiliNotifyDynamic {
 			notify: Schema.boolean(),
 			regex: Schema.string(),
 			keywords: Schema.array(String),
+			forward: Schema.boolean(),
+			article: Schema.boolean(),
+			whitelistEnable: Schema.boolean(),
+			whitelistRegex: Schema.string(),
+			whitelistKeywords: Schema.array(String),
 		}),
 		dynamicUrl: Schema.boolean().required(),
 		dynamicCron: Schema.string().required(),

@@ -60,7 +60,6 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 			// GI = BilibiliNotifyGenerateImg
 			const gi = this.ctx.plugin(BilibiliNotifyGenerateImg, {
 				logLevel: this.config.logLevel,
-				filter: this.config.filter,
 				removeBorder: this.config.removeBorder,
 				cardColorStart: this.config.cardColorStart,
 				cardColorEnd: this.config.cardColorEnd,
