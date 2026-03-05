@@ -686,7 +686,9 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		for (const styleEl of Array.from(document.querySelectorAll("style"))) {
 			cssBlocks.push(styleEl.textContent || "");
 		}
-		for (const styleAttrEl of Array.from(document.querySelectorAll("[style]"))) {
+		for (const styleAttrEl of Array.from(
+			document.querySelectorAll("[style]"),
+		)) {
 			cssBlocks.push(styleAttrEl.getAttribute("style") || "");
 		}
 
@@ -716,7 +718,9 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 				}
 				styleEl.textContent = css;
 			}
-			for (const styleAttrEl of Array.from(document.querySelectorAll("[style]"))) {
+			for (const styleAttrEl of Array.from(
+				document.querySelectorAll("[style]"),
+			)) {
 				let styleValue = styleAttrEl.getAttribute("style") || "";
 				for (const [url, dataUrl] of cssUrlMap.entries()) {
 					styleValue = styleValue.replaceAll(url, dataUrl);
@@ -2153,9 +2157,8 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
 	}
 
-    async generateLiveImgTest() {
-
-        const html = /* html */`
+	async generateLiveImgTest() {
+		const html = /* html */ `
             <!DOCTYPE html>
             <html lang="zh-CN">
 
@@ -2534,10 +2537,10 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
             </body>
 
             </html>
-        `
-        
-        return await this.imgHandler(html);
-    }
+        `;
+
+		return await this.imgHandler(html);
+	}
 }
 
 namespace BilibiliNotifyGenerateImg {

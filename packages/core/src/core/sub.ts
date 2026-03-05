@@ -1,38 +1,37 @@
 // Koishi核心依赖
-// biome-ignore assist/source/organizeImports: <import type>
-import {
-	type Context,
-	type FlatPick,
-	Schema,
-	h,
-	Service,
-	type Awaitable,
-} from "koishi";
-import type { Notifier } from "@koishijs/plugin-notifier";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "@koishijs/plugin-help";
-import type { LoginBili } from "../database";
-// Command
-import { biliCommands, statusCommands } from "../command";
+import type { Notifier } from "@koishijs/plugin-notifier";
+import {
+	type Awaitable,
+	type Context,
+	type FlatPick,
+	h,
+	Schema,
+	Service,
+} from "koishi";
 // 外部依赖
 import QRCode from "qrcode";
-// Utils
-import { withRetry } from "../utils";
+// Command
+import { biliCommands, statusCommands } from "../command";
+import type { LoginBili } from "../database";
 // Types
 import {
+	BiliLoginStatus,
+	type Channel,
 	type ChannelArr,
 	type CreateGroup,
 	type GroupList,
+	type MySelfInfoData,
 	type PushArrMap,
 	type Result,
 	type SubManager,
 	type Subscriptions,
 	type Target,
-	BiliLoginStatus,
-	type MySelfInfoData,
 	type UserCardInfoData,
-	type Channel,
 } from "../type";
+// Utils
+import { withRetry } from "../utils";
 
 declare module "koishi" {
 	interface Context {

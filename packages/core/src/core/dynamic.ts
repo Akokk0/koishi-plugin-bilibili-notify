@@ -1,14 +1,13 @@
-// biome-ignore assist/source/organizeImports: <import>
+import { CronJob } from "cron";
+import { type Awaitable, type Context, h, Schema, Service } from "koishi";
 import { DateTime } from "luxon";
-import { withLock, withRetry } from "../utils";
 import {
 	type AllDynamicInfo,
 	type DynamicTimelineManager,
 	PushType,
 	type SubManager,
 } from "../type";
-import { type Awaitable, type Context, h, Schema, Service } from "koishi";
-import { CronJob } from "cron";
+import { withLock, withRetry } from "../utils";
 import { DynamicFilterReason, filterDynamic } from "./dynamic_filter";
 
 declare module "koishi" {
@@ -197,17 +196,15 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						const filterResult = filterDynamic(item, this.config.filter);
 						if (filterResult.blocked) {
 							if (this.config.filter.notify) {
-								const notifyMessageByReason: Record<DynamicFilterReason, string> =
-									{
-										[DynamicFilterReason.BlacklistKeyword]:
-											`${name}发布了一条含有屏蔽关键字的动态`,
-										[DynamicFilterReason.BlacklistForward]:
-											`${name}转发了一条动态，已屏蔽`,
-										[DynamicFilterReason.BlacklistArticle]:
-											`${name}投稿了一条专栏，已屏蔽`,
-										[DynamicFilterReason.WhitelistUnmatched]:
-											`${name}发布了一条不在白名单范围内的动态，已屏蔽`,
-									};
+								const notifyMessageByReason: Record<
+									DynamicFilterReason,
+									string
+								> = {
+									[DynamicFilterReason.BlacklistKeyword]: `${name}发布了一条含有屏蔽关键字的动态`,
+									[DynamicFilterReason.BlacklistForward]: `${name}转发了一条动态，已屏蔽`,
+									[DynamicFilterReason.BlacklistArticle]: `${name}投稿了一条专栏，已屏蔽`,
+									[DynamicFilterReason.WhitelistUnmatched]: `${name}发布了一条不在白名单范围内的动态，已屏蔽`,
+								};
 								await this.ctx["bilibili-notify-push"].broadcastToTargets(
 									uid,
 									h("message", notifyMessageByReason[filterResult.reason]),
