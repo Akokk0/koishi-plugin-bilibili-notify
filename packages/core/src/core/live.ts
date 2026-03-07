@@ -467,7 +467,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		const pushAtTimeFunc = async () => {
 			// 判断是否信息是否获取成功
 			if (
-				!(await useLiveRoomInfo(LiveType.LiveBroadcast)) &&
+				!(await useLiveRoomInfo(LiveType.LiveBroadcast)) ||
 				!(await useMasterInfo(LiveType.LiveBroadcast))
 			) {
 				// 未获取成功，直接返回
@@ -778,7 +778,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 				liveStatus = true;
 
 				if (
-					!(await useLiveRoomInfo(LiveType.StartBroadcasting)) &&
+					!(await useLiveRoomInfo(LiveType.StartBroadcasting)) ||
 					!(await useMasterInfo(LiveType.StartBroadcasting))
 				) {
 					liveStatus = false;
@@ -876,7 +876,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 
 				// 获取信息
 				if (
-					!(await useLiveRoomInfo(LiveType.StopBroadcast)) &&
+					!(await useLiveRoomInfo(LiveType.StopBroadcast)) ||
 					!(await useMasterInfo(LiveType.StopBroadcast))
 				) {
 					liveStatus = false;
@@ -1000,7 +1000,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		});
 		// 第一次启动获取信息并判信息是否获取成功
 		if (
-			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) &&
+			!(await useLiveRoomInfo(LiveType.FirstLiveBroadcast)) ||
 			!(await useMasterInfo(LiveType.FirstLiveBroadcast))
 		) {
 			// 未获取成功，直接返回
