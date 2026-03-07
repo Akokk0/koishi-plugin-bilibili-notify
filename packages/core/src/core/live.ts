@@ -44,6 +44,9 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 	private listenerRecord: Record<string, MessageListener> = {};
 	private livePushTimerManager: LivePushTimerManager;
 	private disposed = false;
+	private readonly instanceId = `${Date.now()}-${Math.random()
+		.toString(36)
+		.slice(2, 8)}`;
 
 	constructor(ctx: Context, config: BilibiliNotifyLive.Config) {
 		// super
@@ -60,19 +63,32 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		this.disposed = false;
 		this.livePushTimerManager = new Map();
 		this.listenerRecord = {};
+		this.logSideEffectState("start");
 	}
 
 	// 注册插件dispose逻辑
 	protected stop(): Awaitable<void> {
+		this.logSideEffectState("stop:before-clear");
 		this.disposed = true;
 		// 清除定时器
 		this.clearPushTimers();
 		// 清除所有监听器
 		this.clearListeners();
+		this.logSideEffectState("stop:after-clear");
 	}
 
 	private isDisposed() {
 		return this.disposed;
+	}
+
+	private getListenerCount() {
+		return Object.keys(this.listenerRecord).length;
+	}
+
+	private logSideEffectState(stage: string) {
+		this.logger.info(
+			`[live:${this.instanceId}] ${stage} listeners=${this.getListenerCount()} timers=${this.livePushTimerManager?.size ?? 0} disposed=${this.disposed}`,
+		);
 	}
 
 	private mergeStopWords(stopWordsStr: string) {
@@ -125,6 +141,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		}
 		this.listenerRecord[roomId] = listener;
 		this.logger.info(`直播间 [${roomId}] 连接已建立`);
+		this.logSideEffectState(`listener:created room=${roomId}`);
 	}
 
 	private closeListener(roomId: string) {
@@ -140,6 +157,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 			// 删除直播间监听器
 			delete this.listenerRecord[roomId];
 			this.logger.info(`直播间 [${roomId}] 连接已关闭`);
+			this.logSideEffectState(`listener:closed room=${roomId}`);
 			// 直接返回
 			return;
 		}
@@ -148,6 +166,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 	}
 
 	public clearListeners() {
+		this.logSideEffectState("listeners:before-clear");
 		// 关闭所有监听器
 		for (const key of Object.keys(this.listenerRecord)) {
 			// 关闭监听器
@@ -156,15 +175,18 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 			delete this.listenerRecord[key];
 		}
 		this.listenerRecord = {};
+		this.logSideEffectState("listeners:after-clear");
 	}
 
 	public clearPushTimers() {
+		this.logSideEffectState("timers:before-clear");
 		// 清除所有定时器
 		for (const [_, timer] of this.livePushTimerManager) {
 			// 关闭定时器
 			timer?.();
 		}
 		this.livePushTimerManager.clear();
+		this.logSideEffectState("timers:after-clear");
 	}
 
 	private async getLiveRoomInfo(roomId: string): Promise<LiveRoomInfo["data"]> {
@@ -821,6 +843,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						this.config.pushTime * 1000 * 60 * 60,
 					);
 					this.livePushTimerManager.set(sub.roomid, pushAtTimeTimer);
+					this.logSideEffectState(`timer:created room=${sub.roomid}`);
 				}
 			},
 
@@ -848,6 +871,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 					pushAtTimeTimer();
 					pushAtTimeTimer = null;
 					this.livePushTimerManager.delete(sub.roomid);
+					this.logSideEffectState(`timer:deleted room=${sub.roomid}`);
 				}
 
 				// 获取信息
@@ -1032,6 +1056,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 				);
 				// 将定时器送入管理器
 				this.livePushTimerManager.set(sub.roomid, pushAtTimeTimer);
+				this.logSideEffectState(`timer:created room=${sub.roomid}`);
 			}
 			// 设置直播状态为true
 			liveStatus = true;
