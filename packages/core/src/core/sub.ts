@@ -471,7 +471,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	}
 
 	async initAsyncPart(subs: Subscriptions) {
-		// 先清理一次直播监听
+		// 先清理一次直播副作用，避免重载订阅时残留旧 listener / timer
+		this.ctx["bilibili-notify-live"].clearPushTimers();
 		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
 		this.logger.info("已获取订阅信息，正在加载订阅");

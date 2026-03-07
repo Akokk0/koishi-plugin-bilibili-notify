@@ -115,7 +115,7 @@ export type LiveAPIStatus = {
 
 export type LiveAPIManager = Map<string, LiveAPIStatus>;
 
-export type LiveManager = Map<string, () => void>;
+export type LivePushTimerManager = Map<string, () => void>;
 
 type LiveRoomInfoDataFrame = {
 	name: string;

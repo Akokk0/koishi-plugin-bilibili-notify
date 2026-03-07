@@ -120,15 +120,13 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 	public disposePlugin = async () => {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) return false;
-		// 遍历服务
-		await new Promise((resolve) => {
-			for (const fork of this.servers) {
-				fork.dispose();
-			}
-			// 清空服务
-			this.servers = [];
-			resolve("ok");
-		});
+		// 先截断引用，避免销毁过程中被重复使用
+		const forks = this.servers;
+		this.servers = [];
+		// Koishi 的 fork.dispose() 本身不是可等待的 Promise，这里只负责同步触发销毁。
+		for (const fork of forks) {
+			fork.dispose();
+		}
 		// 成功返回true
 		return true;
 	};
