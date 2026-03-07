@@ -330,3 +330,4 @@
 > - ver 3.12.0-alpha.0 重构：动态屏蔽功能； 新增：动态屏蔽白名单功能；
 > - ver 3.12.0-alpha.1 修复：当插件报错 `cannot create effect on inactive context` 后，重复发送消息；
 > - ver 3.12.0-alpha.2 修复：多次重载插件后，直播重复推送；
+> - ver 3.12.0-alpha.3 修复：报错 `TypeError: Cannot read properties of undefined (reading 'liveOpenFollowerNum')`；
