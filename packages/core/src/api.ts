@@ -64,7 +64,7 @@ const GET_LATEST_UPDATED_UPS =
 	"https://api.bilibili.com/x/polymer/web-dynamic/v1/portal";
 // 在线金瓜子排行榜
 const GET_ONLINE_GOLD_RANK =
-	"https://api.live.bilibili.com//xlive/general-interface/v1/rank/getOnlineGoldRank";
+	"https://api.live.bilibili.com/xlive/general-interface/v1/rank/getOnlineGoldRank";
 const GET_USER_INFO_IN_LIVE =
 	"https://api.live.bilibili.com/xlive/app-ucenter/v2/card/user";
 
@@ -87,23 +87,20 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 
 	// logger
 	private apiLogger: Logger;
-	jar: CookieJar;
-	client: AxiosInstance;
-	aiClient: OpenAI;
+	private jar: CookieJar;
+	private client: AxiosInstance;
+	private aiClient: OpenAI;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
-	cacheable: any;
+	private cacheable: any;
+	private loginNotifier: Notifier;
+	private refreshCookieTimer: () => void;
+	private loginInfoIsLoaded = false;
+	private wbiSign = { img_key: "", sub_key: "" };
+	private updateJob: CronJob;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
-	loginData: any;
-	loginNotifier: Notifier;
-	refreshCookieTimer: () => void;
-	loginInfoIsLoaded = false;
-
-	wbiSign = { img_key: "", sub_key: "" };
-	updateJob: CronJob;
+	private pRetry: any;
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
-	pRetry: any;
-	// biome-ignore lint/suspicious/noExplicitAny: <any>
-	AbortError: any;
+	private AbortError: any;
 
 	private readonly RETRY_CONFIG = { retries: 3 } as const;
 
@@ -121,7 +118,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		methodName: string,
 	): Promise<T> {
 		return this.pRetry(fn, {
-			onFailedAttempt: (error) => {
+			onFailedAttempt: (error: Error & { attemptNumber: number }) => {
 				this.apiLogger.warn(
 					`${methodName}() 第 ${error.attemptNumber} 次尝试失败: ${error.message}`,
 				);
@@ -168,7 +165,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		this.updateJob.stop();
 	}
 
-	async updateBiliTicket() {
+	private async updateBiliTicket() {
 		try {
 			// 获取csrf
 			const csrf = this.getCSRF();
@@ -197,14 +194,12 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 
 	// WBI签名
 	// 对 imgKey 和 subKey 进行字符顺序打乱编码
-	getMixinKey = (orig: string) =>
-		mixinKeyEncTab
-			.map((n) => orig[n])
-			.join("")
-			.slice(0, 32);
+	private getMixinKey(orig: string): string {
+		return mixinKeyEncTab.map((n) => orig[n]).join("").slice(0, 32);
+	}
 
 	// 为请求参数进行 wbi 签名
-	encWbi(
+	private encWbi(
 		params: { [key: string]: string | number | object },
 		img_key: string,
 		sub_key: string,
@@ -229,7 +224,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		return `${query}&w_rid=${wbi_sign}`;
 	}
 
-	async getWbi(params: { [key: string]: string | number | object }) {
+	private async getWbi(params: { [key: string]: string | number | object }) {
 		const web_keys = this.wbiSign || (await this.getWbiKeys());
 		const img_key = web_keys.img_key;
 		const sub_key = web_keys.sub_key;
@@ -446,7 +441,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 	async getUserInfo(mid: string, grisk_id?: string) {
 		return this.retryWithLog(async () => {
 			if (mid === "11783021") {
-				console.log("检测到番剧出差UID，跳过远程用户接口访问");
+				this.apiLogger.debug("检测到番剧出差UID，跳过远程用户接口访问");
 				return bangumiTripData;
 			}
 			const params: { mid: string; grisk_id?: string } = { mid };
@@ -459,7 +454,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		}, "getUserInfo");
 	}
 
-	async getWbiKeys(): Promise<{ img_key: string; sub_key: string }> {
+	private async getWbiKeys(): Promise<{ img_key: string; sub_key: string }> {
 		return this.retryWithLog(async () => {
 			const { data } = await this.client.get(
 				"https://api.bilibili.com/x/web-interface/nav",
@@ -583,25 +578,13 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		if (this.loginNotifier) this.loginNotifier.dispose();
 	}
 
-	/**
-	 * Generate HMAC-SHA256 signature
-	 * @param {string} key     The key string to use for the HMAC-SHA256 hash
-	 * @param {string} message The message string to hash
-	 * @returns {string} The HMAC-SHA256 signature as a hex string
-	 */
-	hmacSha256(key: string, message: string): string {
+	private hmacSha256(key: string, message: string): string {
 		const hmac = crypto.createHmac("sha256", key);
 		hmac.update(message);
 		return hmac.digest("hex");
 	}
 
-	/**
-	 * Get Bilibili web ticket
-	 * @param {string} csrf    CSRF token, can be empty or null
-	 * @returns {Promise<any>} Promise of the ticket response in JSON format
-	 */
-	// biome-ignore lint/suspicious/noExplicitAny: <any>
-	async getBiliTicket(csrf?: string): Promise<any> {
+	private async getBiliTicket(csrf?: string): Promise<BiliTicket> {
 		const ts = Math.floor(DateTime.now().toSeconds() / 1000);
 		const hexSign = this.hmacSha256("XgwSnGZ1p", `ts${ts}`);
 		const params = new URLSearchParams({
@@ -613,26 +596,22 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 
 		const url =
 			"https://api.bilibili.com/bapis/bilibili.api.ticket.v1.Ticket/GenWebTicket";
-		const resp = await this.client
-			.post(
-				`${url}?${params.toString()}`,
-				{},
-				{
-					headers: {
-						"Content-Type": "application/x-www-form-urlencoded",
-						"User-Agent":
-							"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
-					},
+		const resp = await this.client.post(
+			`${url}?${params.toString()}`,
+			{},
+			{
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+					"User-Agent":
+						"Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0",
 				},
-			)
-			.catch((e) => {
-				throw e;
-			});
+			},
+		);
 
 		return resp.data;
 	}
 
-	async createNewClient() {
+	private async createNewClient() {
 		// import wrapper
 		const wrapper = (await import("axios-cookiejar-support")).wrapper;
 		// 包装cookieJar
@@ -659,7 +638,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		);
 	}
 
-	async createNewAIClient() {
+	private async createNewAIClient() {
 		if (this.config.ai.enable) {
 			this.aiClient = new OpenAI({
 				baseURL: this.config.ai.baseURL,
@@ -681,13 +660,11 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 	getCookies() {
 		try {
 			// 获取cookies
-			const cookies = this.jar.serializeSync().cookies.map((cookie) => {
-				return cookie;
-			});
+			const cookies = this.jar.serializeSync().cookies;
 			// 返回cookies的JSON字符串
 			return JSON.stringify(cookies);
 		} catch (e) {
-			console.error("获取cookies失败：", e);
+			this.apiLogger.error(`获取 cookies 失败：${e}`);
 			return undefined;
 		}
 	}
@@ -702,7 +679,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 				.join("; ");
 			return cookieHeader;
 		} catch (e) {
-			console.error("无效的 JSON 格式：", e);
+			this.apiLogger.error(`获取 cookies header 失败：${e}`);
 			return "";
 		}
 	}
@@ -716,7 +693,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		return DateTime.fromISO(expires).toJSDate();
 	}
 
-	async getLoginInfoFromDB() {
+	private async getLoginInfoFromDB() {
 		// 读取数据库获取cookies
 		const data = (await this.ctx.database.get("loginBili", 1))[0];
 		// 判断是否登录
@@ -761,7 +738,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		}
 	}
 
-	getCSRF() {
+	private getCSRF() {
 		// 获取csrf
 		return this.jar
 			.serializeSync()
@@ -818,7 +795,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		this.enableRefreshCookiesDetect();
 	}
 
-	enableRefreshCookiesDetect() {
+	private enableRefreshCookiesDetect() {
 		if (this.refreshCookieTimer) this.refreshCookieTimer();
 		this.refreshCookieTimer = this.ctx.setInterval(async () => {
 			const { cookies, refresh_token } = await this.getLoginInfoFromDB();
@@ -829,7 +806,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		}, 3600000);
 	}
 
-	async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times = 3) {
+	private async checkIfTokenNeedRefresh(refreshToken: string, csrf: string, times = 3) {
 		// 定义方法
 		const notifyAndError = async (info: string) => {
 			// 重置为未登录状态
@@ -867,7 +844,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 			["encrypt"],
 		);
 		// 定义获取CorrespondPath方法
-		async function getCorrespondPath(timestamp) {
+		async function getCorrespondPath(timestamp: number) {
 			const data = new TextEncoder().encode(`refresh_${timestamp}`);
 			const encrypted = new Uint8Array(
 				await crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, data),
