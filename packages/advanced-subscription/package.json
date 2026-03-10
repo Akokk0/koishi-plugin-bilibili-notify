@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "koishi-plugin-bilibili-notify": "workspace:^",
-    "tsdown": "^0.20.3"
+    "tsdown": "^0.21.1"
   },
   "module": "./lib/index.mjs",
   "types": "./lib/index.d.cts",

@@ -2,112 +2,60 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Commands
 
-**Bilibili Notify** is a Koishi.js plugin that provides push notifications for Bilibili platform activities, including user dynamic updates and live stream status notifications. The project is structured as a Yarn workspaces monorepo.
+Requires Node 20+ and Yarn 4 (`corepack enable`).
 
-## Monorepo Structure
-
-```
-bilibili-notify/
-├── packages/
-│   ├── core/                    # Main plugin (koishi-plugin-bilibili-notify)
-│   └── advanced-subscription/   # Enhanced subscription features
-├── package.json                 # Root monorepo config
-├── tsconfig.json                # Root TypeScript config
-└── tsconfig.base.json           # Base TypeScript config
-```
-
-### Core Package (`packages/core/`)
-Main plugin providing Bilibili notification services.
-
-**Key Services:**
-- `ServerManager` (server_manager.ts) - Plugin lifecycle and configuration management
-- `DataServer` (data_server.ts) - API data retrieval and caching
-- `Database` (database.ts) - Persistence layer for subscriptions and credentials
-- Command handlers in `command/` directory
-
-### Advanced Subscription Package (`packages/advanced-subscription/`)
-Extension package that depends on core. Provides enhanced subscription controls including:
-- User-enter-room notifications
-- Special bullet screen monitoring
-- Advanced filtering options
-
-## Development Commands
-
-### Root level
 ```bash
-yarn install              # Install all workspace dependencies
+yarn install                                    # Install all dependencies at repo root
+
+cd packages/core && yarn build                  # Build core plugin (tsdown → lib/)
+cd packages/core && yarn client                 # Build Koishi console UI (yakumo → dist/)
+cd packages/advanced-subscription && yarn build # Build advanced-subscription plugin
+
+yarn workspaces foreach -A run build            # Build all packages
 ```
 
-### Core package
-```bash
-cd packages/core
-yarn build                # Build TypeScript (tsdown) - outputs to lib/
-yarn client               # Build web client (yakumo) - outputs to dist/
-```
+There is no automated test suite. Test manually in a local Koishi instance by verifying the login → subscription → push flow.
 
-### Advanced subscription package
-```bash
-cd packages/advanced-subscription
-yarn build                # Build TypeScript (tsdown) - outputs to lib/
-```
+## Architecture
 
-## Build System
+This is a Yarn 4 workspace monorepo with two publishable Koishi plugins under `packages/`:
 
-- **TypeScript compilation**: Uses `tsdown` to build both CJS and MJS outputs
-- **Web client**: Core package uses `yakumo` to build the Koishi console UI
-- **Node version**: Requires Node >= 20.0.0
+- **`packages/core`** (`koishi-plugin-bilibili-notify`): Main plugin. Monitors Bilibili dynamics and live streams, sends notifications to chat platforms via Koishi.
+- **`packages/advanced-subscription`** (`koishi-plugin-bilibili-notify-advanced-subscription`): Extension plugin that adds per-UP-master, per-platform, per-channel subscription granularity on top of the core plugin.
 
-## Code Style
+### Core Plugin Service Architecture
 
-- **Indentation**: 4 spaces (see .editorconfig)
-- **Line endings**: LF
-- **Charset**: UTF-8
-- **Biome**: Used for linting (dev dependency in root)
+`index.ts` loads `ServerManager`, which instantiates five services:
 
-## Architecture Patterns
+| Service | File | Responsibility |
+|---|---|---|
+| `BilibiliNotifyAPI` | `core/api.ts` | HTTP client (axios + cookie jar), auth (WBI signing, QR login), token refresh cron |
+| `BilibiliNotifyDynamic` | `core/dynamic.ts` | Cron-based polling for user dynamics (default every 2 min), filtering, push event emission |
+| `BilibiliNotifyLive` | `core/live.ts` | WebSocket live stream detection (blive-message-listener), danmaku collection, AI summaries |
+| `BilibiliNotifyPush` | `core/push.ts` | Dispatches notifications to target Koishi platforms/channels |
+| `BilibiliNotifyGenerateImg` | `core/generate_img.ts` | Puppeteer card image rendering using HTML templates in `src/core/page/` |
+| `BilibiliNotifySub` | `core/sub.ts` | Subscription config management; bridges advanced-subscription events to dynamic/live monitors |
 
-### Koishi Plugin System
-The plugin follows Koishi's service-based architecture:
+Commands are registered in `src/command/` (user-facing `bili`, system `sys`, info `status`).
 
-1. **Dependency Injection**: Core plugin injects `puppeteer`, `database`, `notifier`, and `console` services
-2. **Event System**: Custom events defined in `declare module "koishi"`:
-   - `bilibili-notify/login-status-report`
-   - `bilibili-notify/advanced-sub`
-   - `bilibili-notify/ready-to-recive`
+Database schema is declared in `src/database.ts` (extends Koishi `loginBili` table for encrypted cookie storage).
 
-### Service Layer
-- **ServerManager**: Manages plugin lifecycle, config validation, and coordinates other services
-- **DataServer**: Handles Bilibili API interactions with caching
-- **Database**: Koishi database extension for storing subscriptions and encrypted credentials
+The console UI lives in `client/` and is a Vue component built separately by `yarn client`.
 
-### Protocol Buffers
-- Located in `packages/core/src/proto/`
-- Used for Bilibili live message protocol handling
-- Managed with `protobufjs`
+### Inter-Plugin Communication
 
-## Publishing
+The two plugins communicate via Koishi events:
+- Core emits `bilibili-notify/login-status-report`, `bilibili-notify/ready-to-recive`
+- Advanced-subscription listens for triggers and emits `bilibili-notify/advanced-sub` with per-UID config overlays
 
-GitHub Actions workflow (`.github/workflows/publish.yml`):
-- Triggers on push to `monorepo` branch when package.json versions change
-- Matrix build for both `core` and `advanced-subscription` packages
-- Core package builds both main lib and client
-- Uses npm provenance for secure publishing
+### Key Conventions
 
-## Key Dependencies
-
-- `koishi` - Plugin framework (peer dependency, ^4.18.10)
-- `blive-message-listener` - Bilibili live stream protocol listener
-- `protobufjs` - Protocol buffer support for live messages
-- `axios` + `axios-cookiejar-support` - HTTP client with cookie handling
-- `cron` - Dynamic monitoring scheduler
-- `puppeteer` - Image generation (peer dependency via koishi-plugin-puppeteer)
-- `openai` - AI-powered live summaries
-
-## Important Notes
-
-- **Bilibili Login**: Uses QR code authentication with encrypted credential storage (32-character encryption key)
-- **Platform Names**: For OneBot robots, use `onebot` not `qq`
-- **Dynamic Monitoring**: Since v3.0.2, uses cron-based scheduling (look for "Dynamic monitoring initialized!" log message)
-- **Subscription Migration**: Versions before 2.0.0-alpha.7 require resubscription when upgrading
+- **File naming**: lowercase underscores (`server_manager.ts`, `generate_img.ts`)
+- **Class naming**: PascalCase with full prefix (`BilibiliNotifyAPI`, `BilibiliNotifyDynamic`)
+- **Indentation**: 4 spaces, LF line endings, UTF-8 (enforced by `.editorconfig`)
+- **Linting**: Biome (`biome.json`); use `// biome-ignore lint/...` for intentional suppressions
+- **Koishi plugin pattern**: export `name`, `inject`, `Config` (Schema), and `apply(ctx, config)`
+- **Commits**: Conventional Commits (`feat:`, `fix:`, `chore:`, `refactor:`) scoped to one logical change
+- **UI descriptions**: Written in Mandarin Chinese (humorous "maid persona" style — preserve this tone)
