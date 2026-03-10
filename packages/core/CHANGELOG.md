@@ -331,3 +331,4 @@
 > - ver 3.12.0-alpha.1 修复：当插件报错 `cannot create effect on inactive context` 后，重复发送消息；
 > - ver 3.12.0-alpha.2 修复：多次重载插件后，直播重复推送；
 > - ver 3.12.0-alpha.3 修复：报错 `TypeError: Cannot read properties of undefined (reading 'liveOpenFollowerNum')`；
+> - ver 3.12.0 修复：一些已知问题；
