@@ -23,17 +23,16 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 	constructor(ctx: Context, config: BilibiliNotifyConfig) {
 		super(ctx, "bilibili-notify");
 		// 设置日志级别
-		this.logger.level = config.logLevel;
 		// 配置
 		this.config = config;
 	}
 
 	protected start(): void | Promise<void> {
 		// logger
-		this.logger.info("正在启动中...");
+		this.ctx.logger.info("正在启动中...");
 		// 注册插件
 		if (!this.registerPlugin()) {
-			this.logger.error(
+			this.ctx.logger.error(
 				"主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡",
 			);
 		}
@@ -108,7 +107,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 			// 添加服务
 			this.servers.push(ba, gi, ps, dy, bl, cr);
 		} catch (e) {
-			this.logger.error(
+			this.ctx.logger.error(
 				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 			);
 			return false;
@@ -135,7 +134,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) {
 			// logger
-			this.logger.warn(
+			this.ctx.logger.warn(
 				"主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡",
 			);
 			// 返回
@@ -149,7 +148,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 				try {
 					this.registerPlugin();
 				} catch (e) {
-					this.logger.error(
+					this.ctx.logger.error(
 						`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 					);
 					resolve(false);

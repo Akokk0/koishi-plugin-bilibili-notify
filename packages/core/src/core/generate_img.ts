@@ -1,5 +1,5 @@
 // biome-ignore assist/source/organizeImports: <import>
-import { type Context, Schema, Service } from "koishi";
+import { type Context, Logger, Schema, Service } from "koishi";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
@@ -15,6 +15,8 @@ declare module "koishi" {
 		"bilibili-notify-generate-img": BilibiliNotifyGenerateImg;
 	}
 }
+
+const BILIBILI_NOTIFY_GENERATE_IMG = "bilibili-notify-generate-img";
 
 // 动态类型
 const DYNAMIC_TYPE_NONE = "DYNAMIC_TYPE_NONE";
@@ -37,6 +39,8 @@ const ADDITIONAL_TYPE_GOODS = "ADDITIONAL_TYPE_GOODS";
 
 class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
+	// logger
+	private generateImgLogger: Logger;
 	private readonly imageDataUrlCache = new Map<
 		string,
 		{ dataUrl: string; updatedAt: number }
@@ -46,8 +50,11 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 	private readonly IMAGE_CACHE_MAX_SIZE = 300;
 
 	constructor(ctx: Context, config: BilibiliNotifyGenerateImg.Config) {
-		super(ctx, "bilibili-notify-generate-img");
+		super(ctx, BILIBILI_NOTIFY_GENERATE_IMG);
 		this.config = config;
+		// logger
+		this.generateImgLogger = new Logger(BILIBILI_NOTIFY_GENERATE_IMG);
+		this.generateImgLogger.level = this.config.logLevel;
 	}
 
 	protected start() {
@@ -673,7 +680,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 				this.fetchImageAsDataUrl(src)
 					.then((dataUrl) => img.setAttribute("src", dataUrl))
 					.catch((error) => {
-						this.logger.warn(`图片预取失败，将保留原URL: ${src} (${error})`);
+						this.generateImgLogger.warn(`图片预取失败，将保留原URL: ${src} (${error})`);
 					}),
 			);
 		}
@@ -705,7 +712,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 				try {
 					cssUrlMap.set(url, await this.fetchImageAsDataUrl(url));
 				} catch (error) {
-					this.logger.warn(`CSS图片预取失败，将保留原URL: ${url} (${error})`);
+					this.generateImgLogger.warn(`CSS图片预取失败，将保留原URL: ${url} (${error})`);
 				}
 			}),
 		);

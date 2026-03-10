@@ -5,7 +5,7 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import axios, { type AxiosInstance } from "axios";
 import { CronJob } from "cron";
 import { JSDOM } from "jsdom";
-import { type Awaitable, type Context, Schema, Service } from "koishi";
+import { type Awaitable, type Context, Logger, Schema, Service } from "koishi";
 import { DateTime } from "luxon";
 import md5 from "md5";
 import OpenAI from "openai";
@@ -24,6 +24,8 @@ declare module "koishi" {
 		"bilibili-notify-api": BilibiliNotifyAPI;
 	}
 }
+
+const BILIBILI_NOTIFY_API = "bilibili-notify-api";
 
 const mixinKeyEncTab = [
 	46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
@@ -83,6 +85,8 @@ const GET_LIVE_ROOMS_INFO =
 class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 	static inject = ["database", "notifier"];
 
+	// logger
+	private apiLogger: Logger;
 	jar: CookieJar;
 	client: AxiosInstance;
 	aiClient: OpenAI;
@@ -103,26 +107,27 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 
 	private readonly RETRY_CONFIG = { retries: 3 } as const;
 
+	constructor(ctx: Context, config: BilibiliNotifyAPI.Config) {
+		super(ctx, BILIBILI_NOTIFY_API);
+		// API配置
+		this.config = config;
+		// logger
+		this.apiLogger = new Logger(BILIBILI_NOTIFY_API);
+		this.apiLogger.level = this.config.logLevel;
+	}
+
 	private async retryWithLog<T>(
 		fn: () => Promise<T>,
 		methodName: string,
 	): Promise<T> {
 		return this.pRetry(fn, {
 			onFailedAttempt: (error) => {
-				this.logger.warn(
+				this.apiLogger.warn(
 					`${methodName}() 第 ${error.attemptNumber} 次尝试失败: ${error.message}`,
 				);
 			},
 			...this.RETRY_CONFIG,
 		});
-	}
-
-	constructor(ctx: Context, config: BilibiliNotifyAPI.Config) {
-		super(ctx, "bilibili-notify-api");
-		// logger
-		this.logger.level = config.logLevel;
-		// API配置
-		this.config = config;
 	}
 
 	protected async start(): Promise<void> {
@@ -186,7 +191,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 				ticket.data.nav.sub.lastIndexOf("."),
 			);
 		} catch (e) {
-			this.logger.error(`更新 BiliTicket 失败: ${e.message}`);
+			this.apiLogger.error(`更新 BiliTicket 失败: ${e.message}`);
 		}
 	}
 
@@ -431,7 +436,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 			const { data } = await this.client
 				.get(`${GET_COOKIES_INFO}?csrf=${refreshToken}`)
 				.catch((e) => {
-					this.logger.debug(e.message);
+					this.apiLogger.debug(e.message);
 					return null;
 				});
 			return data;
@@ -661,7 +666,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 				apiKey: this.config.ai.apiKey,
 			});
 
-			this.logger.info("AI 客户端创建成功");
+			this.apiLogger.info("AI 客户端创建成功");
 		}
 	}
 
@@ -978,11 +983,11 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 				},
 			)
 			.catch((e) => {
-				this.logger.error(`获取验证码失败: ${e.message}`);
+				this.apiLogger.error(`获取验证码失败: ${e.message}`);
 			})) as { data: V_VoucherCaptchaData };
 		// 判断是否成功
 		if (data.code !== 0) {
-			this.logger.error("获取验证码失败");
+			this.apiLogger.error("获取验证码失败");
 		}
 		return { data: data.data };
 	}
@@ -1012,7 +1017,7 @@ class BilibiliNotifyAPI extends Service<BilibiliNotifyAPI.Config> {
 		)) as { data: ValidateCaptchaData };
 		// 判断是否验证成功
 		if (data.code !== 0) {
-			this.logger.warn(`验证失败: code=${data.code}, message=${data.message}`);
+			this.apiLogger.warn(`验证失败: code=${data.code}, message=${data.message}`);
 			return { data: null };
 		}
 		// 添加cookie

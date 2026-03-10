@@ -7,6 +7,7 @@ import {
 	type Context,
 	type FlatPick,
 	h,
+	Logger,
 	Schema,
 	Service,
 } from "koishi";
@@ -39,6 +40,8 @@ declare module "koishi" {
 	}
 }
 
+const BILIBILI_NOTIFY_SUB = "bilibili-notify-sub";
+
 class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	// 必须服务
 	static inject = [
@@ -58,17 +61,20 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	subManager: SubManager;
 	// 检查登录数据库是否有数据
 	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
+	// logger
+	private subLogger: Logger;
 	// recive subs times
 	reciveSubTimes = 0;
 	// biome-ignore lint/suspicious/noExplicitAny: <data>
 	groupInfo: any | null = null;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifySub.Config) {
-		super(ctx, "bilibili-notify-sub");
+		super(ctx, BILIBILI_NOTIFY_SUB);
 		// 设置config
 		this.config = config;
-		// 设置日志等级
-		this.logger.level = config.logLevel;
+		// logger
+		this.subLogger = new Logger(BILIBILI_NOTIFY_SUB);
+		this.subLogger.level = this.config.logLevel;
 	}
 
 	protected async start(): Promise<void> {
@@ -85,7 +91,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 如果未登录，则直接返回
 		if (!(await this.checkIfIsLogin())) {
 			// log
-			this.logger.info("账号未登录，请先登录");
+			this.subLogger.info("账号未登录，请先登录");
 			return;
 		}
 		// 已登录，请求个人信息
@@ -116,7 +122,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 判断是否是高级订阅
 		if (this.config.advancedSub) {
 			// logger
-			this.logger.info("开启高级订阅，正在加载订阅");
+			this.subLogger.info("开启高级订阅，正在加载订阅");
 			// 触发准备就绪事件
 			this.ctx.emit("bilibili-notify/ready-to-recive");
 		} else {
@@ -126,7 +132,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				const subs = this.configSubsToSubscription(this.config.subs);
 				// 加载后续部分
 				await this.initAsyncPart(subs);
-			} else this.logger.info("初始化完毕，但未添加任何订阅");
+			} else this.subLogger.info("初始化完毕，但未添加任何订阅");
 		}
 	}
 
@@ -275,8 +281,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.ctx["bilibili-notify-push"].pushArrMap = pushArrMap;
 		this.ctx["bilibili-notify-push"].pushArrMapInitializing = true;
 		// logger
-		this.logger.debug("初始化推送群组/频道信息");
-		this.logger.debug(pushArrMap);
+		this.subLogger.debug("初始化推送群组/频道信息");
+		this.subLogger.debug(pushArrMap);
 	}
 
 	registerCommands() {
@@ -288,14 +294,14 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	registeringForEvents() {
 		// 监听登录事件
 		this.ctx.console.addListener("bilibili-notify/start-login", async () => {
-			this.logger.info("触发登录事件");
+			this.subLogger.info("触发登录事件");
 			// 获取二维码
 			// biome-ignore lint/suspicious/noExplicitAny: <any>
 			let content: any;
 			try {
 				content = await this.ctx["bilibili-notify-api"].getLoginQRCode();
 			} catch (_) {
-				this.logger.error("获取登录二维码失败，请检查网络连接");
+				this.subLogger.error("获取登录二维码失败，请检查网络连接");
 				return;
 			}
 			// 判断是否出问题
@@ -318,7 +324,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				},
 				async (err, buffer) => {
 					if (err) {
-						this.logger.error(`生成二维码失败：${err}`);
+						this.subLogger.error(`生成二维码失败：${err}`);
 						return this.ctx.emit("bilibili-notify/login-status-report", {
 							status: BiliLoginStatus.LOGIN_FAILED,
 							msg: "生成二维码失败",
@@ -353,7 +359,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 							content.data.qrcode_key,
 						);
 					} catch (e) {
-						this.logger.error(`获取登录状态失败：${e}`);
+						this.subLogger.error(`获取登录状态失败：${e}`);
 						return;
 					}
 					if (loginContent.data.code === 86101) {
@@ -442,7 +448,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				async (subs: Subscriptions) => {
 					if (Object.keys(subs).length === 0) {
 						// logger
-						this.logger.info("订阅加载完毕，但未添加任何订阅");
+						this.subLogger.info("订阅加载完毕，但未添加任何订阅");
 						// 返回
 						return;
 					}
@@ -475,12 +481,12 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.ctx["bilibili-notify-live"].clearPushTimers();
 		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
-		this.logger.info("已获取订阅信息，正在加载订阅");
+		this.subLogger.info("已获取订阅信息，正在加载订阅");
 		// 判断订阅分组是否存在
 		const groupInfoResult = await this.getGroupInfo();
 		// 判断是否获取成功
 		if (groupInfoResult.code !== 0) {
-			this.logger.error("获取分组信息失败，订阅加载失败");
+			this.subLogger.error("获取分组信息失败，订阅加载失败");
 			return;
 		}
 		// 赋值给成员变量
@@ -490,7 +496,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 判断是否加载成功
 		if (code !== 0) {
 			// logger
-			this.logger.error(`加载订阅对象失败：${message}`);
+			this.subLogger.error(`加载订阅对象失败：${message}`);
 			// 发送私聊消息
 			await this.ctx["bilibili-notify-push"].sendPrivateMsg(
 				"加载订阅对象失败，订阅初始化失败",
@@ -503,7 +509,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 在控制台中显示订阅对象
 		this.updateSubNotifier();
 		// 初始化完毕
-		this.logger.info("订阅加载完成！bilibili-notify 已启动！");
+		this.subLogger.info("订阅加载完成！bilibili-notify 已启动！");
 	}
 
 	configSubsToSubscription(sub: BilibiliNotifySub.Config["subs"]) {
@@ -816,7 +822,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		// 加载订阅
 		for (const sub of Object.values(subs)) {
 			// logger
-			this.logger.debug(`加载订阅 UID：${sub.uid}`);
+			this.subLogger.debug(`加载订阅 UID：${sub.uid}`);
 			// 在B站中订阅该对象
 			const subInfo = await this.subUserInBili(sub.uid);
 			// 判断订阅是否成功
@@ -824,7 +830,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			// 判断是否是账号异常
 			if (subInfo.code === 22015) {
 				// 账号异常
-				this.logger.warn(
+				this.subLogger.warn(
 					`账号异常，无法自动订阅 UID：${sub.uid}，请手动订阅并移动到 "订阅" 分组`,
 				);
 			}
@@ -844,7 +850,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			// 判断是否有直播间号
 			if (sub.live && !sub.roomid) {
 				// logger
-				this.logger.debug(`UID：${sub.uid} 请求了用户接口`);
+				this.subLogger.debug(`UID：${sub.uid} 请求了用户接口`);
 				// 定义Data
 				const {
 					code: userInfoCode,
@@ -858,7 +864,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 					// 返回数据
 					return data;
 				}).catch((e) => {
-					this.logger.error(`获取用户信息失败：${e.message}`);
+					this.subLogger.error(`获取用户信息失败：${e.message}`);
 					// 返回失败
 					return {
 						code: -1,
@@ -868,7 +874,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				// v_voucher风控
 				if (userInfoCode === -352 && userInfoData.v_voucher) {
 					// logger
-					this.logger.warn("账号被风控，请使用 `bili cap` 指令进行风控验证");
+					this.subLogger.warn("账号被风控，请使用 `bili cap` 指令进行风控验证");
 					// 发送私聊消息
 					await this.ctx["bilibili-notify-push"].sendPrivateMsg(
 						"账号被风控，请使用 `bili cap` 指令进行风控验证",
@@ -883,7 +889,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 					// 用户没有开通直播间，无法订阅直播
 					sub.live = false;
 					// 发送提示
-					this.logger.warn(
+					this.subLogger.warn(
 						`UID：${sub.uid} 的用户没有开通直播间，无法订阅直播`,
 					);
 				}
@@ -896,14 +902,14 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 				await this.ctx["bilibili-notify-live"].liveDetectWithListener(sub);
 			}
 			// logger
-			this.logger.debug(`订阅 UID：${sub.uid} 加载完成`);
+			this.subLogger.debug(`订阅 UID：${sub.uid} 加载完成`);
 			// 判断是不是最后一个订阅
 			if (sub !== Object.values(subs).pop()) {
 				// 不是最后一个订阅，执行delay
 				// 1-3秒随机延迟
 				const randomDelay = Math.floor(Math.random() * 3) + 1;
 				// logger
-				this.logger.debug(`设置随机延迟：${randomDelay} 秒`);
+				this.subLogger.debug(`设置随机延迟：${randomDelay} 秒`);
 				// delay
 				await this.ctx.sleep(randomDelay * 1000);
 			}

@@ -1,5 +1,5 @@
 import { CronJob } from "cron";
-import { type Awaitable, type Context, h, Schema, Service } from "koishi";
+import { type Awaitable, type Context, h, Logger, Schema, Service } from "koishi";
 import { DateTime } from "luxon";
 import {
 	type AllDynamicInfo,
@@ -16,6 +16,8 @@ declare module "koishi" {
 	}
 }
 
+const BILIBILI_NOTIFY_DYNAMIC = "bilibili-notify-dynamic";
+
 class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 	// 依赖
 	static inject = [
@@ -23,6 +25,8 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		"bilibili-notify-generate-img",
 		"bilibili-notify-push",
 	];
+	// logger
+	private dynamicLogger: Logger;
 	// 动态检测销毁函数
 	private dynamicJob: CronJob;
 	// 动态订阅管理器
@@ -31,11 +35,12 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 	private dynamicTimelineManager: DynamicTimelineManager;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifyDynamic.Config) {
-		super(ctx, "bilibili-notify-dynamic");
+		super(ctx, BILIBILI_NOTIFY_DYNAMIC);
 		// 配置
 		this.config = config;
-		// 设置日志级别
-		this.logger.level = config.logLevel;
+		// logger
+		this.dynamicLogger = new Logger(BILIBILI_NOTIFY_DYNAMIC);
+		this.dynamicLogger.level = this.config.logLevel;
 	}
 	protected start(): Awaitable<void> {
 		// 初始化动态时间线管理器
@@ -45,7 +50,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		// 停止动态检测任务
 		if (this.dynamicJob) {
 			this.dynamicJob.stop();
-			this.logger.info("动态检测任务已停止");
+			this.dynamicLogger.info("动态检测任务已停止");
 		}
 	}
 	// 获取动态检测状态
@@ -56,12 +61,12 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 	startDynamicDetector(subManager: SubManager) {
 		// 判断是否已经存在动态检测任务
 		if (this.dynamicJob) {
-			this.logger.warn("动态检测任务已存在，跳过创建新的任务");
+			this.dynamicLogger.warn("动态检测任务已存在，跳过创建新的任务");
 			return;
 		}
 		// 判断是否有订阅对象
 		if (subManager.size === 0) {
-			this.logger.warn("没有订阅对象，跳过创建动态检测任务");
+			this.dynamicLogger.warn("没有订阅对象，跳过创建动态检测任务");
 			return;
 		}
 		// 只保留需要动态检测的订阅对象
@@ -89,7 +94,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		// 启动任务
 		this.dynamicJob.start();
 		// 记录日志
-		this.logger.info("动态检测任务已启动");
+		this.dynamicLogger.info("动态检测任务已启动");
 	}
 	// 动态检测器
 	dynamicDetector() {
@@ -101,7 +106,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				AllDynamicInfo["data"]["items"][number]
 			> = {};
 			// logger
-			this.logger.debug(`开始获取动态信息`);
+			this.dynamicLogger.debug(`开始获取动态信息`);
 			// 使用withRetry函数进行重试
 			const content = await withRetry(async () => {
 				// 获取动态内容
@@ -110,7 +115,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				].getAllDynamic()) as AllDynamicInfo;
 			}, 1).catch((e) => {
 				// logger
-				this.logger.error(`获取动态失败：${e.message}`);
+				this.dynamicLogger.error(`获取动态失败：${e.message}`);
 			});
 			// content不存在则直接返回
 			if (!content) return;
@@ -119,7 +124,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				switch (content.code) {
 					case -101: {
 						// 账号未登录
-						this.logger.error(`账号未登录，插件已停止工作，请先登录`);
+						this.dynamicLogger.error(`账号未登录，插件已停止工作，请先登录`);
 						// 发送私聊消息
 						await this.ctx["bilibili-notify-push"].sendPrivateMsg(
 							`账号未登录，插件已停止工作，请先登录`,
@@ -132,7 +137,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 					case -352: {
 						// 风控
 						// 输出日志
-						this.logger.error(
+						this.dynamicLogger.error(
 							"账号被风控，插件已停止工作，请使用 `bili cap` 指令解除风控",
 						);
 						// 发送私聊消息
@@ -146,7 +151,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 					}
 					default: {
 						// 未知错误
-						this.logger.error(
+						this.dynamicLogger.error(
 							`获取动态信息失败，错误码：${content.code}，错误信息：${content.message}`,
 						);
 						// 发送私聊消息
@@ -161,7 +166,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				}
 			}
 			// logger
-			this.logger.debug("成功获取动态信息，开始处理");
+			this.dynamicLogger.debug("成功获取动态信息，开始处理");
 			// 获取动态内容
 			const items = content.data.items;
 			// 检查更新的动态
@@ -174,23 +179,23 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				const uid = item.modules.module_author.mid.toString();
 				const name = item.modules.module_author.name;
 				// logger
-				this.logger.debug(
+				this.dynamicLogger.debug(
 					`获取动态信息：UP主=${name}, UID=${uid}, 发布时间=${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")}`,
 				);
 				// 判断是否存在时间线
 				if (this.dynamicTimelineManager.has(uid)) {
 					// logger
-					this.logger.debug("已订阅该UP主，检查动态时间线");
+					this.dynamicLogger.debug("已订阅该UP主，检查动态时间线");
 					// 寻找关注的UP主
 					const timeline = this.dynamicTimelineManager.get(uid);
 					// logger
-					this.logger.debug(
+					this.dynamicLogger.debug(
 						`上次推送时间线：${DateTime.fromSeconds(timeline).toFormat("yyyy-MM-dd HH:mm:ss")}`,
 					);
 					// 判断动态发布时间是否大于时间线
 					if (timeline < postTime) {
 						// logger
-						this.logger.debug("该动态需要推送");
+						this.dynamicLogger.debug("该动态需要推送");
 						// 获取订阅对象
 						const sub = this.dynamicSubManager.get(uid);
 						const filterResult = filterDynamic(item, this.config.filter);
@@ -214,7 +219,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 							continue;
 						}
 						// logger
-						this.logger.debug("开始渲染推送卡片");
+						this.dynamicLogger.debug("开始渲染推送卡片");
 						// 推送该条动态
 						const buffer = await withRetry(async () => {
 							// 渲染图片
@@ -228,7 +233,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 							// 直播开播动态，不做处理
 							if (e.message === "直播开播动态，不做处理") return;
 							// 未知错误
-							this.logger.error(`生成动态图片失败：${e.message}`);
+							this.dynamicLogger.error(`生成动态图片失败：${e.message}`);
 							// 发送私聊消息并重启服务
 							await this.ctx[
 								"bilibili-notify-push"
@@ -237,13 +242,13 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						// 判断是否执行成功，未执行成功直接返回
 						if (!buffer) continue;
 						// logger
-						this.logger.debug("渲染推送卡片成功");
+						this.dynamicLogger.debug("渲染推送卡片成功");
 						// 定义动态链接
 						let dUrl = "";
 						// 判断是否需要发送URL
 						if (this.config.dynamicUrl) {
 							// logger
-							this.logger.debug("生成动态链接");
+							this.dynamicLogger.debug("生成动态链接");
 							// 判断动态类型
 							if (item.type === "DYNAMIC_TYPE_AV") {
 								// 判断是否开启url to bv
@@ -264,10 +269,10 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 								dUrl = `${name}发布了一条动态：https://t.bilibili.com/${item.id_str}`;
 							}
 							// logger
-							this.logger.debug("生成动态链接成功");
+							this.dynamicLogger.debug("生成动态链接成功");
 						}
 						// logger
-						this.logger.debug("推送动态");
+						this.dynamicLogger.debug("推送动态");
 						// 发送推送卡片
 						await this.ctx["bilibili-notify-push"].broadcastToTargets(
 							uid,
@@ -277,7 +282,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 						// 判断是否需要发送动态中的图片
 						if (this.config.pushImgsInDynamic) {
 							// logger
-							this.logger.debug("发送动态中的图片");
+							this.dynamicLogger.debug("发送动态中的图片");
 							// 判断是否为图文动态
 							if (item.type === "DYNAMIC_TYPE_DRAW") {
 								// 获取pics
@@ -299,7 +304,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 								}
 							}
 							// logger
-							this.logger.debug("动态中的图片发送完毕");
+							this.dynamicLogger.debug("动态中的图片发送完毕");
 						}
 						// 如果当前订阅对象已存在更早推送，则无需再更新时间线
 						if (!currentPushDyn[uid]) {
@@ -307,12 +312,12 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 							currentPushDyn[uid] = item;
 						}
 						// logger
-						this.logger.debug("动态推送完成");
+						this.dynamicLogger.debug("动态推送完成");
 					}
 				}
 			}
 			// logger
-			this.logger.debug("动态信息处理完毕");
+			this.dynamicLogger.debug("动态信息处理完毕");
 			// 遍历currentPushDyn
 			for (const uid in currentPushDyn) {
 				// 获取动态发布时间
@@ -320,12 +325,12 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				// 更新当前时间线
 				this.dynamicTimelineManager.set(uid, postTime);
 				// logger
-				this.logger.debug(
+				this.dynamicLogger.debug(
 					`更新时间线：UP主=${uid}, 时间线=${DateTime.fromSeconds(postTime).toFormat("yyyy-MM-dd HH:mm:ss")}`,
 				);
 			}
 			// logger
-			this.logger.debug(
+			this.dynamicLogger.debug(
 				`推送的动态数量：${Object.keys(currentPushDyn).length} 条`,
 			);
 		};

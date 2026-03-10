@@ -103,11 +103,11 @@ export default function (this: BilibiliNotifySub) {
 				await this.ctx["bilibili-notify-api"].getUserSpaceDynamic(uid);
 			// 判断content是否存在
 			if (!content || !content.data) {
-				this.logger.error("获取动态内容失败");
+				this.ctx.logger.error("获取动态内容失败");
 				return;
 			}
 			if (content.code !== 0) {
-				this.logger.error(`获取动态内容失败，错误码: ${content.code}`);
+				this.ctx.logger.error(`获取动态内容失败，错误码: ${content.code}`);
 				return;
 			}
 			// 获取动态内容
@@ -137,7 +137,7 @@ export default function (this: BilibiliNotifySub) {
 					return;
 				}
 				// 未知错误
-				this.logger.error(`生成动态图片失败：${e.message}`);
+				this.ctx.logger.error(`生成动态图片失败：${e.message}`);
 			});
 			// 发送图片
 			buffer && (await session.send(h.image(buffer, "image/jpeg")));
@@ -329,7 +329,7 @@ export default function (this: BilibiliNotifySub) {
 	});
 
 	biliCom.subcommand(".ai").action(async () => {
-		this.logger.debug("开始生成AI直播总结");
+		this.ctx.logger.debug("开始生成AI直播总结");
 
 		const liveSummaryData = {
 			medalName: "特工",
@@ -375,8 +375,8 @@ export default function (this: BilibiliNotifySub) {
                     以下是直播数据：${JSON.stringify(liveSummaryData)}`,
 		);
 
-		this.logger.debug("AI 生成完毕，结果为：");
-		this.logger.debug(res.choices[0].message.content);
+		this.ctx.logger.debug("AI 生成完毕，结果为：");
+		this.ctx.logger.debug(res.choices[0].message.content);
 	});
 
 	biliCom.subcommand(".img").action(async ({ session }) => {

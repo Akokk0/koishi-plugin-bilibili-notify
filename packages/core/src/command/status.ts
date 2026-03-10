@@ -21,7 +21,7 @@ export default function (this: BilibiliNotifySub) {
 		.usage("查看订阅管理对象")
 		.example("status sm")
 		.action(async () => {
-			this.logger.info(this.subManager);
+			this.ctx.logger.info(this.subManager);
 			return "查看控制台";
 		});
 
@@ -30,12 +30,12 @@ export default function (this: BilibiliNotifySub) {
 		.usage("查询当前拥有的机器人信息")
 		.example("status bot 查询当前拥有的机器人信息")
 		.action(() => {
-			this.logger.debug("开始输出BOT信息");
+			this.ctx.logger.debug("开始输出BOT信息");
 			for (const bot of this.ctx.bots) {
-				this.logger.debug("--------------------------------");
-				this.logger.debug(`平台：${bot.platform}`);
-				this.logger.debug(`名称：${bot.user.name}`);
-				this.logger.debug("--------------------------------");
+				this.ctx.logger.debug("--------------------------------");
+				this.ctx.logger.debug(`平台：${bot.platform}`);
+				this.ctx.logger.debug(`名称：${bot.user.name}`);
+				this.ctx.logger.debug("--------------------------------");
 			}
 		});
 
