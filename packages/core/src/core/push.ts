@@ -23,11 +23,11 @@ class BilibiliNotifyPush extends Service {
 	// logger
 	private pushLogger: Logger;
 	// 机器人实例
-	privateBot: Bot<Context>;
+	private privateBot: Bot<Context>;
 	// 服务是否已销毁
 	private disposed = false;
 	// 重启次数
-	rebootCount: number = 0;
+	private rebootCount: number = 0;
 	// 推送对象信息是否初始化完毕
 	pushArrMapInitializing: boolean = false;
 	// PushArrMap
@@ -196,7 +196,7 @@ class BilibiliNotifyPush extends Service {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <message>
-	async pushMessage(targets: Array<string>, content: any) {
+	private async pushMessage(targets: Array<string>, content: any) {
 		// 初始化目标
 		const t: Record<string, Array<string>> = {};
 		// 遍历获取target

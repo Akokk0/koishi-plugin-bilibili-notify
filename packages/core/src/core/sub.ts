@@ -53,20 +53,20 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		"bilibili-notify-dynamic",
 		"bilibili-notify-generate-img",
 	];
+	// logger
+	private subLogger: Logger;
 	// 登录定时器
-	loginTimer: () => void;
+	private loginTimer: () => void;
 	// 订阅通知
-	subNotifier: Notifier;
+	private subNotifier: Notifier;
 	// 订阅管理器
 	subManager: SubManager;
 	// 检查登录数据库是否有数据
-	loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
-	// logger
-	private subLogger: Logger;
+	private loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// recive subs times
-	reciveSubTimes = 0;
+	private reciveSubTimes = 0;
 	// biome-ignore lint/suspicious/noExplicitAny: <data>
-	groupInfo: any | null = null;
+	private groupInfo: any | null = null;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifySub.Config) {
 		super(ctx, BILIBILI_NOTIFY_SUB);
@@ -141,7 +141,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		if (this.loginTimer) this.loginTimer();
 	}
 
-	preInitConfig(subs: Subscriptions) {
+	private preInitConfig(subs: Subscriptions) {
 		const pushArrMap: PushArrMap = new Map();
 		// 遍历subs
 		for (const sub of Object.values(subs)) {
@@ -285,13 +285,13 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.subLogger.debug(pushArrMap);
 	}
 
-	registerCommands() {
+	private registerCommands() {
 		// 注册指令
 		biliCommands.call(this);
 		statusCommands.call(this);
 	}
 
-	registeringForEvents() {
+	private registeringForEvents() {
 		// 监听登录事件
 		this.ctx.console.addListener("bilibili-notify/start-login", async () => {
 			this.subLogger.info("触发登录事件");
@@ -469,14 +469,14 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		}
 	}
 
-	processUname(subs: Subscriptions) {
+	private processUname(subs: Subscriptions) {
 		// 处理uname
 		for (const uname of Object.keys(subs)) {
 			subs[uname].uname = uname;
 		}
 	}
 
-	async initAsyncPart(subs: Subscriptions) {
+	private async initAsyncPart(subs: Subscriptions) {
 		// 先清理一次直播副作用，避免重载订阅时残留旧 listener / timer
 		this.ctx["bilibili-notify-live"].clearPushTimers();
 		this.ctx["bilibili-notify-live"].clearListeners();
@@ -512,7 +512,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.subLogger.info("订阅加载完成！bilibili-notify 已启动！");
 	}
 
-	configSubsToSubscription(sub: BilibiliNotifySub.Config["subs"]) {
+	private configSubsToSubscription(sub: BilibiliNotifySub.Config["subs"]) {
 		const subs: Subscriptions = {};
 		// 补充完整订阅配置
 		sub.forEach((s) => {
@@ -564,7 +564,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		return table ? table : "没有订阅任何UP";
 	}
 
-	updateSubNotifier() {
+	private updateSubNotifier() {
 		// 更新控制台提示
 		if (this.subNotifier) this.subNotifier.dispose();
 		// 获取订阅信息
@@ -591,7 +591,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.subNotifier = this.ctx.notifier.create(table);
 	}
 
-	async checkIfLoginInfoIsLoaded() {
+	private async checkIfLoginInfoIsLoaded() {
 		return new Promise((resolve) => {
 			const check = () => {
 				if (!this.ctx["bilibili-notify-api"].getLoginInfoIsLoaded()) {
@@ -604,7 +604,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		});
 	}
 
-	async getGroupInfo(): Promise<Result> {
+	private async getGroupInfo(): Promise<Result> {
 		// 获取关注分组信息
 		const checkGroupIsReady = async (): Promise<Result> => {
 			// 获取所有分组
@@ -701,7 +701,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		};
 	}
 
-	async subUserInBili(mid: string): Promise<Result> {
+	private async subUserInBili(mid: string): Promise<Result> {
 		// 判断是否已经订阅该对象
 		for (const user of this.groupInfo) {
 			if (user.mid.toString() === mid) {
@@ -816,7 +816,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		return await subUserExecute();
 	}
 
-	async loadSubFromConfig(subs: Subscriptions): Promise<Result> {
+	private async loadSubFromConfig(subs: Subscriptions): Promise<Result> {
 		// 初始化pushRecord
 		this.preInitConfig(subs);
 		// 加载订阅
@@ -920,7 +920,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		};
 	}
 
-	async checkIfIsLogin() {
+	private async checkIfIsLogin() {
 		if ((await this.ctx.database.get("loginBili", 1)).length !== 0) {
 			// 数据库中有数据
 			// 检查cookie中是否有值

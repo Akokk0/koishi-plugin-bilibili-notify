@@ -97,7 +97,7 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 		this.dynamicLogger.info("动态检测任务已启动");
 	}
 	// 动态检测器
-	dynamicDetector() {
+	private dynamicDetector() {
 		// 定义handler
 		const handler = async () => {
 			// 定义本次请求推送的动态

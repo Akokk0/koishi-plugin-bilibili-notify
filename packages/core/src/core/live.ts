@@ -41,9 +41,9 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 	// logger
 	private liveLogger: Logger;
 	// 创建segmentit
-	_jieba = Jieba.withDict(dict);
+	private _jieba = Jieba.withDict(dict);
 	// 停用词
-	stopwords: Set<string>;
+	private stopwords: Set<string>;
 	// 定义类属性
 	private listenerRecord: Record<string, MessageListener> = {};
 	private livePushTimerManager: LivePushTimerManager;
