@@ -1,21 +1,19 @@
-// biome-ignore assist/source/organizeImports: <import>
+import { resolve } from "node:path";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
+import {} from "@koishijs/plugin-console";
+// biome-ignore lint/correctness/noUnusedImports: <import type>
+import {} from "@koishijs/plugin-notifier";
 import type { Context, Schema } from "koishi";
 import {
 	type BilibiliNotifyConfig,
 	BilibiliNotifyConfigSchema,
 } from "./config";
-// biome-ignore lint/correctness/noUnusedImports: <import type>
-import {} from "@koishijs/plugin-notifier";
-// biome-ignore lint/correctness/noUnusedImports: <import type>
-import {} from "@koishijs/plugin-console";
-import { resolve } from "node:path";
 // import plugins
 import BilibiliNotifyDataServer from "./data_server";
 
 import * as Database from "./database";
-
-import type { BiliDataServer, Subscriptions } from "./type";
 import BilibiliNotifyServerManager from "./server_manager";
+import type { BiliDataServer, Subscriptions } from "./type";
 
 export const inject = ["puppeteer", "database", "notifier", "console"];
 

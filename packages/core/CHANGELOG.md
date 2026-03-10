@@ -325,3 +325,10 @@
 > - ver 3.10.0 修复：一些已知问题；
 > - ver 3.10.1 修复：JSDOM错误；
 > - ver 3.10.2 修复：降级JSDOM；
+> - ver 3.10.3 优化：移除一些不必要的依赖和方法、更新一些依赖；修复：一些潜在的bug；添加：CLAUDE.md和AGENTS.md；
+> - ver 3.11.0-alpha.0 优化：在 `pptr` 进行渲染之前，请求图片到插件后转换为base64再交给pptr进行渲染；
+> - ver 3.12.0-alpha.0 重构：动态屏蔽功能； 新增：动态屏蔽白名单功能；
+> - ver 3.12.0-alpha.1 修复：当插件报错 `cannot create effect on inactive context` 后，重复发送消息；
+> - ver 3.12.0-alpha.2 修复：多次重载插件后，直播重复推送；
+> - ver 3.12.0-alpha.3 修复：报错 `TypeError: Cannot read properties of undefined (reading 'liveOpenFollowerNum')`；
+> - ver 3.12.0 修复：一些已知问题；

@@ -3,6 +3,7 @@ import {
 	type Bot,
 	type Context,
 	h,
+	Logger,
 	Schema,
 	Service,
 	Universal,
@@ -16,24 +17,32 @@ declare module "koishi" {
 	}
 }
 
+const BILIBILI_NOTIFY_PUSH = "bilibili-notify-push";
+
 class BilibiliNotifyPush extends Service {
+	// logger
+	private pushLogger: Logger;
 	// 机器人实例
-	privateBot: Bot<Context>;
+	private privateBot: Bot<Context>;
+	// 服务是否已销毁
+	private disposed = false;
 	// 重启次数
-	rebootCount: number = 0;
+	private rebootCount: number = 0;
 	// 推送对象信息是否初始化完毕
 	pushArrMapInitializing: boolean = false;
 	// PushArrMap
 	pushArrMap: PushArrMap;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifyPush.Config) {
-		super(ctx, "bilibili-notify-push");
+		super(ctx, BILIBILI_NOTIFY_PUSH);
 		// 配置
 		this.config = config;
-		// 设置日志级别
-		this.logger.level = config.logLevel;
+		// logger
+		this.pushLogger = new Logger(BILIBILI_NOTIFY_PUSH);
+		this.pushLogger.level = this.config.logLevel;
 	}
 	protected start(): Awaitable<void> {
+		this.disposed = false;
 		// 拿到私人机器人实例
 		this.privateBot = this.ctx.bots.find(
 			(bot) => bot.platform === this.config.master.platform,
@@ -43,6 +52,20 @@ class BilibiliNotifyPush extends Service {
 				content: "未配置管理员账号，无法推送插件运行状态，请尽快配置",
 			});
 		}
+	}
+
+	protected stop(): Awaitable<void> {
+		this.disposed = true;
+	}
+
+	private async safeSleep(ms: number) {
+		if (this.disposed) return;
+		await new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	private isInactiveContextError(error: unknown) {
+		if (!(error instanceof Error)) return false;
+		return error.message.includes("cannot create effect on inactive context");
 	}
 	// biome-ignore lint/suspicious/noExplicitAny: <any>
 	getBot(pf: string, selfId?: string): Bot<Context, any> {
@@ -60,10 +83,14 @@ class BilibiliNotifyPush extends Service {
 	async sendPrivateMsg(content: string) {
 		// 判断是否开启私聊推送功能
 		if (this.config.master.enable) {
+			if (!this.privateBot) {
+				this.pushLogger.warn("未找到管理员机器人实例，暂时无法推送");
+				return;
+			}
 			// 判断私人机器人是否具备推送条件
-			if (this.privateBot?.status !== Universal.Status.ONLINE) {
+			if (this.privateBot.status !== Universal.Status.ONLINE) {
 				// 不具备推送条件 logger
-				this.logger.warn(
+				this.pushLogger.warn(
 					`${this.privateBot.platform} 机器人未初始化，暂时无法推送`,
 				);
 				// 返回
@@ -91,7 +118,7 @@ class BilibiliNotifyPush extends Service {
 		// 判断重启次数是否超过三次
 		if (this.rebootCount >= 3) {
 			// logger
-			this.logger.error(
+			this.pushLogger.error(
 				"已重启插件3次，请检查机器人状态后使用 `bn start` 启动插件",
 			);
 			// 重启失败，发送消息
@@ -106,15 +133,15 @@ class BilibiliNotifyPush extends Service {
 		// 重启次数+1
 		this.rebootCount++;
 		// logger
-		this.logger.info("插件出现未知错误，正在重启插件");
+		this.pushLogger.info("插件出现未知错误，正在重启插件");
 		// 重启插件
 		const flag = await this.ctx["bilibili-notify"].restartPlugin();
 		// 判断是否重启成功
 		if (flag) {
-			this.logger.info("插件重启成功");
+			this.pushLogger.info("插件重启成功");
 		} else {
 			// logger
-			this.logger.error(
+			this.pushLogger.error(
 				"插件重启失败，请检查机器人状态后使用 `bn start` 启动插件",
 			);
 			// 重启失败，发送消息
@@ -132,7 +159,7 @@ class BilibiliNotifyPush extends Service {
 			"插件发生未知错误，请检查机器人状态后使用 `bn start` 启动插件",
 		);
 		// logger
-		this.logger.error(
+		this.pushLogger.error(
 			"插件发生未知错误，请检查机器人状态后使用 `bn start` 启动插件",
 		);
 		// 关闭插件
@@ -147,18 +174,20 @@ class BilibiliNotifyPush extends Service {
 		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
 	) {
+		if (this.disposed) return;
 		withRetry(async () => await bot.sendMessage(channelId, content), 1).catch(
 			async (e: Error) => {
+				if (this.disposed) return;
 				if (e.message === "this._request is not a function") {
 					// 2S之后重新发送消息
-					this.ctx.setTimeout(async () => {
+					setTimeout(async () => {
 						await this.sendMessageWithRetry(bot, channelId, content);
 					}, 2000);
 					// 返回
 					return;
 				}
 				// 打印错误信息
-				this.logger.error(
+				this.pushLogger.error(
 					`发送消息失败，群组ID: ${channelId}，错误：${e.message}`,
 				);
 				await this.sendPrivateMsg(`发送消息失败，群组ID: ${channelId}`);
@@ -167,7 +196,7 @@ class BilibiliNotifyPush extends Service {
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: <message>
-	async pushMessage(targets: Array<string>, content: any) {
+	private async pushMessage(targets: Array<string>, content: any) {
 		// 初始化目标
 		const t: Record<string, Array<string>> = {};
 		// 遍历获取target
@@ -199,9 +228,10 @@ class BilibiliNotifyPush extends Service {
 				botIndex = 0,
 				retry = 3000,
 			) => {
+				if (this.disposed) return;
 				// 判断机器人是否存在
 				if (!bots[botIndex]) {
-					this.logger.warn(`${platform} 没有配置对应机器人，无法推送`);
+					this.pushLogger.warn(`${platform} 没有配置对应机器人，无法推送`);
 					return;
 				}
 				// 判断机器人状态
@@ -209,7 +239,7 @@ class BilibiliNotifyPush extends Service {
 					// 判断是否超过5次重试
 					if (retry >= 3000 * 2 ** 5) {
 						// logger
-						this.logger.error(
+						this.pushLogger.error(
 							`${platform} 机器人未初始化，已重试5次，放弃推送`,
 						);
 						// 发送私聊消息
@@ -220,28 +250,37 @@ class BilibiliNotifyPush extends Service {
 						return;
 					}
 					// 有机器人未准备好，直接返回
-					this.logger.warn(
+					this.pushLogger.warn(
 						`${platform} 机器人未初始化，${retry / 1000} 秒后重试`,
 					);
 					// 等待
-					await this.ctx.sleep(retry);
+					await this.safeSleep(retry);
 					// 重试(指数退避)
 					await sendMessageByBot(channelId, botIndex, retry * 2);
 					// 返回
 					return;
 				}
 				// 发送消息
+				let sent = false;
 				try {
 					await bots[botIndex].sendMessage(channelId, content);
 					// 消息成功发送+1
 					num++;
-					// 延迟发送
-					await this.ctx.sleep(500);
+					sent = true;
 				} catch (e) {
+					if (this.isInactiveContextError(e) || this.disposed) return;
 					// logger
-					this.logger.error(`发送消息失败：${e}`);
+					this.pushLogger.error(`发送消息失败：${e}`);
 					// 判断是否还有其他机器人
-					if (bots.length > 1) await sendMessageByBot(channelId, botIndex++);
+					const nextBotIndex = botIndex + 1;
+					if (nextBotIndex < bots.length) {
+						await sendMessageByBot(channelId, nextBotIndex);
+					}
+					return;
+				}
+				// 发送成功后再做节流等待，避免等待报错触发重复发送
+				if (sent) {
+					await this.safeSleep(500);
 				}
 			};
 			// 发送消息
@@ -249,7 +288,7 @@ class BilibiliNotifyPush extends Service {
 				await sendMessageByBot(channelId);
 			}
 			// logger
-			this.logger.info(`成功推送 ${num} 条消息`);
+			this.pushLogger.info(`成功推送 ${num} 条消息`);
 		}
 	}
 
@@ -259,13 +298,15 @@ class BilibiliNotifyPush extends Service {
 		content: any,
 		type: PushType,
 	) {
+		if (this.disposed) return;
 		// 判断pushArrMap是否初始化完毕
 		if (!this.pushArrMapInitializing) {
-			this.logger.warn(
+			this.pushLogger.warn(
 				`推送对象信息尚未初始化完毕，等待5秒钟后重试推送，推送对象: ${uid}, 推送类型: ${PushTypeMsg[type]}`,
 			);
 			// 等待5秒钟
-			await this.ctx.sleep(5000);
+			await this.safeSleep(5000);
+			if (this.disposed) return;
 			// 递归调用
 			return this.broadcastToTargets(uid, content, type);
 		}
@@ -296,11 +337,11 @@ class BilibiliNotifyPush extends Service {
 		if (!hasTargets) return; // 没有需要推送的对象，直接结束
 
 		// 有推送目标才打印一次全局信息
-		this.logger.info(`推送对象: ${uid}, 推送类型: ${PushTypeMsg[type]}`);
+		this.pushLogger.info(`推送对象: ${uid}, 推送类型: ${PushTypeMsg[type]}`);
 
 		// 推送 @全体（开播）
 		if (type === PushType.StartBroadcasting) {
-			this.logger.debug(`推送给 @全体，对象列表：${record.liveAtAllArr}`);
+			this.pushLogger.debug(`推送给 @全体，对象列表：${record.liveAtAllArr}`);
 			const atAllArr = structuredClone(record.liveAtAllArr);
 			await withRetry(() => this.pushMessage(atAllArr, h.at("all")), 1);
 		}
@@ -308,7 +349,7 @@ class BilibiliNotifyPush extends Service {
 		// 推送动态
 		if (type === PushType.Dynamic) {
 			if (record.dynamicAtAllArr?.length > 0) {
-				this.logger.debug(
+				this.pushLogger.debug(
 					`推送动态给 @全体，对象列表：${record.dynamicAtAllArr}`,
 				);
 				const dynamicAtAllArr = structuredClone(record.dynamicAtAllArr);
@@ -317,7 +358,7 @@ class BilibiliNotifyPush extends Service {
 					1,
 				);
 			}
-			this.logger.debug(`推送动态，对象列表：${record.dynamicArr}`);
+			this.pushLogger.debug(`推送动态，对象列表：${record.dynamicArr}`);
 			const dynamicArr = structuredClone(record.dynamicArr);
 			await withRetry(
 				() => this.pushMessage(dynamicArr, h("message", content)),
@@ -327,7 +368,7 @@ class BilibiliNotifyPush extends Service {
 
 		// 推送直播
 		if (type === PushType.Live || type === PushType.StartBroadcasting) {
-			this.logger.debug(`推送直播，对象列表：${record.liveArr}`);
+			this.pushLogger.debug(`推送直播，对象列表：${record.liveArr}`);
 			const liveArr = structuredClone(record.liveArr);
 			await withRetry(
 				() => this.pushMessage(liveArr, h("message", content)),
@@ -337,7 +378,7 @@ class BilibiliNotifyPush extends Service {
 
 		// 推送直播守护购买
 		if (type === PushType.LiveGuardBuy) {
-			this.logger.debug(
+			this.pushLogger.debug(
 				`推送直播守护购买消息，对象列表：${record.liveGuardBuyArr}`,
 			);
 			const liveGuardBuyArr = structuredClone(record.liveGuardBuyArr);
@@ -349,7 +390,7 @@ class BilibiliNotifyPush extends Service {
 
 		// 推送SC
 		if (type === PushType.Superchat) {
-			this.logger.debug(`推送 SC 消息，对象列表：${record.superchatArr}`);
+			this.pushLogger.debug(`推送 SC 消息，对象列表：${record.superchatArr}`);
 			const superchatArr = structuredClone(record.superchatArr);
 			await withRetry(
 				() => this.pushMessage(superchatArr, h("message", content)),
@@ -373,7 +414,7 @@ class BilibiliNotifyPush extends Service {
 			);
 
 			if (wordcloudAndLiveSummaryArr.length > 0) {
-				this.logger.debug(
+				this.pushLogger.debug(
 					`推送词云和直播总结，对象列表：${wordcloudAndLiveSummaryArr}`,
 				);
 
@@ -388,7 +429,7 @@ class BilibiliNotifyPush extends Service {
 			}
 
 			if (content[0] && wordcloudOnlyArr.length > 0) {
-				this.logger.debug(`推送词云，对象列表：${wordcloudOnlyArr}`);
+				this.pushLogger.debug(`推送词云，对象列表：${wordcloudOnlyArr}`);
 				await withRetry(
 					() => this.pushMessage(wordcloudOnlyArr, h("message", content[0])),
 					1,
@@ -396,7 +437,7 @@ class BilibiliNotifyPush extends Service {
 			}
 
 			if (content[1] && liveSummaryOnlyArr.length > 0) {
-				this.logger.debug(`推送直播总结，对象列表：${liveSummaryOnlyArr}`);
+				this.pushLogger.debug(`推送直播总结，对象列表：${liveSummaryOnlyArr}`);
 				await withRetry(
 					() => this.pushMessage(liveSummaryOnlyArr, h("message", content[1])),
 					1,
@@ -405,7 +446,7 @@ class BilibiliNotifyPush extends Service {
 		}
 
 		if (type === PushType.UserDanmakuMsg) {
-			this.logger.debug(
+			this.pushLogger.debug(
 				`推送用户弹幕消息，对象列表：${record.spacialDanmakuArr}`,
 			);
 			const spacialDanmakuArr = structuredClone(record.spacialDanmakuArr);
@@ -416,7 +457,7 @@ class BilibiliNotifyPush extends Service {
 		}
 
 		if (type === PushType.UserActions) {
-			this.logger.debug(
+			this.pushLogger.debug(
 				`推送用户进入直播间消息，对象列表：${record.spacialUserEnterTheRoomArr}`,
 			);
 			const spacialUserEnterTheRoomArr = structuredClone(

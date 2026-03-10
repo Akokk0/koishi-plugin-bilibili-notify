@@ -1,8 +1,9 @@
 // biome-ignore assist/source/organizeImports: <import>
-import { type Context, Schema, Service } from "koishi";
+import { type Context, Logger, Schema, Service } from "koishi";
 // biome-ignore lint/correctness/noUnusedImports: <import type>
 import {} from "koishi-plugin-puppeteer";
 import { DateTime } from "luxon";
+import { JSDOM } from "jsdom";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { withRetry } from "../utils";
@@ -14,6 +15,8 @@ declare module "koishi" {
 		"bilibili-notify-generate-img": BilibiliNotifyGenerateImg;
 	}
 }
+
+const BILIBILI_NOTIFY_GENERATE_IMG = "bilibili-notify-generate-img";
 
 // 动态类型
 const DYNAMIC_TYPE_NONE = "DYNAMIC_TYPE_NONE";
@@ -36,10 +39,35 @@ const ADDITIONAL_TYPE_GOODS = "ADDITIONAL_TYPE_GOODS";
 
 class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config> {
 	static inject = ["puppeteer"];
+	// logger
+	private generateImgLogger: Logger;
+	private readonly imageDataUrlCache = new Map<
+		string,
+		{ dataUrl: string; updatedAt: number }
+	>();
+	private clearImageCacheTimer?: () => void;
+	private readonly IMAGE_CACHE_TTL_MS = 30 * 60 * 1000;
+	private readonly IMAGE_CACHE_MAX_SIZE = 300;
 
 	constructor(ctx: Context, config: BilibiliNotifyGenerateImg.Config) {
-		super(ctx, "bilibili-notify-generate-img");
+		super(ctx, BILIBILI_NOTIFY_GENERATE_IMG);
 		this.config = config;
+		// logger
+		this.generateImgLogger = new Logger(BILIBILI_NOTIFY_GENERATE_IMG);
+		this.generateImgLogger.level = this.config.logLevel;
+	}
+
+	protected start() {
+		this.clearImageCacheTimer = this.ctx.setInterval(
+			() => this.pruneImageCache(),
+			5 * 60 * 1000,
+		);
+	}
+
+	protected stop() {
+		this.clearImageCacheTimer?.();
+		this.clearImageCacheTimer = undefined;
+		this.imageDataUrlCache.clear();
 	}
 
 	numberToStr(num: number) {
@@ -566,14 +594,157 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
                 font-size: 12px;
                 cursor: pointer;
             }
-        `;
+		`;
+	}
+
+	private isRemoteHttpUrl(url?: string | null): url is string {
+		return Boolean(url && /^https?:\/\//i.test(url));
+	}
+
+	private getMimeTypeFromUrl(url: string) {
+		const lower = url.toLowerCase();
+		if (lower.endsWith(".png")) return "image/png";
+		if (lower.endsWith(".webp")) return "image/webp";
+		if (lower.endsWith(".gif")) return "image/gif";
+		if (lower.endsWith(".bmp")) return "image/bmp";
+		if (lower.endsWith(".svg")) return "image/svg+xml";
+		return "image/jpeg";
+	}
+
+	private pruneImageCache() {
+		const now = Date.now();
+		for (const [url, cached] of this.imageDataUrlCache.entries()) {
+			if (now - cached.updatedAt > this.IMAGE_CACHE_TTL_MS) {
+				this.imageDataUrlCache.delete(url);
+			}
+		}
+
+		if (this.imageDataUrlCache.size <= this.IMAGE_CACHE_MAX_SIZE) return;
+
+		const sorted = Array.from(this.imageDataUrlCache.entries()).sort(
+			(a, b) => a[1].updatedAt - b[1].updatedAt,
+		);
+		const overflow = this.imageDataUrlCache.size - this.IMAGE_CACHE_MAX_SIZE;
+		for (let i = 0; i < overflow; i++) {
+			this.imageDataUrlCache.delete(sorted[i][0]);
+		}
+	}
+
+	private async fetchImageAsDataUrl(url: string) {
+		const cached = this.imageDataUrlCache.get(url);
+		if (cached) {
+			cached.updatedAt = Date.now();
+			return cached.dataUrl;
+		}
+
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 10_000);
+
+		try {
+			const response = await fetch(url, {
+				signal: controller.signal,
+				headers: {
+					"User-Agent":
+						"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+					Referer: "https://www.bilibili.com/",
+				},
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status} ${response.statusText}`);
+			}
+
+			const contentType =
+				response.headers.get("content-type")?.split(";")[0]?.trim() ||
+				this.getMimeTypeFromUrl(url);
+			const buffer = Buffer.from(await response.arrayBuffer());
+			const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
+			this.imageDataUrlCache.set(url, { dataUrl, updatedAt: Date.now() });
+			this.pruneImageCache();
+			return dataUrl;
+		} finally {
+			clearTimeout(timeout);
+		}
+	}
+
+	private async inlineRemoteImages(html: string) {
+		const dom = new JSDOM(html);
+		const { document } = dom.window;
+		const imageElements = Array.from(document.querySelectorAll("img"));
+		const pending: Promise<void>[] = [];
+
+		for (const img of imageElements) {
+			const src = img.getAttribute("src");
+			if (!this.isRemoteHttpUrl(src)) continue;
+			pending.push(
+				this.fetchImageAsDataUrl(src)
+					.then((dataUrl) => img.setAttribute("src", dataUrl))
+					.catch((error) => {
+						this.generateImgLogger.warn(`图片预取失败，将保留原URL: ${src} (${error})`);
+					}),
+			);
+		}
+
+		await Promise.all(pending);
+
+		const cssUrlMap = new Map<string, string>();
+		const cssUrlRegex = /url\((['"]?)(https?:\/\/[^'")]+)\1\)/gi;
+		const cssBlocks: string[] = [];
+		for (const styleEl of Array.from(document.querySelectorAll("style"))) {
+			cssBlocks.push(styleEl.textContent || "");
+		}
+		for (const styleAttrEl of Array.from(
+			document.querySelectorAll("[style]"),
+		)) {
+			cssBlocks.push(styleAttrEl.getAttribute("style") || "");
+		}
+
+		const cssUrls = new Set<string>();
+		for (const block of cssBlocks) {
+			for (const matched of block.matchAll(cssUrlRegex)) {
+				const url = matched[2];
+				if (this.isRemoteHttpUrl(url)) cssUrls.add(url);
+			}
+		}
+
+		await Promise.all(
+			Array.from(cssUrls).map(async (url) => {
+				try {
+					cssUrlMap.set(url, await this.fetchImageAsDataUrl(url));
+				} catch (error) {
+					this.generateImgLogger.warn(`CSS图片预取失败，将保留原URL: ${url} (${error})`);
+				}
+			}),
+		);
+
+		if (cssUrlMap.size > 0) {
+			for (const styleEl of Array.from(document.querySelectorAll("style"))) {
+				let css = styleEl.textContent || "";
+				for (const [url, dataUrl] of cssUrlMap.entries()) {
+					css = css.replaceAll(url, dataUrl);
+				}
+				styleEl.textContent = css;
+			}
+			for (const styleAttrEl of Array.from(
+				document.querySelectorAll("[style]"),
+			)) {
+				let styleValue = styleAttrEl.getAttribute("style") || "";
+				for (const [url, dataUrl] of cssUrlMap.entries()) {
+					styleValue = styleValue.replaceAll(url, dataUrl);
+				}
+				styleAttrEl.setAttribute("style", styleValue);
+			}
+		}
+
+		return dom.serialize();
 	}
 
 	private async imgHandler(html: string) {
 		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
+		const inlinedHtml = await this.inlineRemoteImages(html);
 		await page.goto(htmlPath.toString());
-		await page.setContent(html, { waitUntil: "networkidle0" });
+		await page.setContent(inlinedHtml, { waitUntil: "networkidle0" });
 		const elementHandle = await page.$("html");
 		const boundingBox = await elementHandle.boundingBox();
 		const buffer = await page.screenshot({
@@ -1224,23 +1395,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 			}
 			return accumulator + currentValue.text;
 		}, "");
-		// 关键字和正则屏蔽
-		if (this.config.filter.enable) {
-			// 开启动态屏蔽功能
-			if (this.config.filter.regex) {
-				// 正则屏蔽
-				const reg = new RegExp(this.config.filter.regex);
-				if (reg.test(richText)) throw new Error("出现关键词，屏蔽该动态");
-			}
-			if (
-				this.config.filter.keywords.length !== 0 &&
-				this.config.filter.keywords.some((keyword) =>
-					richText.includes(keyword),
-				)
-			) {
-				throw new Error("出现关键词，屏蔽该动态");
-			}
-		}
 		// 按换行符分割并限制行数
 		const lines = richText.split("\n");
 		const maxDisplayLines = 9;
@@ -1398,10 +1552,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 					basicDynamic();
 					// 转发动态
 					if (dynamic.type === DYNAMIC_TYPE_FORWARD) {
-						//转发动态屏蔽
-						if (this.config.filter.enable && this.config.filter.forward) {
-							throw new Error("已屏蔽转发动态");
-						}
 						// User info
 						const forward_module_author = dynamic.orig.modules.module_author;
 						const forwardUserAvatarUrl = forward_module_author.face;
@@ -1683,10 +1833,6 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 						`${upName}发布了剧集（番剧、电影、纪录片），我暂时无法渲染，请自行查看`,
 					];
 				case DYNAMIC_TYPE_ARTICLE: {
-					//转发动态屏蔽
-					if (this.config.filter.enable && this.config.filter.article) {
-						throw new Error("已屏蔽专栏动态");
-					}
 					// 投稿新专栏 - 直接使用 basicDynamic 渲染（opus 格式）
 					basicDynamic(true);
 					// 是否转发动态
@@ -2018,9 +2164,8 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
 	}
 
-    async generateLiveImgTest() {
-
-        const html = /* html */`
+	async generateLiveImgTest() {
+		const html = /* html */ `
             <!DOCTYPE html>
             <html lang="zh-CN">
 
@@ -2399,23 +2544,15 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
             </body>
 
             </html>
-        `
-        
-        return await this.imgHandler(html);
-    }
+        `;
+
+		return await this.imgHandler(html);
+	}
 }
 
 namespace BilibiliNotifyGenerateImg {
 	export interface Config {
 		logLevel: number;
-		filter: {
-			enable: boolean;
-			notify: boolean;
-			regex: string;
-			keywords: Array<string>;
-			forward: boolean;
-			article: boolean;
-		};
 		removeBorder: boolean;
 		cardColorStart: string;
 		cardColorEnd: string;
@@ -2429,14 +2566,6 @@ namespace BilibiliNotifyGenerateImg {
 
 	export const Config: Schema<Config> = Schema.object({
 		logLevel: Schema.number().required(),
-		filter: Schema.object({
-			enable: Schema.boolean(),
-			notify: Schema.boolean(),
-			regex: Schema.string(),
-			keywords: Schema.array(String),
-			forward: Schema.boolean(),
-			article: Schema.boolean(),
-		}),
 		removeBorder: Schema.boolean(),
 		cardColorStart: Schema.string(),
 		cardColorEnd: Schema.string(),

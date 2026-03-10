@@ -1,0 +1,13 @@
+{
+	"root": false,
+	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!**/*.vue",
+			"!**/node_modules/",
+			"!**/lib/"
+		]
+	}
+}

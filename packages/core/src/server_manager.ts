@@ -1,17 +1,14 @@
-// biome-ignore assist/source/organizeImports: <sort>
-import { type Context, type ForkScope, Service } from "koishi";
-
-import {
-	BilibiliNotifySub,
-	BilibiliNotifyDynamic,
-	BilibiliNotifyPush,
-	BilibiliNotifyLive,
-	BilibiliNotifyGenerateImg,
-} from "./core";
+import { type Context, type ForkScope, Logger, Service } from "koishi";
 import BilibiliNotifyAPI from "./api";
-import type { BilibiliNotifyConfig } from "./config";
-
 import { sysCommands } from "./command/index";
+import type { BilibiliNotifyConfig } from "./config";
+import {
+	BilibiliNotifyDynamic,
+	BilibiliNotifyGenerateImg,
+	BilibiliNotifyLive,
+	BilibiliNotifyPush,
+	BilibiliNotifySub,
+} from "./core";
 
 declare module "koishi" {
 	interface Context {
@@ -20,21 +17,26 @@ declare module "koishi" {
 }
 
 class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
+	// logger
+	private serverLogger: Logger;
 	// 服务
 	private servers: ForkScope[] = [];
 
 	constructor(ctx: Context, config: BilibiliNotifyConfig) {
 		super(ctx, "bilibili-notify");
-		// 设置日志级别
-		this.logger.level = config.logLevel;
 		// 配置
 		this.config = config;
+		// logger
+		this.serverLogger = new Logger("bilibili-notify");
+		this.serverLogger.level = this.config.logLevel;
 	}
 
 	protected start(): void | Promise<void> {
+		// logger
+		this.serverLogger.info("正在启动中...");
 		// 注册插件
 		if (!this.registerPlugin()) {
-			this.logger.error(
+			this.serverLogger.error(
 				"主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡",
 			);
 		}
@@ -58,7 +60,6 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 			// GI = BilibiliNotifyGenerateImg
 			const gi = this.ctx.plugin(BilibiliNotifyGenerateImg, {
 				logLevel: this.config.logLevel,
-				filter: this.config.filter,
 				removeBorder: this.config.removeBorder,
 				cardColorStart: this.config.cardColorStart,
 				cardColorEnd: this.config.cardColorEnd,
@@ -110,7 +111,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 			// 添加服务
 			this.servers.push(ba, gi, ps, dy, bl, cr);
 		} catch (e) {
-			this.logger.error(
+			this.serverLogger.error(
 				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 			);
 			return false;
@@ -122,15 +123,13 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 	public disposePlugin = async () => {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) return false;
-		// 遍历服务
-		await new Promise((resolve) => {
-			for (const fork of this.servers) {
-				fork.dispose();
-			}
-			// 清空服务
-			this.servers = [];
-			resolve("ok");
-		});
+		// 先截断引用，避免销毁过程中被重复使用
+		const forks = this.servers;
+		this.servers = [];
+		// Koishi 的 fork.dispose() 本身不是可等待的 Promise，这里只负责同步触发销毁。
+		for (const fork of forks) {
+			fork.dispose();
+		}
 		// 成功返回true
 		return true;
 	};
@@ -139,7 +138,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) {
 			// logger
-			this.logger.warn(
+			this.serverLogger.warn(
 				"主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡",
 			);
 			// 返回
@@ -153,7 +152,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 				try {
 					this.registerPlugin();
 				} catch (e) {
-					this.logger.error(
+					this.serverLogger.error(
 						`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 					);
 					resolve(false);

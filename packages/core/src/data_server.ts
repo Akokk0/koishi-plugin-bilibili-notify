@@ -1,7 +1,6 @@
-/** biome-ignore-all assist/source/organizeImports: <import> */
 import { DataService } from "@koishijs/plugin-console";
 import type { Context } from "koishi";
-import { BiliLoginStatus, type BiliDataServer } from "./type";
+import { type BiliDataServer, BiliLoginStatus } from "./type";
 
 export default class BilibiliNotifyDataServer extends DataService<BiliDataServer> {
 	private biliData: BiliDataServer = {

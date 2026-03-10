@@ -14,5 +14,7 @@ export default defineConfig({
 		{ from: "src/core/proto", to: "lib" },
 	],
 	exports: true,
-	external: [/^node:/, /^[^./]/],
+	deps: {
+		neverBundle: [/^node:/, /^[^./]/],
+	},
 });
