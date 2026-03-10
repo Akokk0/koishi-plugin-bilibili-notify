@@ -1,4 +1,4 @@
-import { type Context, type ForkScope, Service } from "koishi";
+import { type Context, type ForkScope, Logger, Service } from "koishi";
 import BilibiliNotifyAPI from "./api";
 import { sysCommands } from "./command/index";
 import type { BilibiliNotifyConfig } from "./config";
@@ -17,22 +17,26 @@ declare module "koishi" {
 }
 
 class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
+	// logger
+	private serverLogger: Logger;
 	// 服务
 	private servers: ForkScope[] = [];
 
 	constructor(ctx: Context, config: BilibiliNotifyConfig) {
 		super(ctx, "bilibili-notify");
-		// 设置日志级别
 		// 配置
 		this.config = config;
+		// logger
+		this.serverLogger = new Logger("bilibili-notify");
+		this.serverLogger.level = this.config.logLevel;
 	}
 
 	protected start(): void | Promise<void> {
 		// logger
-		this.ctx.logger.info("正在启动中...");
+		this.serverLogger.info("正在启动中...");
 		// 注册插件
 		if (!this.registerPlugin()) {
-			this.ctx.logger.error(
+			this.serverLogger.error(
 				"主人呜呜 (；>_<) 女仆启动插件失败啦～请主人检查一下再试哦 (>ω<)♡",
 			);
 		}
@@ -107,7 +111,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 			// 添加服务
 			this.servers.push(ba, gi, ps, dy, bl, cr);
 		} catch (e) {
-			this.ctx.logger.error(
+			this.serverLogger.error(
 				`主人呜呜 (；>_<) 女仆注册插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 			);
 			return false;
@@ -134,7 +138,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 		// 如果没有服务则返回false
 		if (this.servers.length === 0) {
 			// logger
-			this.ctx.logger.warn(
+			this.serverLogger.warn(
 				"主人～女仆发现插件目前没有运行哦～请主人使用指令 bn start 启动插件呀 (>ω<)♡",
 			);
 			// 返回
@@ -148,7 +152,7 @@ class BilibiliNotifyServerManager extends Service<BilibiliNotifyConfig> {
 				try {
 					this.registerPlugin();
 				} catch (e) {
-					this.ctx.logger.error(
+					this.serverLogger.error(
 						`主人呜呜 (；>_<) 女仆重启插件失败啦～错误信息：${e}，请主人帮女仆看看呀 (>ω<)♡`,
 					);
 					resolve(false);

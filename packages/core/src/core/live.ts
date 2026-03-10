@@ -91,7 +91,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 	}
 
 	private logSideEffectState(stage: string) {
-		this.liveLogger.info(
+		this.liveLogger.debug(
 			`[live:${this.instanceId}] ${stage} listeners=${this.getListenerCount()} timers=${this.livePushTimerManager?.size ?? 0} disposed=${this.disposed}`,
 		);
 	}
