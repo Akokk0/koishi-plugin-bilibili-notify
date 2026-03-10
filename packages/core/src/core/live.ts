@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { Jieba } from "@node-rs/jieba";
 import { dict } from "@node-rs/jieba/dict";
 import {
@@ -6,8 +7,16 @@ import {
 	type MsgHandler,
 	startListen,
 } from "blive-message-listener";
-import { type Awaitable, type Context, h, Logger, Schema, Service } from "koishi";
+import {
+	type Awaitable,
+	type Context,
+	h,
+	Logger,
+	Schema,
+	Service,
+} from "koishi";
 import { DateTime } from "luxon";
+import protobuf from "protobufjs";
 import definedStopWords from "../stop_words";
 import {
 	type LiveData,
@@ -324,6 +333,41 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		danmakuMakerRecord: Record<string, number>,
 	) {
 		danmakuMakerRecord[username] = (danmakuMakerRecord[username] || 0) + 1;
+	}
+
+	private interactWord: protobuf.Type;
+
+	private async decodeBase64PB(base64: string) {
+		// 1. 转二进制
+		const buffer = Uint8Array.from(Buffer.from(base64, "base64"));
+
+		// 判断是否加载过proto文件
+		if (!this.interactWord) {
+			// 2. 加载 proto（protobufjs 会自动处理 import）
+			const protoPath = resolve(__dirname, "./proto/interact_word.proto");
+
+			const root = await protobuf.load(protoPath);
+
+			// 3. 查找消息类型
+			const interactWord = root.lookupType(
+				"bilibili.live.xuserreward.v1.InteractWord",
+			);
+
+			// 保存到类属性中
+			this.interactWord = interactWord;
+		}
+
+		// 4. 解码
+		const message = this.interactWord.decode(buffer);
+
+		// 5. 转成普通对象（可选）
+		const object = this.interactWord.toObject(message, {
+			longs: String, // int64 转成字符串
+			enums: String, // enum 转成字符串
+			defaults: true, // 补全默认值
+		});
+
+		return object;
 	}
 
 	public async liveDetectWithListener(sub: Subscription) {
@@ -951,7 +995,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		};
 
 		const userAction: MsgHandler = {
-			/* raw: {
+			raw: {
 				INTERACT_WORD_V2: async (msg) => {
 					// 监听所有 cmd 消息
 					const data = await this.decodeBase64PB(msg.data.pb);
@@ -974,8 +1018,8 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						);
 					}
 				},
-			}, */
-			onUserAction: async ({ body }) => {
+			},
+			/* onUserAction: async ({ body }) => {
 				// 监听用户进入直播间事件
 				if (
 					body.action === "enter" &&
@@ -995,7 +1039,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 						PushType.UserActions,
 					);
 				}
-			},
+			}, */
 		};
 
 		// 启动直播间弹幕监测

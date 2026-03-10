@@ -8,5 +8,7 @@ export default defineConfig({
 	clean: true,
 	outDir: "lib",
 	exports: true,
-	external: [/^node:/, /^[^./]/],
+	deps: {
+		neverBundle: [/^node:/, /^[^./]/],
+	}
 });
