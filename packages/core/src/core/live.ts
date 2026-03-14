@@ -135,7 +135,7 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 			"bilibili-notify-api"
 		].getMyselfInfo()) as MySelfInfoData;
 		// 判断是否获取成功
-		if (mySelfInfo.code !== 0) {
+		if (mySelfInfo.code !== 0 || !mySelfInfo.data) {
 			this.liveLogger.warn(`获取个人信息失败，无法创建直播间 [${roomId}] 连接`);
 			return;
 		}

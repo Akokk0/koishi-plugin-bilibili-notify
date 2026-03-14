@@ -333,3 +333,4 @@
 > - ver 3.12.0-alpha.3 修复：报错 `TypeError: Cannot read properties of undefined (reading 'liveOpenFollowerNum')`；
 > - ver 3.12.0 修复：一些已知问题；
 > - ver 3.12.1-alpha.0 优化：修复低配机器渲染多图/长图时超时的问题，将 `waitUntil` 改为 `load`，添加渲染超时保护，串行化 Puppeteer 渲染队列；重构：移除订阅分组管理相关逻辑，简化订阅初始化流程；
+> - ver 3.12.1-alpha.1 修复：`startLiveRoomListener` 在 Bilibili 接口返回 `code: 0` 但 `data` 为空时报错 `Cannot read properties of undefined (reading 'mid')`；
