@@ -5,7 +5,6 @@ import type { Notifier } from "@koishijs/plugin-notifier";
 import {
 	type Awaitable,
 	type Context,
-	type FlatPick,
 	h,
 	Logger,
 	Schema,
@@ -15,14 +14,11 @@ import {
 import QRCode from "qrcode";
 // Command
 import { biliCommands, statusCommands } from "../command";
-import type { LoginBili } from "../database";
 // Types
 import {
 	BiliLoginStatus,
 	type Channel,
 	type ChannelArr,
-	type CreateGroup,
-	type GroupList,
 	type MySelfInfoData,
 	type PushArrMap,
 	type Result,
@@ -61,12 +57,8 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 	private subNotifier: Notifier;
 	// 订阅管理器
 	subManager: SubManager;
-	// 检查登录数据库是否有数据
-	private loginDBData: FlatPick<LoginBili, "dynamic_group_id">;
 	// recive subs times
 	private reciveSubTimes = 0;
-	// biome-ignore lint/suspicious/noExplicitAny: <data>
-	private groupInfo: any | null = null;
 	// 构造函数
 	constructor(ctx: Context, config: BilibiliNotifySub.Config) {
 		super(ctx, BILIBILI_NOTIFY_SUB);
@@ -82,10 +74,6 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.registerCommands();
 		// 注册事件
 		this.registeringForEvents();
-		// 检查登录数据库是否有数据
-		this.loginDBData = (
-			await this.ctx.database.get("loginBili", 1, ["dynamic_group_id"])
-		)[0];
 		// 判断登录信息是否已加载完毕
 		await this.checkIfLoginInfoIsLoaded();
 		// 如果未登录，则直接返回
@@ -396,8 +384,6 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 								bili_refresh_token: encryptedRefreshToken,
 							},
 						]);
-						// 检查登录数据库是否有数据
-						this.loginDBData = (await this.ctx.database.get("loginBili", 1))[0];
 						// ba重新加载登录信息
 						await this.ctx["bilibili-notify-api"].loadCookiesFromDatabase();
 						// 判断登录信息是否已加载完毕
@@ -482,15 +468,6 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		this.ctx["bilibili-notify-live"].clearListeners();
 		// logger
 		this.subLogger.info("已获取订阅信息，正在加载订阅");
-		// 判断订阅分组是否存在
-		const groupInfoResult = await this.getGroupInfo();
-		// 判断是否获取成功
-		if (groupInfoResult.code !== 0) {
-			this.subLogger.error("获取分组信息失败，订阅加载失败");
-			return;
-		}
-		// 赋值给成员变量
-		this.groupInfo = groupInfoResult.data;
 		// 加载订阅
 		const { code, message } = await this.loadSubFromConfig(subs);
 		// 判断是否加载成功
@@ -604,216 +581,52 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 		});
 	}
 
-	private async getGroupInfo(): Promise<Result> {
-		// 获取关注分组信息
-		const checkGroupIsReady = async (): Promise<Result> => {
-			// 获取所有分组
-			const allGroupData = (await this.ctx[
-				"bilibili-notify-api"
-			].getAllGroup()) as GroupList;
-			// 定义存在标志
-			let existFlag = false;
-			// 遍历所有分组
-			for (const group of allGroupData.data) {
-				// 找到订阅分组
-				if (group.name === "订阅") {
-					// 判断是否和保存的一致
-					if (this.loginDBData.dynamic_group_id !== group.tagid.toString()) {
-						// 拿到分组id
-						this.loginDBData.dynamic_group_id = group.tagid.toString();
-						// 保存到数据库
-						this.ctx.database.set("loginBili", 1, {
-							dynamic_group_id: this.loginDBData.dynamic_group_id,
-						});
-					}
-					// 更改存在标志位
-					existFlag = true;
-				}
-			}
-			// 判断是否有数据
-			if (!existFlag) {
-				// 没有数据，没有创建分组，尝试创建分组
-				const createGroupData = (await this.ctx[
-					"bilibili-notify-api"
-				].createGroup("订阅")) as CreateGroup;
-				// 如果分组已创建，则获取分组id
-				if (createGroupData.code !== 0) {
-					// 创建分组失败
-					return {
-						code: createGroupData.code,
-						message: createGroupData.message,
-					};
-				}
-				// 创建成功，保存到数据库
-				this.ctx.database.set("loginBili", 1, {
-					dynamic_group_id: createGroupData.data.tagid.toString(),
-				});
-				// 创建成功
-				return { code: createGroupData.code, message: createGroupData.message };
-			}
-			return { code: 0, message: "分组已存在" };
-		};
-		// 判断分组是否准备好
-		const resp = await checkGroupIsReady();
-		// 判断是否创建成功
-		if (resp.code !== 0) return resp;
-		// 获取分组详情
-		const getGroupDetailData = async (): Promise<Result> => {
-			// 获取分组明细
-			const relationGroupDetailData = await this.ctx[
-				"bilibili-notify-api"
-			].getRelationGroupDetail(this.loginDBData.dynamic_group_id);
-			// 判断分组信息是否获取成功
-			if (relationGroupDetailData.code !== 0) {
-				if (relationGroupDetailData.code === 22104) {
-					// 将原先的分组id置空
-					this.loginDBData.dynamic_group_id = null;
-					// 分组不存在
-					const resp = await checkGroupIsReady();
-					// 判断是否创建成功
-					if (resp.code !== 0) return resp;
-					// 再次获取分组明细
-					return getGroupDetailData();
-				}
-				// 获取分组明细失败
-				return {
-					code: relationGroupDetailData.code,
-					message: relationGroupDetailData.message,
-					data: undefined,
-				};
-			}
-			return {
-				code: 0,
-				message: "获取分组明细成功",
-				data: relationGroupDetailData.data,
-			};
-		};
-		// 获取分组明细
-		const { code, message, data } = await getGroupDetailData();
-		// 判断获取分组明细是否成功
-		if (code !== 0) {
-			return { code, message };
-		}
-		return {
-			code: 0,
-			message: "获取分组明细成功",
-			data,
-		};
-	}
-
 	private async subUserInBili(mid: string): Promise<Result> {
-		// 判断是否已经订阅该对象
-		for (const user of this.groupInfo) {
-			if (user.mid.toString() === mid) {
-				// 已关注订阅对象
-				return {
-					code: 0,
-					message: "订阅对象已在分组中",
-				};
-			}
-		}
-		// 订阅对象
+		// 关注订阅对象
 		const subUserData = (await this.ctx["bilibili-notify-api"].follow(mid)) as {
 			code: number;
 			message: string;
 		};
 		// 模式匹配
 		const subUserMatchPattern = {
-			[-101]: () => {
-				return {
-					code: subUserData.code,
-					message: "账号未登录，请使用 `bili login` 登录后再进行订阅操作",
-				};
-			},
-			[-102]: () => {
-				return {
-					code: subUserData.code,
-					message: "账号被封停，无法进行订阅操作",
-				};
-			},
-			22002: () => {
-				return {
-					code: subUserData.code,
-					message: "对方隐私设置，无法进行订阅操作",
-				};
-			},
-			22003: () => {
-				return {
-					code: subUserData.code,
-					message: "已将对方拉黑，无法进行订阅操作",
-				};
-			},
-			22013: () => {
-				return {
-					code: subUserData.code,
-					message: "账号已注销，无法进行订阅操作",
-				};
-			},
-			40061: () => {
-				return {
-					code: subUserData.code,
-					message: "账号不存在，请检查 UID 输入是否正确",
-				};
-			},
-			22001: () => {
-				return {
-					code: 0,
-					message: "订阅对象是本人，无需添加到分组",
-				};
-			},
-			// 已订阅该对象
-			22014: async () => {
-				// 把订阅对象添加到分组中
-				const copyUserToGroupData = await this.ctx[
-					"bilibili-notify-api"
-				].copyUserToGroup(mid, this.loginDBData.dynamic_group_id);
-				// 判断是否添加成功
-				if (copyUserToGroupData.code !== 0) {
-					// 添加失败
-					return {
-						code: copyUserToGroupData.code,
-						message: "将订阅对象添加到分组失败，请稍后重试",
-					};
-				}
-				// 添加成功
-				return {
-					code: 0,
-					message: "成功将订阅对象添加到分组",
-				};
-			},
+			[-101]: () => ({
+				code: subUserData.code,
+				message: "账号未登录，请使用 `bili login` 登录后再进行订阅操作",
+			}),
+			[-102]: () => ({
+				code: subUserData.code,
+				message: "账号被封停，无法进行订阅操作",
+			}),
+			22002: () => ({
+				code: subUserData.code,
+				message: "对方隐私设置，无法进行订阅操作",
+			}),
+			22003: () => ({
+				code: subUserData.code,
+				message: "已将对方拉黑，无法进行订阅操作",
+			}),
+			22013: () => ({
+				code: subUserData.code,
+				message: "账号已注销，无法进行订阅操作",
+			}),
+			40061: () => ({
+				code: subUserData.code,
+				message: "账号不存在，请检查 UID 输入是否正确",
+			}),
+			// 订阅对象是本人
+			22001: () => ({ code: 0, message: "订阅对象是本人，无需关注" }),
+			// 已关注该对象
+			22014: () => ({ code: 0, message: "已关注订阅对象" }),
 			// 账号异常
-			22015: async () => {
-				return { code: subUserData.code, message: subUserData.message };
-			},
-			// 订阅成功
-			0: async () => {
-				// 把订阅对象添加到分组中
-				const copyUserToGroupData = await this.ctx[
-					"bilibili-notify-api"
-				].copyUserToGroup(mid, this.loginDBData.dynamic_group_id);
-				// 判断是否添加成功
-				if (copyUserToGroupData.code !== 0) {
-					// 添加失败
-					return {
-						code: copyUserToGroupData.code,
-						message: "将订阅对象添加到分组失败，请稍后重试",
-					};
-				}
-				// 添加成功
-				return {
-					code: 0,
-					message: "成功将订阅对象添加到分组",
-				};
-			},
+			22015: () => ({ code: subUserData.code, message: subUserData.message }),
+			// 关注成功
+			0: () => ({ code: 0, message: "成功关注订阅对象" }),
 		};
-		// 获取函数
+		// 获取函数并执行
 		const subUserExecute =
 			subUserMatchPattern[subUserData.code] ||
-			(() => {
-				return { code: subUserData.code, message: subUserData.message };
-			});
-		// 执行函数并返回
-		return await subUserExecute();
+			(() => ({ code: subUserData.code, message: subUserData.message }));
+		return subUserExecute();
 	}
 
 	private async loadSubFromConfig(subs: Subscriptions): Promise<Result> {
@@ -831,7 +644,7 @@ class BilibiliNotifySub extends Service<BilibiliNotifySub.Config> {
 			if (subInfo.code === 22015) {
 				// 账号异常
 				this.subLogger.warn(
-					`账号异常，无法自动订阅 UID：${sub.uid}，请手动订阅并移动到 "订阅" 分组`,
+					`账号异常，无法自动关注 UID：${sub.uid}，请手动关注`,
 				);
 			}
 			// 将该订阅添加到sm中
