@@ -83,15 +83,20 @@ class BilibiliNotifyPush extends Service {
 	async sendPrivateMsg(content: string) {
 		// 判断是否开启私聊推送功能
 		if (this.config.master.enable) {
-			if (!this.privateBot) {
+			// 每次实时从 ctx.bots 获取最新实例，避免持有过时引用
+			const bot =
+				this.ctx.bots.find(
+					(b) => b.platform === this.config.master.platform,
+				) ?? this.privateBot;
+			if (!bot) {
 				this.pushLogger.warn("未找到管理员机器人实例，暂时无法推送");
 				return;
 			}
 			// 判断私人机器人是否具备推送条件
-			if (this.privateBot.status !== Universal.Status.ONLINE) {
+			if (bot.status !== Universal.Status.ONLINE) {
 				// 不具备推送条件 logger
 				this.pushLogger.warn(
-					`${this.privateBot.platform} 机器人未初始化，暂时无法推送`,
+					`${bot.platform} 机器人未初始化，暂时无法推送`,
 				);
 				// 返回
 				return;
@@ -99,14 +104,14 @@ class BilibiliNotifyPush extends Service {
 			// 判断是否填写群组号
 			if (this.config.master.masterAccountGuildId) {
 				// 向机器人管理员发送消息
-				await this.privateBot.sendPrivateMessage(
+				await bot.sendPrivateMessage(
 					this.config.master.masterAccount,
 					content,
 					this.config.master.masterAccountGuildId,
 				);
 			} else {
 				// 向机器人管理员发送消息
-				await this.privateBot.sendPrivateMessage(
+				await bot.sendPrivateMessage(
 					this.config.master.masterAccount,
 					content,
 				);
@@ -173,15 +178,33 @@ class BilibiliNotifyPush extends Service {
 		channelId: string,
 		// biome-ignore lint/suspicious/noExplicitAny: <any>
 		content: any,
+		retryCount = 0,
 	) {
 		if (this.disposed) return;
 		withRetry(async () => await bot.sendMessage(channelId, content), 1).catch(
 			async (e: Error) => {
 				if (this.disposed) return;
 				if (e.message === "this._request is not a function") {
+					if (retryCount >= 5) {
+						this.pushLogger.error(
+							`发送消息失败，群组ID: ${channelId}，机器人 _request 持续不可用，已放弃重试`,
+						);
+						return;
+					}
+					// 重新从 ctx.bots 获取最新的 bot 实例，避免持有过时引用
+					const freshBot =
+						this.ctx.bots.find(
+							(b) =>
+								b.platform === bot.platform && b.selfId === bot.selfId,
+						) ?? bot;
 					// 2S之后重新发送消息
 					setTimeout(async () => {
-						await this.sendMessageWithRetry(bot, channelId, content);
+						await this.sendMessageWithRetry(
+							freshBot,
+							channelId,
+							content,
+							retryCount + 1,
+						);
 					}, 2000);
 					// 返回
 					return;
@@ -269,6 +292,30 @@ class BilibiliNotifyPush extends Service {
 					sent = true;
 				} catch (e) {
 					if (this.isInactiveContextError(e) || this.disposed) return;
+					if (
+						e instanceof Error &&
+						e.message === "this._request is not a function"
+					) {
+						// 适配器正在重连，刷新 bot 引用后重试
+						if (retry < 3000 * 2 ** 5) {
+							this.pushLogger.warn(
+								`${platform} 机器人 _request 不可用，${retry / 1000} 秒后重试`,
+							);
+							await this.safeSleep(retry);
+							const freshBot = this.ctx.bots.find(
+								(b) =>
+									b.platform === platform &&
+									b.selfId === bots[botIndex]?.selfId,
+							);
+							if (freshBot) bots[botIndex] = freshBot;
+							await sendMessageByBot(channelId, botIndex, retry * 2);
+						} else {
+							this.pushLogger.error(
+								`${platform} 机器人 _request 持续不可用，已重试5次，放弃推送`,
+							);
+						}
+						return;
+					}
 					// logger
 					this.pushLogger.error(`发送消息失败：${e}`);
 					// 判断是否还有其他机器人
