@@ -48,6 +48,7 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 	private clearImageCacheTimer?: () => void;
 	private readonly IMAGE_CACHE_TTL_MS = 30 * 60 * 1000;
 	private readonly IMAGE_CACHE_MAX_SIZE = 300;
+	private renderQueue: Promise<void> = Promise.resolve();
 
 	constructor(ctx: Context, config: BilibiliNotifyGenerateImg.Config) {
 		super(ctx, BILIBILI_NOTIFY_GENERATE_IMG);
@@ -739,26 +740,45 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		return dom.serialize();
 	}
 
-	private async imgHandler(html: string) {
+	private async _doRender(html: string) {
 		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
-		const inlinedHtml = await this.inlineRemoteImages(html);
-		await page.goto(htmlPath.toString());
-		await page.setContent(inlinedHtml, { waitUntil: "networkidle0" });
-		const elementHandle = await page.$("html");
-		const boundingBox = await elementHandle.boundingBox();
-		const buffer = await page.screenshot({
-			type: "jpeg",
-			clip: {
-				x: boundingBox.x,
-				y: boundingBox.y,
-				width: boundingBox.width,
-				height: boundingBox.height,
-			},
+		try {
+			const inlinedHtml = await this.inlineRemoteImages(html);
+			await page.goto(htmlPath.toString());
+			await page.setContent(inlinedHtml, { waitUntil: "load", timeout: 15_000 });
+			const elementHandle = await page.$("html");
+			const boundingBox = await elementHandle.boundingBox();
+			const screenshotPromise = page.screenshot({
+				type: "jpeg",
+				clip: {
+					x: boundingBox.x,
+					y: boundingBox.y,
+					width: boundingBox.width,
+					height: boundingBox.height,
+				},
+			});
+			const timeoutPromise = new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error("截图超时（20s）")), 20_000),
+			);
+			const buffer = await Promise.race([screenshotPromise, timeoutPromise]);
+			await elementHandle.dispose();
+			return buffer;
+		} finally {
+			await page.close();
+		}
+	}
+
+	private imgHandler(html: string): Promise<Buffer> {
+		return new Promise<Buffer>((resolve, reject) => {
+			this.renderQueue = this.renderQueue.then(async () => {
+				try {
+					resolve(await this._doRender(html));
+				} catch (err) {
+					reject(err);
+				}
+			});
 		});
-		await elementHandle.dispose();
-		await page.close();
-		return buffer;
 	}
 
 	async generateLiveImg(

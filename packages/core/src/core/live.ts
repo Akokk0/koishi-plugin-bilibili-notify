@@ -130,13 +130,20 @@ class BilibiliNotifyLive extends Service<BilibiliNotifyLive.Config> {
 		// 获取cookieStr
 		const cookiesStr =
 			await this.ctx["bilibili-notify-api"].getCookiesForHeader();
-		// 已登录，请求个人信息
-		const mySelfInfo = (await this.ctx[
-			"bilibili-notify-api"
-		].getMyselfInfo()) as MySelfInfoData;
-		// 判断是否获取成功
-		if (mySelfInfo.code !== 0) {
-			this.liveLogger.warn(`获取个人信息失败，无法创建直播间 [${roomId}] 连接`);
+		// 已登录，请求个人信息（最多重试3次）
+		let mySelfInfo: MySelfInfoData | undefined;
+		for (let attempt = 1; attempt <= 3; attempt++) {
+			mySelfInfo = (await this.ctx[
+				"bilibili-notify-api"
+			].getMyselfInfo()) as MySelfInfoData;
+			if (mySelfInfo.code === 0 && mySelfInfo.data) break;
+			this.liveLogger.warn(
+				`获取个人信息失败（第 ${attempt}/3 次），直播间 [${roomId}]，code=${mySelfInfo.code}`,
+			);
+		}
+		// 三次均失败
+		if (!mySelfInfo || mySelfInfo.code !== 0 || !mySelfInfo.data) {
+			this.liveLogger.error(`获取个人信息连续失败，无法创建直播间 [${roomId}] 连接`);
 			return;
 		}
 		if (this.isDisposed()) return;
