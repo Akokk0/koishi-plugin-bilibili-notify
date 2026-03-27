@@ -337,3 +337,4 @@
 > - ver 3.12.1 修复：一些已知问题；
 > - ver 3.12.2 修复：适配器重连窗口期 `_request` 不可用导致的 `TypeError: this._request is not a function`；推送路径现在会刷新 bot 引用并按指数退避重试，`privateBot` 改为每次实时从 `ctx.bots` 获取，`sendMessageWithRetry` 新增最多5次重试上限；
 > - ver 3.12.3-alpha.0 修复：大 UP 主长直播（弹幕量大）时，词云截图时机过早导致只渲染出少量词语；现在会等待 `wordcloudstop` 事件后再截图；
+> - ver 3.12.3 修复：某些特殊动态类型（如广告、置顶等）`pub_ts` 字段缺失导致的 `fromSeconds requires a numerical input` 崩溃；遇到无效 `pub_ts` 时记录警告日志并跳过该条动态；
