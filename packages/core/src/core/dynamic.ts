@@ -175,6 +175,11 @@ class BilibiliNotifyDynamic extends Service<BilibiliNotifyDynamic.Config> {
 				if (!item) continue;
 				// 获取动态发布时间
 				const postTime = item.modules.module_author.pub_ts;
+				// pub_ts 不是有效数字时跳过（某些特殊动态类型可能缺失该字段）
+				if (typeof postTime !== "number" || !Number.isFinite(postTime)) {
+					this.dynamicLogger.warn(`跳过无效动态：pub_ts 缺失或非数字，动态 ID=${item.id_str ?? "unknown"}`);
+					continue;
+				}
 				// 从动态数据中取出UP主名称、UID
 				const uid = item.modules.module_author.mid.toString();
 				const name = item.modules.module_author.name;
