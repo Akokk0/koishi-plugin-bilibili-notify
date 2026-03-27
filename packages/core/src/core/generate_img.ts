@@ -740,13 +740,16 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		return dom.serialize();
 	}
 
-	private async _doRender(html: string) {
+	private async _doRender(html: string, waitForCondition?: string) {
 		const htmlPath = pathToFileURL(resolve(__dirname, "page/0.html"));
 		const page = await this.ctx.puppeteer.page();
 		try {
 			const inlinedHtml = await this.inlineRemoteImages(html);
 			await page.goto(htmlPath.toString());
 			await page.setContent(inlinedHtml, { waitUntil: "load", timeout: 15_000 });
+			if (waitForCondition) {
+				await page.waitForFunction(waitForCondition, { timeout: 30_000 });
+			}
 			const elementHandle = await page.$("html");
 			const boundingBox = await elementHandle.boundingBox();
 			const screenshotPromise = page.screenshot({
@@ -769,11 +772,11 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 		}
 	}
 
-	private imgHandler(html: string): Promise<Buffer> {
+	private imgHandler(html: string, waitForCondition?: string): Promise<Buffer> {
 		return new Promise<Buffer>((resolve, reject) => {
 			this.renderQueue = this.renderQueue.then(async () => {
 				try {
-					resolve(await this._doRender(html));
+					resolve(await this._doRender(html, waitForCondition));
 				} catch (err) {
 					reject(err);
 				}
@@ -2088,6 +2091,11 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 
                 const words = ${JSON.stringify(words)}
 
+                window.wordcloudDone = false;
+                canvas.addEventListener('wordcloudstop', () => {
+                    window.wordcloudDone = true;
+                });
+
                 renderAutoFitWordCloud(canvas, words, {
                     maxFontSize: 60,
                     minFontSize: 12,
@@ -2099,8 +2107,8 @@ class BilibiliNotifyGenerateImg extends Service<BilibiliNotifyGenerateImg.Config
 
         </html>
         `;
-		// 多次尝试生成图片
-		return await withRetry(() => this.imgHandler(html)).catch((e) => {
+		// 多次尝试生成图片，等待词云渲染完成再截图
+		return await withRetry(() => this.imgHandler(html, "window.wordcloudDone === true")).catch((e) => {
 			// 已尝试三次
 			throw new Error(`生成图片失败！错误: ${e.toString()}`);
 		});
